@@ -93,6 +93,16 @@ static inline void init_llist_head(struct llist_head *list)
 	container_of(ptr, type, member)
 
 /**
+ * llist_entry_safe - get the struct of this entry without overflowing
+ * @ptr:	the &struct llist_node pointer.
+ * @type:	the type of the struct this is embedded in.
+ * @member:	the name of the llist_node within the struct.
+ */
+#define llist_entry_safe(ptr, type, member)		\
+	container_of_safe(ptr, type, member)
+
+
+/**
  * llist_for_each - iterate over some deleted entries of a lock-less list
  * @pos:	the &struct llist_node to use as a loop cursor
  * @node:	the first entry of deleted list entries
@@ -125,9 +135,10 @@ static inline void init_llist_head(struct llist_head *list)
  * reverse the order by yourself before traversing.
  */
 #define llist_for_each_entry(pos, node, member)				\
-	for ((pos) = llist_entry((node), typeof(*(pos)), member);	\
-	     &(pos)->member != NULL;					\
-	     (pos) = llist_entry((pos)->member.next, typeof(*(pos)), member))
+	for ((pos) = llist_entry_safe((node), typeof(*(pos)), member);	\
+	     pos != NULL && &(pos)->member != NULL;			\
+	     (pos) = llist_entry_safe((pos)->member.next, \
+					typeof(*(pos)), member))
 
 /**
  * llist_for_each_entry_safe - iterate over some deleted entries of lock-less list of given type
@@ -146,10 +157,11 @@ static inline void init_llist_head(struct llist_head *list)
  * you want to traverse from the oldest to the newest, you must
  * reverse the order by yourself before traversing.
  */
-#define llist_for_each_entry_safe(pos, n, node, member)			       \
-	for (pos = llist_entry((node), typeof(*pos), member);		       \
-	     &pos->member != NULL &&					       \
-	        (n = llist_entry(pos->member.next, typeof(*n), member), true); \
+#define llist_for_each_entry_safe(pos, n, node, member)			     \
+	for (pos = llist_entry_safe((node), typeof(*pos), member);	     \
+	     pos != NULL && &pos->member != NULL &&			     \
+		(n = llist_entry_safe(pos->member.next, typeof(*n), member), \
+		 true); \
 	     pos = n)
 
 /**
