@@ -852,6 +852,21 @@ static inline void ftrace_dump(enum ftrace_dump_mode oops_dump_mode) { }
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
 	(type *)( (char *)__mptr - offsetof(type,member) );})
 
+/**
+ * container_of_safe - safe version of container_of
+ * @ptr:	the pointer to the member.
+ * @type:	the type of the container struct this is embedded in.
+ * @member:	the name of the member within the struct.
+ *
+ * In the case the value of @ptr is smaller than the offset of @member within
+ * @type, return 0.
+ */
+#define container_of_safe(ptr, type, member) ({			\
+	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
+        (size_t)__mptr >= offsetof(type,member) ?		\
+	(type *)( (char *)__mptr - offsetof(type,member) ) : (type *)0 ;})
+
+
 /* Rebuild everything on CONFIG_FTRACE_MCOUNT_RECORD */
 #ifdef CONFIG_FTRACE_MCOUNT_RECORD
 # define REBUILD_DUE_TO_FTRACE_MCOUNT_RECORD
