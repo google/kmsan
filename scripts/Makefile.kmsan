@@ -1,0 +1,22 @@
+# TODO: Nothing here yet
+ifdef CONFIG_KMSAN
+
+CFLAGS_KMSAN_MINIMAL := -g
+CFLAGS_KMSAN := -g
+
+ifeq ($(call cc-option, $(CFLAGS_KMSAN_MINIMAL) -Werror),)
+   ifneq ($(CONFIG_COMPILE_TEST),y)
+        $(warning Cannot use CONFIG_KMSAN: TODO\
+            -fsanitize=kernel-address is not supported by compiler)
+   endif
+else
+    ifeq ($(CFLAGS_KMSAN),)
+        ifneq ($(CONFIG_COMPILE_TEST),y)
+            $(warning CONFIG_KMSAN: compiler does not support all options.\
+                Trying minimal configuration)
+        endif
+        CFLAGS_KASAN := $(CFLAGS_KMSAN_MINIMAL)
+    endif
+endif
+
+endif
