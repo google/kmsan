@@ -50,7 +50,7 @@
 					STACK_ALLOC_ALIGN)
 #define STACK_ALLOC_INDEX_BITS (DEPOT_STACK_BITS - \
 		STACK_ALLOC_NULL_PROTECTION_BITS - STACK_ALLOC_OFFSET_BITS)
-#define STACK_ALLOC_SLABS_CAP 8192
+#define STACK_ALLOC_SLABS_CAP (4096*32) // TODO(glider)
 #define STACK_ALLOC_MAX_SLABS \
 	(((1LL << (STACK_ALLOC_INDEX_BITS)) < STACK_ALLOC_SLABS_CAP) ? \
 	 (1LL << (STACK_ALLOC_INDEX_BITS)) : STACK_ALLOC_SLABS_CAP)
@@ -140,7 +140,7 @@ static struct stack_record *depot_alloc_stack(unsigned long *entries, int size,
 	stack->handle.slabindex = depot_index;
 	stack->handle.offset = depot_offset >> STACK_ALLOC_ALIGN;
 	stack->handle.valid = 1;
-	memcpy(stack->entries, entries, size * sizeof(unsigned long));
+	__memcpy(stack->entries, entries, size * sizeof(unsigned long));
 	depot_offset += required_size;
 
 	return stack;
@@ -163,6 +163,20 @@ static inline u32 hash_stack(unsigned long *entries, unsigned int size)
 			       STACK_HASH_SEED);
 }
 
+// TODO(glider): need something faster.
+int stackdepot_memcmp(const void* buf1, const void* buf2, size_t count)
+{
+	if (!count)
+		return 0;
+
+	while (--count && *(char*)buf1 == *(char*)buf2) {
+		buf1 = (char *)buf1 + 1;
+		buf2 = (char*)buf2 + 1;
+	}
+
+	return *((unsigned char*)buf1) - *((unsigned char*)buf2);
+}
+
 /* Find a stack that is equal to the one stored in entries in the hash */
 static inline struct stack_record *find_stack(struct stack_record *bucket,
 					     unsigned long *entries, int size,
@@ -173,7 +187,7 @@ static inline struct stack_record *find_stack(struct stack_record *bucket,
 	for (found = bucket; found; found = found->next) {
 		if (found->hash == hash &&
 		    found->size == size &&
-		    !memcmp(entries, found->entries,
+		    !stackdepot_memcmp(entries, found->entries,
 			    size * sizeof(unsigned long))) {
 			return found;
 		}
@@ -184,6 +198,12 @@ static inline struct stack_record *find_stack(struct stack_record *bucket,
 void depot_fetch_stack(depot_stack_handle_t handle, struct stack_trace *trace)
 {
 	union handle_parts parts = { .handle = handle };
+	if ((parts.slabindex >= STACK_ALLOC_MAX_SLABS) || (handle == 0)) {
+		pr_err("invalid stack handle: %p\n", handle);
+		trace->nr_entries = 0;
+		trace->entries = NULL;
+		return;
+	}
 	void *slab = stack_slabs[parts.slabindex];
 	size_t offset = parts.offset << STACK_ALLOC_ALIGN;
 	struct stack_record *stack = slab + offset;
@@ -244,6 +264,12 @@ depot_stack_handle_t depot_save_stack(struct stack_trace *trace,
 		alloc_flags &= ~GFP_ZONEMASK;
 		alloc_flags &= (GFP_ATOMIC | GFP_KERNEL);
 		alloc_flags |= __GFP_NOWARN;
+#ifdef CONFIG_KMSAN
+		// Don't wait (including kswapd), we're calling this too often.
+		alloc_flags &= ~GFP_NOWAIT;
+#endif
+		// Don't track with KMSAN.
+		alloc_flags |= __GFP_NO_KMSAN_SHADOW;
 		page = alloc_pages(alloc_flags, STACK_ALLOC_ORDER);
 		if (page)
 			prealloc = page_address(page);
