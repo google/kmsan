@@ -186,7 +186,13 @@ extern int wrmsr_safe_regs(u32 regs[8]);
 static __always_inline unsigned long long rdtsc(void)
 {
 	DECLARE_ARGS(val, low, high);
-
+	// TODO(glider): false positive.
+#ifdef CONFIG_X86_64
+	low = 0;
+	high = 0;
+#else
+	val = 0;
+#endif
 	asm volatile("rdtsc" : EAX_EDX_RET(val, low, high));
 
 	return EAX_EDX_VAL(val, low, high);

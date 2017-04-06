@@ -190,7 +190,9 @@ static DEFINE_SPINLOCK(proc_inum_lock); /* protects the above */
  */
 int proc_alloc_inum(unsigned int *inum)
 {
-	unsigned int i;
+	/// TODO(glider): fix false positive
+	///unsigned int i;
+	unsigned int i = 0;
 	int error;
 
 retry:
@@ -199,6 +201,7 @@ retry:
 
 	spin_lock_irq(&proc_inum_lock);
 	error = ida_get_new(&proc_inum_ida, &i);
+	/// i is initialized here, false positive.
 	spin_unlock_irq(&proc_inum_lock);
 	if (error == -EAGAIN)
 		goto retry;

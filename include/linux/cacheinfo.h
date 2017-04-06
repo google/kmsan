@@ -90,7 +90,7 @@ static inline void _##func(void *ret)				\
 								\
 int func(unsigned int cpu)					\
 {								\
-	int ret;						\
+	int ret = 0;		/* TODO(glider): false positive */				\
 	smp_call_function_single(cpu, _##func, &ret, true);	\
 	return ret;						\
 }

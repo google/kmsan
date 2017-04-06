@@ -25,10 +25,12 @@ static inline bool constant_test_bit(int nr, const void *addr)
 }
 static inline bool variable_test_bit(int nr, const void *addr)
 {
-	bool v;
+	/// TODO(glider): instrument the assembly below.
+	///bool v;
+	bool v = false;
 	const u32 *p = (const u32 *)addr;
 
-	asm("btl %2,%1; setc %0" : "=qm" (v) : "m" (*p), "Ir" (nr));
+	asm("btl %2,%1; nop;nop;nop;setc %0" : "=qm" (v) : "m" (*p), "Ir" (nr));
 	return v;
 }
 
