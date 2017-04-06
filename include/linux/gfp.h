@@ -40,6 +40,7 @@ struct vm_area_struct;
 #define ___GFP_DIRECT_RECLAIM	0x400000u
 #define ___GFP_WRITE		0x800000u
 #define ___GFP_KSWAPD_RECLAIM	0x1000000u
+#define ___GFP_NO_KMSAN_SHADOW  0x2000000u
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
 /*
@@ -178,9 +179,10 @@ struct vm_area_struct;
 #define __GFP_ZERO	((__force gfp_t)___GFP_ZERO)
 #define __GFP_NOTRACK	((__force gfp_t)___GFP_NOTRACK)
 #define __GFP_NOTRACK_FALSE_POSITIVE (__GFP_NOTRACK)
+#define __GFP_NO_KMSAN_SHADOW  ((__force gfp_t)___GFP_NO_KMSAN_SHADOW)
 
 /* Room for N __GFP_FOO bits */
-#define __GFP_BITS_SHIFT 25
+#define __GFP_BITS_SHIFT 26
 #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
 
 /*
