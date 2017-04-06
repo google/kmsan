@@ -21,6 +21,7 @@
 #include <linux/notifier.h>
 #include <linux/seq_file.h>
 #include <linux/kasan.h>
+#include <linux/kmsan-checks.h>
 #include <linux/kmemcheck.h>
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
@@ -1317,12 +1318,14 @@ static inline void kmalloc_large_node_hook(void *ptr, size_t size, gfp_t flags)
 {
 	kmemleak_alloc(ptr, size, 1, flags);
 	kasan_kmalloc_large(ptr, size, flags);
+	kmsan_kmalloc_large(ptr, size, flags);
 }
 
 static inline void kfree_hook(const void *x)
 {
 	kmemleak_free(x);
 	kasan_kfree_large(x);
+	kmsan_kfree_large(x);
 }
 
 static inline void *slab_free_hook(struct kmem_cache *s, void *x)
@@ -1355,6 +1358,7 @@ static inline void *slab_free_hook(struct kmem_cache *s, void *x)
 	 * reuse. In this case the object's freelist pointer is changed.
 	 */
 	kasan_slab_free(s, x);
+	kmsan_slab_free(s, x);
 	return freeptr;
 }
 
@@ -1386,6 +1390,7 @@ static void setup_object(struct kmem_cache *s, struct page *page,
 {
 	setup_object_debug(s, page, object);
 	kasan_init_slab_obj(s, object);
+	kmsan_slab_setup_object(s, object);
 	if (unlikely(s->ctor)) {
 		kasan_unpoison_object_data(s, object);
 		s->ctor(object);
@@ -1549,6 +1554,7 @@ static struct page *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 		alloc_gfp = (alloc_gfp | __GFP_NOMEMALLOC) & ~(__GFP_RECLAIM|__GFP_NOFAIL);
 
 	page = alloc_slab_page(s, alloc_gfp, node, oo);
+	///pr_err("allocated page %p with alloc_slab_page, order=%d, address=%p\n", page, oo_order(oo), page_address(page));
 	if (unlikely(!page)) {
 		oo = s->min;
 		alloc_gfp = flags;
@@ -1621,6 +1627,9 @@ out:
 		1 << oo_order(oo));
 
 	inc_slabs_node(s, page_to_nid(page), page->objects);
+	BUG_ON(alloc_gfp & __GFP_NOTRACK);
+	///kmsan_alloc_page(page, oo_order(oo), alloc_gfp);
+	///kmsan_poison_slab(page, flags);
 
 	return page;
 }
@@ -1654,6 +1663,7 @@ static void __free_slab(struct kmem_cache *s, struct page *page)
 	}
 
 	kmemcheck_free_shadow(page, compound_order(page));
+	///kmsan_free_page(page, order);
 
 	mod_zone_page_state(page_zone(page),
 		(s->flags & SLAB_RECLAIM_ACCOUNT) ?
@@ -2715,6 +2725,17 @@ redo:
 	if (unlikely(gfpflags & __GFP_ZERO) && object)
 		memset(object, 0, s->object_size);
 
+	if (object) {
+		if (unlikely(gfpflags & __GFP_ZERO)) {
+		// TODO(glider)
+			kmsan_unpoison_shadow(object, s->object_size);
+		} else {
+			// TODO(glider): need to call kmsan_poison_shadow() at most once.
+			if (!s->ctor)
+				kmsan_poison_shadow(object, s->object_size, gfpflags);
+		}
+	}
+
 	slab_post_alloc_hook(s, gfpflags, 1, &object);
 
 	return object;
@@ -2732,7 +2753,9 @@ void *kmem_cache_alloc(struct kmem_cache *s, gfp_t gfpflags)
 
 	trace_kmem_cache_alloc(_RET_IP_, ret, s->object_size,
 				s->size, gfpflags);
-
+	// If there's a ctor, we've poisoned that memory before calling it.
+	if (!s->ctor)
+		kmsan_kmalloc(s, ret, s->object_size, gfpflags);
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc);
@@ -2743,6 +2766,9 @@ void *kmem_cache_alloc_trace(struct kmem_cache *s, gfp_t gfpflags, size_t size)
 	void *ret = slab_alloc(s, gfpflags, _RET_IP_);
 	trace_kmalloc(_RET_IP_, ret, size, s->size, gfpflags);
 	kasan_kmalloc(s, ret, size, gfpflags);
+	// If there's a ctor, we've poisoned that memory before calling it.
+	if (!s->ctor)
+		kmsan_kmalloc(s, ret, size, gfpflags);
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_trace);
@@ -2771,6 +2797,9 @@ void *kmem_cache_alloc_node_trace(struct kmem_cache *s,
 			   size, s->size, gfpflags, node);
 
 	kasan_kmalloc(s, ret, size, gfpflags);
+	// If there's a ctor, we've poisoned that memory before calling it.
+	if (!s->ctor)
+		kmsan_kmalloc(s, ret, size, gfpflags);
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_node_trace);
@@ -3348,6 +3377,9 @@ static void early_kmem_cache_node_alloc(int node)
 #endif
 	kasan_kmalloc(kmem_cache_node, n, sizeof(struct kmem_cache_node),
 		      GFP_KERNEL);
+	// TODO(glider): get rid of kmsan_kmalloc here?
+	kmsan_kmalloc(kmem_cache_node, n, sizeof(struct kmem_cache_node),
+		      GFP_KERNEL);
 	init_kmem_cache_node(n);
 	inc_slabs_node(kmem_cache_node, node, page->objects);
 
@@ -3743,6 +3775,9 @@ void *__kmalloc(size_t size, gfp_t flags)
 	trace_kmalloc(_RET_IP_, ret, size, s->size, flags);
 
 	kasan_kmalloc(s, ret, size, flags);
+	// If there's a ctor, we've poisoned that memory before calling it.
+	if (!s->ctor)
+		kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
 }
@@ -3788,6 +3823,9 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 	trace_kmalloc_node(_RET_IP_, ret, size, s->size, flags, node);
 
 	kasan_kmalloc(s, ret, size, flags);
+	// If there's a ctor, we've poisoned that memory before calling it.
+	if (!s->ctor)
+		kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
 }
@@ -5620,6 +5658,7 @@ static char *create_unique_id(struct kmem_cache *s)
 	p += sprintf(p, "%07d", s->size);
 
 	BUG_ON(p > name + ID_STR_LENGTH - 1);
+	kmsan_unpoison_shadow(name, p - name);
 	return name;
 }
 
@@ -5746,6 +5785,7 @@ static int sysfs_slab_alias(struct kmem_cache *s, const char *name)
 	al->s = s;
 	al->name = name;
 	al->next = alias_list;
+	kmsan_unpoison_shadow(al, sizeof(struct saved_alias));
 	alias_list = al;
 	return 0;
 }
