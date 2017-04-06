@@ -711,7 +711,7 @@ extern int early_irq_init(void);
 extern int arch_probe_nr_irqs(void);
 extern int arch_early_irq_init(void);
 
-#if defined(CONFIG_FUNCTION_GRAPH_TRACER) || defined(CONFIG_KASAN)
+#if defined(CONFIG_FUNCTION_GRAPH_TRACER) || defined(CONFIG_KASAN) || defined(CONFIG_KMSAN)
 /*
  * We want to know which function is an entrypoint of a hardirq or a softirq.
  */
