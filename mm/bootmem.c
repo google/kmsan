@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 #include <linux/kmemleak.h>
+#include <linux/kmsan.h>
 #include <linux/range.h>
 #include <linux/bug.h>
 #include <linux/io.h>
@@ -589,6 +590,8 @@ find_block:
 		 * are never reported as leaks.
 		 */
 		kmemleak_alloc(region, size, 0, 0);
+		kmsan_alloc_shadow_for_region(region, size);
+		pr_err("HERE: %s:%d\n", __FILE__, __LINE__);
 		return region;
 	}
 
@@ -698,8 +701,11 @@ void * __init __alloc_bootmem(unsigned long size, unsigned long align,
 			      unsigned long goal)
 {
 	unsigned long limit = 0;
+	void *res;
 
-	return ___alloc_bootmem(size, align, goal, limit);
+	res = ___alloc_bootmem(size, align, goal, limit);
+	pr_err("__alloc_bootmem(%p, %p, %p) = %p\n", size, align, goal, res);
+	return res;
 }
 
 void * __init ___alloc_bootmem_node_nopanic(pg_data_t *pgdat,

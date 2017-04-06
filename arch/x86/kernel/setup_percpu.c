@@ -125,9 +125,22 @@ static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
 /*
  * Helpers for first chunk memory allocation
  */
+void kmsan_record_future_shadow_range(u64 start, u64 end);
+void kmsan_init_percpu_metadata(void *mem, void *shadow, void *origin, size_t size);
 static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size, size_t align)
 {
-	return pcpu_alloc_bootmem(cpu, size, align);
+	void *ret = pcpu_alloc_bootmem(cpu, size, align);
+#ifdef CONFIG_KMSAN
+	pr_err("pcpu_fc_alloc(%d, %p, %p)=%p\n", cpu, size, align, ret);
+#if 0
+	void *shadow = pcpu_alloc_bootmem(cpu, size, align);
+	void *origin = pcpu_alloc_bootmem(cpu, size, align);
+	kmsan_init_percpu_metadata(ret, shadow, origin, size);
+#else
+	kmsan_record_future_shadow_range(ret, (u64)ret + size);
+#endif
+#endif
+	return ret;
 }
 
 static void __init pcpu_fc_free(void *ptr, size_t size)
