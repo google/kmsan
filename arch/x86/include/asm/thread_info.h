@@ -154,7 +154,7 @@ struct thread_info {
 
 static inline unsigned long current_stack_pointer(void)
 {
-	unsigned long sp;
+	unsigned long sp = 0; // TODO(glider): false positive
 #ifdef CONFIG_X86_64
 	asm("mov %%rsp,%0" : "=g" (sp));
 #else

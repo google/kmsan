@@ -2703,6 +2703,8 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
  * past. prev == current is still correct but we need to recalculate this_rq
  * because prev may have moved to another CPU.
  */
+// TODO(glider): |current| changes here.
+__attribute__((no_sanitize("kernel-memory")))
 static struct rq *finish_task_switch(struct task_struct *prev)
 	__releases(rq->lock)
 {
@@ -3360,6 +3362,8 @@ again:
  *
  * WARNING: must be called with preemption disabled!
  */
+// TODO(glider): |current| changes here.
+__attribute__((no_sanitize("kernel-memory")))
 static void __sched notrace __schedule(bool preempt)
 {
 	struct task_struct *prev, *next;
@@ -3899,6 +3903,8 @@ int task_prio(const struct task_struct *p)
  *
  * Return: 1 if the CPU is currently idle. 0 otherwise.
  */
+// TODO(glider): nothing to see here.
+__attribute__((no_sanitize("kernel-memory")))
 int idle_cpu(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -5969,6 +5975,7 @@ wait_queue_head_t *bit_waitqueue(void *word, int bit)
 }
 EXPORT_SYMBOL(bit_waitqueue);
 
+__attribute__((no_sanitize("kernel-memory")))
 void __init sched_init(void)
 {
 	int i, j;
@@ -6151,6 +6158,8 @@ static inline int preempt_count_equals(int preempt_offset)
 	return (nested == preempt_offset);
 }
 
+// TODO(glider): the args are most certainly initialized.
+__attribute__((no_sanitize("kernel-memory")))
 void __might_sleep(const char *file, int line, int preempt_offset)
 {
 	/*
