@@ -213,7 +213,7 @@ void __kmsan_store_shadow_origin_n_8(u64 addr, u64 s, u64 o, u64 size)
 
 	// TODO(glider): the code actually works for other sizes, but
 	// it's interesting whether we need them.
-	BUG_ON(size != 3);
+	///BUG_ON(size != 3);
 	if (!kmsan_ready || IN_RUNTIME()) {
 		return;
 	}
