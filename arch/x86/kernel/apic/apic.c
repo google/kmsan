@@ -945,9 +945,13 @@ static void local_apic_timer_interrupt(void)
  * [ if a single-CPU system runs an SMP kernel then we call the local
  *   interrupt as well. Thus we cannot inline the local irq ... ]
  */
+// TODO(glider): |regs| is uninitialized, so is |*regs|.
+__attribute__((no_sanitize("kernel-memory")))
 __visible void __irq_entry smp_apic_timer_interrupt(struct pt_regs *regs)
 {
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	struct pt_regs *old_regs = set_irq_regs(regs);
+	///kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 
 	/*
 	 * NOTE! We'd better ACK the irq immediately,
@@ -964,8 +968,11 @@ __visible void __irq_entry smp_apic_timer_interrupt(struct pt_regs *regs)
 	set_irq_regs(old_regs);
 }
 
+// TODO(glider): |regs| is uninitialized, so is |*regs|.
+__attribute__((no_sanitize("kernel-memory")))
 __visible void __irq_entry smp_trace_apic_timer_interrupt(struct pt_regs *regs)
 {
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
 	/*

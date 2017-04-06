@@ -57,6 +57,8 @@ size_t pdu_read(struct p9_fcall *pdu, void *data, size_t size)
 {
 	size_t len = min(pdu->size - pdu->offset, size);
 	memcpy(data, &pdu->sdata[pdu->offset], len);
+	// TODO(glider): assuming p9 provides initialized memory.
+	kmsan_unpoison_shadow(data, len);
 	pdu->offset += len;
 	return size - len;
 }

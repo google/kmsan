@@ -49,6 +49,8 @@ __mutex_init(struct mutex *lock, const char *name, struct lock_class_key *key)
 }
 EXPORT_SYMBOL(__mutex_init);
 
+#include <linux/kmsan-checks.h>
+
 /*
  * @owner: contains: 'struct task_struct *' to the current lock owner,
  * NULL means not owned. Since task_struct pointers are aligned at

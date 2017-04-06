@@ -261,6 +261,7 @@ static inline void __smp_reschedule_interrupt(void)
 
 __visible void __irq_entry smp_reschedule_interrupt(struct pt_regs *regs)
 {
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	ack_APIC_irq();
 	__smp_reschedule_interrupt();
 	/*

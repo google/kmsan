@@ -137,6 +137,8 @@ static void tick_sched_do_timer(ktime_t now)
 
 static void tick_sched_handle(struct tick_sched *ts, struct pt_regs *regs)
 {
+	// TODO(glider): assuming |regs| are always initialized.
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 #ifdef CONFIG_NO_HZ_COMMON
 	/*
 	 * When we are idle and the tick is stopped, we have to touch

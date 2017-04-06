@@ -10,6 +10,7 @@
 #include <linux/string.h>
 
 #include <asm/segment.h>
+#include <linux/kmsan-checks.h>
 
 #define MAKE_MM_SEG(s)	((mm_segment_t) { (s) })
 
@@ -295,9 +296,13 @@ __strncpy_from_user(char *dst, const char __user *src, long count)
 static inline long
 strncpy_from_user(char *dst, const char __user *src, long count)
 {
+	long ret;
+
 	if (!access_ok(VERIFY_READ, src, 1))
 		return -EFAULT;
-	return __strncpy_from_user(dst, src, count);
+	ret = __strncpy_from_user(dst, src, count);
+	kmsan_unpoison_shadow(dst, ret);
+	return ret;
 }
 
 /*

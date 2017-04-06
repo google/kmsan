@@ -23,6 +23,7 @@
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/export.h>
 #include <linux/bug.h>
 #include <linux/errno.h>
@@ -90,6 +91,7 @@ char *strcpy(char *dest, const char *src)
 
 	while ((*dest++ = *src++) != '\0')
 		/* nothing */;
+	kmsan_unpoison_shadow(tmp, dest - tmp);
 	return tmp;
 }
 EXPORT_SYMBOL(strcpy);
@@ -119,6 +121,7 @@ char *strncpy(char *dest, const char *src, size_t count)
 		tmp++;
 		count--;
 	}
+	kmsan_unpoison_shadow(dest, tmp - dest);
 	return dest;
 }
 EXPORT_SYMBOL(strncpy);

@@ -8,6 +8,7 @@
 #include <linux/errno.h>
 #include <linux/lockdep.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 #include <asm/alternative.h>
 #include <asm/cpufeatures.h>
 #include <asm/page.h>
@@ -110,9 +111,12 @@ int __copy_from_user_nocheck(void *dst, const void __user *src, unsigned size)
 static __always_inline __must_check
 int __copy_from_user(void *dst, const void __user *src, unsigned size)
 {
+	int ret;
 	might_fault();
 	kasan_check_write(dst, size);
-	return __copy_from_user_nocheck(dst, src, size);
+	ret = __copy_from_user_nocheck(dst, src, size);
+	kmsan_unpoison_shadow(dst, size - ret);
+	return ret;
 }
 
 static __always_inline __must_check
@@ -247,8 +251,12 @@ int __copy_in_user(void __user *dst, const void __user *src, unsigned size)
 static __must_check __always_inline int
 __copy_from_user_inatomic(void *dst, const void __user *src, unsigned size)
 {
+	int ret;
+
 	kasan_check_write(dst, size);
-	return __copy_from_user_nocheck(dst, src, size);
+	ret = __copy_from_user_nocheck(dst, src, size);
+	kmsan_unpoison_shadow(dst, size - ret);
+	return ret;
 }
 
 static __must_check __always_inline int
