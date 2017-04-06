@@ -173,7 +173,9 @@ ifdef CONFIG_JUMP_LABEL
 endif
 
 ifeq ($(ACCUMULATE_OUTGOING_ARGS), 1)
+ifneq ($(cc-name),clang)
 	KBUILD_CFLAGS += -maccumulate-outgoing-args
+endif
 endif
 
 # Stackpointer is addressed different for 32 bit and 64 bit x86
