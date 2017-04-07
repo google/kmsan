@@ -102,6 +102,7 @@ static unsigned long
 __copy_user_intel(void __user *to, const void *from, unsigned long size)
 {
 	int d0, d1;
+	kmsan_check_memory(from, size);
 	__asm__ __volatile__(
 		       "       .align 2,0x90\n"
 		       "1:     movl 32(%4), %%eax\n"
@@ -571,6 +572,7 @@ do {									\
 unsigned long __copy_to_user_ll(void __user *to, const void *from,
 				unsigned long n)
 {
+	kmsan_check_memory(from, n);
 	stac();
 	if (movsl_is_ok(to, from, n))
 		__copy_user(to, from, n);
@@ -584,12 +586,14 @@ EXPORT_SYMBOL(__copy_to_user_ll);
 unsigned long __copy_from_user_ll(void *to, const void __user *from,
 					unsigned long n)
 {
+	unsigned long size = n;
 	stac();
 	if (movsl_is_ok(to, from, n))
 		__copy_user_zeroing(to, from, n);
 	else
 		n = __copy_user_zeroing_intel(to, from, n);
 	clac();
+	kmsan_unpoison_shadow(to, size - n);
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll);
@@ -597,6 +601,7 @@ EXPORT_SYMBOL(__copy_from_user_ll);
 unsigned long __copy_from_user_ll_nozero(void *to, const void __user *from,
 					 unsigned long n)
 {
+	unsigned long size = n;
 	stac();
 	if (movsl_is_ok(to, from, n))
 		__copy_user(to, from, n);
@@ -604,6 +609,7 @@ unsigned long __copy_from_user_ll_nozero(void *to, const void __user *from,
 		n = __copy_user_intel((void __user *)to,
 				      (const void *)from, n);
 	clac();
+	kmsan_unpoison_shadow(to, size - n);
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll_nozero);
@@ -611,6 +617,7 @@ EXPORT_SYMBOL(__copy_from_user_ll_nozero);
 unsigned long __copy_from_user_ll_nocache(void *to, const void __user *from,
 					unsigned long n)
 {
+	unsigned long size = n;
 	stac();
 #ifdef CONFIG_X86_INTEL_USERCOPY
 	if (n > 64 && static_cpu_has(X86_FEATURE_XMM2))
@@ -621,6 +628,7 @@ unsigned long __copy_from_user_ll_nocache(void *to, const void __user *from,
 	__copy_user_zeroing(to, from, n);
 #endif
 	clac();
+	kmsan_unpoison_shadow(to, size - n);
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll_nocache);
@@ -628,6 +636,7 @@ EXPORT_SYMBOL(__copy_from_user_ll_nocache);
 unsigned long __copy_from_user_ll_nocache_nozero(void *to, const void __user *from,
 					unsigned long n)
 {
+	unsigned long size = n;
 	stac();
 #ifdef CONFIG_X86_INTEL_USERCOPY
 	if (n > 64 && static_cpu_has(X86_FEATURE_XMM2))
@@ -638,6 +647,7 @@ unsigned long __copy_from_user_ll_nocache_nozero(void *to, const void __user *fr
 	__copy_user(to, from, n);
 #endif
 	clac();
+	kmsan_unpoison_shadow(to, size - n);
 	return n;
 }
 EXPORT_SYMBOL(__copy_from_user_ll_nocache_nozero);
