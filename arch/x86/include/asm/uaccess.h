@@ -6,6 +6,7 @@
 #include <linux/errno.h>
 #include <linux/compiler.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 #include <linux/thread_info.h>
 #include <linux/string.h>
 #include <asm/asm.h>
@@ -175,6 +176,7 @@ register unsigned long int __sp asm(_ASM_SP);
 		     : "=a" (__ret_gu), "=r" (__val_gu), "+r" (__sp)	\
 		     : "0" (ptr), "i" (sizeof(*(ptr))));		\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
+	kmsan_unpoison_shadow(&(x), sizeof(*(ptr)));			\
 	__builtin_expect(__ret_gu, 0);					\
 })
 
@@ -694,6 +696,7 @@ static __always_inline unsigned long __must_check
 copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	int sz = __compiletime_object_size(to);
+	unsigned long to_copy = n;
 
 	might_fault();
 
@@ -707,6 +710,9 @@ copy_from_user(void *to, const void __user *from, unsigned long n)
 	else
 		__bad_copy_user();
 
+	// TODO(glider): Seems like a good thing to do.
+	kmsan_unpoison_shadow(to, to_copy - n);
+
 	return n;
 }
 
@@ -716,6 +722,7 @@ copy_to_user(void __user *to, const void *from, unsigned long n)
 	int sz = __compiletime_object_size(from);
 
 	kasan_check_read(from, n);
+	kmsan_check_memory(from, n);
 
 	might_fault();
 
