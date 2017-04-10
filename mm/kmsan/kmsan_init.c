@@ -40,7 +40,7 @@ void kmsan_init_percpu_metadata(void *mem, void *shadow, void *origin, size_t si
 }
 
 // TODO(glider): this is thread-unsafe.
-void kmsan_record_future_shadow_range(u64 start, u64 end)
+void __initdata kmsan_record_future_shadow_range(u64 start, u64 end)
 {
 	if (future_index == NUM_FUTURE_RANGES)
 		return;
@@ -85,8 +85,9 @@ void kmsan_initialize_shadow_for_text()
 	// for the addresses.
 	// Problem: need to allocate contiguous shadow range to avoid reports
 
-	kmsan_pr_err("__START_KERNEL_map: %p, end: __bss_stop\n", __START_KERNEL_map);
+	kmsan_pr_err("__START_KERNEL_map: %p, end (__bss_stop): %p\n", __START_KERNEL_map, __bss_stop);
 	kmsan_pr_err("__bss: %p-%p, __data: %p-%p\n", __bss_start, __bss_stop, _sdata, _edata);
+	kmsan_pr_err("upper start: %p, end: %p\n", __PAGE_OFFSET, size + __PAGE_OFFSET);
 
 	// Allocate PAGE_SIZE<<order to decrease the number of stitches.
 	// Ideally, every single section should have consequent shadow memory range.
@@ -107,7 +108,7 @@ void kmsan_initialize_shadow_for_text()
 
 }
 
-void kmsan_initialize_shadow_range(u64 start, u64 end)
+void __initdata kmsan_initialize_shadow_range(u64 start, u64 end)
 {
 	u64 addr;
 	struct page *page;
@@ -123,7 +124,7 @@ void kmsan_initialize_shadow_range(u64 start, u64 end)
 	///kmsan_pr_err("allocated metadata for addresses %p-%p\n", start, end);
 }
 
-void kmsan_initialize_shadow(void)
+void __initdata kmsan_initialize_shadow(void)
 {
 	struct page *page;
 	unsigned long i;
