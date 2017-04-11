@@ -134,7 +134,10 @@ void __initdata kmsan_initialize_shadow(void)
 	// Allocate shadow for init stack.
 	///kmsan_initialize_shadow_range(init_task.stack, init_task.stack + THREAD_SIZE);
 	///kmsan_pr_err("NODE_DATA(0): %p-%p\n", NODE_DATA(0), (u64)NODE_DATA(0) + sizeof(struct pglist_data) * num_online_cpus());
-	kmsan_record_future_shadow_range((u64)NODE_DATA(0), (u64)NODE_DATA(0) + sizeof(struct pglist_data) * num_online_cpus());
+	kmsan_record_future_shadow_range((u64)NODE_DATA(0), (u64)NODE_DATA(0) + roundup(sizeof(struct pglist_data), PAGE_SIZE) * num_online_cpus());
+	//
+	// TODO(glider): alloc_node_data() in arch/x86/mm/numa.c uses sizeof(pg_data_t).
+	///kmsan_record_future_shadow_range((u64)NODE_DATA(0), (u64)NODE_DATA(0) + roundup(sizeof(struct pg_data_t), PAGE_SIZE) * num_online_cpus());
 	///kmsan_pr_err("future_index: %d\n", future_index);
 	for (i = 0; i < future_index; i++) {
 		///kmsan_pr_err("initializing shadow range # %d/%d: %p-%p\n", i, future_index, start_end_pairs[i].start, start_end_pairs[i].end);
