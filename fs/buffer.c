@@ -3030,6 +3030,7 @@ sector_t generic_block_bmap(struct address_space *mapping, sector_t block,
 	tmp.b_state = 0;
 	tmp.b_blocknr = 0;
 	tmp.b_size = i_blocksize(inode);
+	tmp.b_page = NULL;
 	get_block(inode, block, &tmp, 0);
 	return tmp.b_blocknr;
 }
