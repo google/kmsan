@@ -456,6 +456,8 @@ void wake_q_add(struct wake_q_head *head, struct task_struct *task)
 	head->lastp = &node->next;
 }
 
+// TODO(glider): context switching here.
+__attribute__((no_sanitize("kernel-memory")))
 void wake_up_q(struct wake_q_head *head)
 {
 	struct wake_q_node *node = head->first;
