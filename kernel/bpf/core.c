@@ -1656,6 +1656,17 @@ static unsigned int PROG_NAME(stack_size)(const void *ctx, const struct bpf_insn
 \
 	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)]; \
 	ARG1 = (u64) (unsigned long) ctx; \
+	/* TODO(glider): when a BPF program is converted from cBPF, it is
+	   preceded with two instructions that zero the BPF registers A and X.
+	   This is done by XORing the contents of regs[reg_n] with itself.
+	   But KMSAN still considers these registers uninitialized, since this
+	   is undefined behavior from the C11 point of view.
+	   To suppress these errors for now, we initialize A and X here (even
+	   for eBPF programs!). Alternative solutions would be:
+	    - handle R ^= R in the BPF code to avoid undefined behavior;
+	    - initialize A and X only for cBPF programs. */ \
+	regs[BPF_REG_A] = 0;		\
+	regs[BPF_REG_X] = 0;		\
 	return ___bpf_prog_run(regs, insn, stack); \
 }
 
