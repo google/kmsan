@@ -35,6 +35,7 @@
 #include <linux/serial_core.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/kmsan-checks.h>
 
 #include <asm/irq.h>
 #include <linux/uaccess.h>
@@ -543,13 +544,18 @@ static void uart_flush_chars(struct tty_struct *tty)
 	uart_start(tty);
 }
 
+
+// TODO(glider): avoid calling __msan_warning() within the UART critical
+// section, as it will cause a deadlock.
+// Instead, check the arguments upon function entry.
+__attribute__((no_sanitize("kernel-address")))
 static int uart_write(struct tty_struct *tty,
 					const unsigned char *buf, int count)
 {
 	struct uart_state *state = tty->driver_data;
 	struct uart_port *port;
 	struct circ_buf *circ;
-	unsigned long flags;
+	unsigned long flags, kmsan_flags;
 	int c, ret = 0;
 
 	/*
@@ -564,7 +570,14 @@ static int uart_write(struct tty_struct *tty,
 	circ = &state->xmit;
 	if (!circ->buf)
 		return 0;
+	kmsan_check_memory(tty, sizeof(struct tty_struct));
+	kmsan_check_memory(buf, count);
 
+	// TODO(glider): this is more restrictive than disabling irqs in
+	// uart_port_lock() below. We disable EVERYTHING (see ENTER_RUNTIME()).
+	// Need to check if this is legit, otherwise replace with a special
+	// recursion counter (not |in_runtime|).
+	KMSAN_DISABLE(kmsan_flags);
 	port = uart_port_lock(state, flags);
 	while (port) {
 		c = CIRC_SPACE_TO_END(circ->head, circ->tail, UART_XMIT_SIZE);
@@ -581,6 +594,7 @@ static int uart_write(struct tty_struct *tty,
 
 	__uart_start(tty);
 	uart_port_unlock(port, flags);
+	KMSAN_ENABLE(kmsan_flags);
 	return ret;
 }
 
