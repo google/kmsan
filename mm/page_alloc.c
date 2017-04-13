@@ -3975,6 +3975,9 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 		return NULL;
 
 	finalise_ac(gfp_mask, order, &ac);
+	// TODO(glider): we assume |ac| is fully initialized here.
+	// TODO(glider): need to check |zonelist|, |nodemask|, etc?
+	kmsan_unpoison_shadow(&ac, sizeof(struct alloc_context));
 
 	/* First allocation attempt */
 	page = get_page_from_freelist(alloc_mask, order, alloc_flags, &ac);
