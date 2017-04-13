@@ -7712,6 +7712,9 @@ static int perf_tp_event_match(struct perf_event *event,
 	return 1;
 }
 
+// TODO(glider): *regs should've been unpoisoned already, but the pointer value
+// is coming from uninstrumented code.
+__attribute__((no_sanitize("kernel-memory")))
 void perf_trace_run_bpf_submit(void *raw_data, int size, int rctx,
 			       struct trace_event_call *call, u64 count,
 			       struct pt_regs *regs, struct hlist_head *head,
