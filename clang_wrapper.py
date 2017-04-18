@@ -90,6 +90,8 @@ def setup_exact_blacklist():
     blacklist += ['kernel/extable.c']
     # Ditto for module_address etc. This is unfortunate, because kernel/module.c contains other code as well.
     blacklist += ['kernel/module.c']
+    # Don't instrument kcov.
+    blacklist += ['kernel/kcov.c']
     return blacklist
 
 def want_msan_for_file(source):
