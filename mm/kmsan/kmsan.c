@@ -999,7 +999,8 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin)
 	spin_lock_irqsave(&report_lock, flags);
 	save_reporter(caller, reporters_tbl, &reporters_index);
 	kmsan_pr_err("==================================================================\n");
-	kmsan_pr_err("BUG: KMSAN: use of unitialized memory\n");
+	// TODO(glider): inline this properly, avoid __builtin_return_address(1).
+	kmsan_pr_err("BUG: KMSAN: use of unitialized memory in %pS\n", __builtin_return_address(1));
 	kmsan_pr_err("inter: %d\n", inter);	// TODO(glider): remove
 	dump_stack();
 	kmsan_print_origin(origin);
