@@ -26,6 +26,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/list.h>
 #include <linux/export.h>
 #include <linux/mutex.h>
@@ -228,6 +229,8 @@ static struct dma_page *pool_alloc_page(struct dma_pool *pool, gfp_t mem_flags)
 		return NULL;
 	page->vaddr = dma_alloc_coherent(pool->dev, pool->allocation,
 					 &page->dma, mem_flags);
+	// TODO(glider): too many places which can init page->dma.
+	kmsan_unpoison_shadow(&page->dma, sizeof(page->dma));
 	if (page->vaddr) {
 #ifdef	DMAPOOL_DEBUG
 		memset(page->vaddr, POOL_POISON_FREED, pool->allocation);
