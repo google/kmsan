@@ -9,6 +9,7 @@
 #include <linux/usb.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/kmsan-checks.h>
 #include <linux/mm.h>
 #include <linux/timer.h>
 #include <linux/ctype.h>
@@ -101,8 +102,11 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
 	retv = usb_start_wait_urb(urb, timeout, &length);
 	if (retv < 0)
 		return retv;
-	else
+	else {
+		// TODO(glider): USB initializes |length| bytes?
+		kmsan_unpoison_shadow(data, length);
 		return length;
+	}
 }
 
 /**
