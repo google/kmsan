@@ -1067,7 +1067,8 @@ void kmsan_check_memory(const void *addr, size_t size)
 	depot_stack_handle_t *origin;
 	size_t i;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	// copy_to_user() may copy zero bytes. No need to check.
+	if (!kmsan_ready || IN_RUNTIME() || !size)
 		return;
 	ENTER_RUNTIME(irq_flags);
 	shadow = kmsan_get_shadow_address(addr, size, /*checked*/true);
