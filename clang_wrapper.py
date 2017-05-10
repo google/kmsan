@@ -17,7 +17,7 @@ FILTER = {'gcc': ['-Qunused-arguments', '-no-integrated-as', '-mno-global-merge'
     '-Wdate-time', '-Wno-unknown-warning-option', '-Wno-initializer-overrides', '-Wno-tautological-compare',
     '-Wincompatible-pointer-types', '-Wno-gnu', '-Wno-format-invalid-specifier',
     '-Werror=date-time', '-Werror=incompatible-pointer-types',
-],'clang': []}
+],'clang': ['-fno-inline-functions-called-once']}
 SOURCE = 'source'
 WRAPPER_LOG = WORLD_PATH + '/wrapper.log'
 LOG = sys.stderr
