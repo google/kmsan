@@ -468,22 +468,6 @@ void __kmsan_unpoison(void *addr, u64 size)
 EXPORT_SYMBOL(__kmsan_unpoison);
 
 // Compiler API
-// TODO(glider): rename to __kmsan_warning, pass origin as a parameter.
-void __msan_warning(void)
-{
-	void *caller;
-	unsigned long irq_flags;
-	int inter = task_tls_index();
-
-	if (IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	caller = __builtin_return_address(0);
-	kmsan_report(caller, current->kmsan.origin_tls[inter]);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(__msan_warning);
-
 void __kmsan_warning_32(u32 origin)
 {
 	void *caller;
