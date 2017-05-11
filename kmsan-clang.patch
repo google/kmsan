@@ -1,10 +1,10 @@
 Index: include/clang/Basic/Sanitizers.def
 ===================================================================
---- include/clang/Basic/Sanitizers.def	(revision 298244)
+--- include/clang/Basic/Sanitizers.def	(revision 302794)
 +++ include/clang/Basic/Sanitizers.def	(working copy)
-@@ -47,6 +47,9 @@
- // MemorySanitizer
- SANITIZER("memory", Memory)
+@@ -50,6 +50,9 @@
+ // libFuzzer
+ SANITIZER("fuzzer", Fuzzer)
  
 +// Kernel MemorySanitizer (KMSAN)
 +SANITIZER("kernel-memory", KernelMemory)
@@ -14,9 +14,9 @@ Index: include/clang/Basic/Sanitizers.def
  
 Index: lib/CodeGen/BackendUtil.cpp
 ===================================================================
---- lib/CodeGen/BackendUtil.cpp	(revision 298244)
+--- lib/CodeGen/BackendUtil.cpp	(revision 302794)
 +++ lib/CodeGen/BackendUtil.cpp	(working copy)
-@@ -209,14 +209,14 @@
+@@ -231,14 +231,14 @@
                                            /*Recover*/true));
  }
  
@@ -34,7 +34,7 @@ Index: lib/CodeGen/BackendUtil.cpp
  
    // MemorySanitizer inserts complex instrumentation that mostly follows
    // the logic of the original code, but operates on "shadow" values.
-@@ -231,6 +231,28 @@
+@@ -253,6 +253,28 @@
    }
  }
  
@@ -63,7 +63,7 @@ Index: lib/CodeGen/BackendUtil.cpp
  static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
                                     legacy::PassManagerBase &PM) {
    PM.add(createThreadSanitizerPass());
-@@ -391,6 +413,13 @@
+@@ -556,6 +578,13 @@
                             addMemorySanitizerPass);
    }
  
@@ -79,7 +79,7 @@ Index: lib/CodeGen/BackendUtil.cpp
                             addThreadSanitizerPass);
 Index: lib/CodeGen/CGDeclCXX.cpp
 ===================================================================
---- lib/CodeGen/CGDeclCXX.cpp	(revision 298244)
+--- lib/CodeGen/CGDeclCXX.cpp	(revision 302794)
 +++ lib/CodeGen/CGDeclCXX.cpp	(working copy)
 @@ -284,7 +284,8 @@
        Fn->addFnAttr(llvm::Attribute::SanitizeAddress);
@@ -93,9 +93,9 @@ Index: lib/CodeGen/CGDeclCXX.cpp
        Fn->addFnAttr(llvm::Attribute::SafeStack);
 Index: lib/CodeGen/CodeGenFunction.cpp
 ===================================================================
---- lib/CodeGen/CodeGenFunction.cpp	(revision 298244)
+--- lib/CodeGen/CodeGenFunction.cpp	(revision 302794)
 +++ lib/CodeGen/CodeGenFunction.cpp	(working copy)
-@@ -752,7 +752,7 @@
+@@ -755,7 +755,7 @@
      Fn->addFnAttr(llvm::Attribute::SanitizeAddress);
    if (SanOpts.has(SanitizerKind::Thread))
      Fn->addFnAttr(llvm::Attribute::SanitizeThread);
@@ -106,9 +106,9 @@ Index: lib/CodeGen/CodeGenFunction.cpp
      Fn->addFnAttr(llvm::Attribute::SafeStack);
 Index: lib/Driver/SanitizerArgs.cpp
 ===================================================================
---- lib/Driver/SanitizerArgs.cpp	(revision 298244)
+--- lib/Driver/SanitizerArgs.cpp	(revision 302794)
 +++ lib/Driver/SanitizerArgs.cpp	(working copy)
-@@ -317,11 +317,17 @@
+@@ -322,11 +322,17 @@
        std::make_pair(KernelAddress, Leak),
        std::make_pair(KernelAddress, Thread),
        std::make_pair(KernelAddress, Memory),
@@ -129,9 +129,9 @@ Index: lib/Driver/SanitizerArgs.cpp
      if (Kinds & Group) {
 Index: lib/Driver/ToolChains/Linux.cpp
 ===================================================================
---- lib/Driver/ToolChains/Linux.cpp	(revision 298244)
+--- lib/Driver/ToolChains/Linux.cpp	(revision 302794)
 +++ lib/Driver/ToolChains/Linux.cpp	(working copy)
-@@ -875,8 +875,10 @@
+@@ -879,8 +879,10 @@
      Res |= SanitizerKind::Leak;
    if (IsX86_64 || IsMIPS64 || IsAArch64 || IsPowerPC64)
      Res |= SanitizerKind::Thread;
@@ -145,9 +145,9 @@ Index: lib/Driver/ToolChains/Linux.cpp
    if (IsX86 || IsX86_64) {
 Index: lib/Frontend/CompilerInvocation.cpp
 ===================================================================
---- lib/Frontend/CompilerInvocation.cpp	(revision 298244)
+--- lib/Frontend/CompilerInvocation.cpp	(revision 302794)
 +++ lib/Frontend/CompilerInvocation.cpp	(working copy)
-@@ -2546,7 +2546,9 @@
+@@ -2604,7 +2604,9 @@
    // names.
    Res.getCodeGenOpts().DiscardValueNames &=
        !LangOpts.Sanitize.has(SanitizerKind::Address) &&
@@ -160,7 +160,7 @@ Index: lib/Frontend/CompilerInvocation.cpp
    // PCH file and find the original header name. Remove the need to do that in
 Index: lib/Lex/PPMacroExpansion.cpp
 ===================================================================
---- lib/Lex/PPMacroExpansion.cpp	(revision 298244)
+--- lib/Lex/PPMacroExpansion.cpp	(revision 302794)
 +++ lib/Lex/PPMacroExpansion.cpp	(working copy)
 @@ -1132,7 +1132,9 @@
        .Case("enumerator_attributes", true)
