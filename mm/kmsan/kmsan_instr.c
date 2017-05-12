@@ -351,6 +351,14 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 	void *result;
 	void *shadow_dst;
 	unsigned long irq_flags;
+	if ((dst != src) && (!(((u64)dst + n <= (u64)src) || ((u64)src + n <= (u64)dst)))) {
+		kmsan_pr_err("==================================================================\n");
+		// TODO(glider): avoid __builtin_return_address(1).
+		kmsan_pr_err("WARNING: memcpy-param-overlap in %pS\n", __builtin_return_address(1));
+		kmsan_pr_err("__msan_memcpy(%p, %p, %d)\n", dst, src, n);
+		dump_stack();
+		kmsan_pr_err("==================================================================\n");
+	}
 
 	result = __memcpy(dst, src, n);
 
