@@ -145,7 +145,7 @@ def want_msan_for_file(source):
 
     kernel_white = ['softirq.c', 'smpboot.c', 'workqueue.c', 'kthread.c', 'stop_machine.c', 'fork.c', 'exit.c', 'groups.c', 'signal.c']
     kernel_white += ['audit.c', 'params.c', 'pid.c', 'cred.c', 'user.c', 'nsproxy.c', 'kmod.c', 'smp.c', 'cpu.c', 'futex.c', 'kallsyms.c']
-    kernel_white += ['sys.c', 'ptrace.c']
+    kernel_white += ['sys.c', 'ptrace.c', 'utsname.c']
     add_to_list(starts_whitelist, 'kernel/', kernel_white)
     starts_whitelist += ['kernel/trace/', 'kernel/events/', 'kernel/irq/', 'kernel/rcu/', 'kernel/time/', 'kernel/sched/', 'kernel/power/']
 
