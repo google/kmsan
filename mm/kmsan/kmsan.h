@@ -23,6 +23,15 @@ bool is_logbuf_locked(void);
 			pr_err(__VA_ARGS__); \
 	} while (0)
 
+
+/*
+ * When a compiler hook is invoked, it may make a call to instrumented code
+ * and eventually call itself recursively. To avoid that, we protect the
+ * runtime entry points with ENTER_RUNTIME()/LEAVE_RUNTIME() macros and exit
+ * the hook if IN_RUNTIME() is true. But when an interrupt occurs inside the
+ * runtime, the hooks won’t run either, which may lead to errors.
+ * Therefore we have to disable interrupts inside the runtime.
+ */
 #define IN_RUNTIME()	(current->kmsan.in_runtime)
 #define ENTER_RUNTIME(irq_flags) \
 	do { \
