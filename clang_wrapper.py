@@ -119,7 +119,7 @@ def want_msan_for_file(source):
     # TODO(glider): lib/vsprintf.c deadlocks when printing reports.
 
     arch_x86_kernel_white = ['time.c', 'apic/apic.c', 'apic/io_apic.c', 'acpi/boot.c', 'process.c', 'rtc.c', 'irq.c', 'sys_x86_64.c', 'hpet.c']
-    arch_x86_kernel_white += ['pcspeaker.c', 'process_64.c', 'perf_regs.c', 'ldt.c', 'cpu/microcode/core.c', 'traps.c']
+    arch_x86_kernel_white += ['pcspeaker.c', 'process_64.c', 'perf_regs.c', 'ldt.c', 'cpu/microcode/core.c', 'traps.c', 'unwind_frame.c']
     add_to_list(starts_whitelist, 'arch/x86/kernel/', arch_x86_kernel_white)
     starts_whitelist += ['arch/x86/kernel/apic/']
 
