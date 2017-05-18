@@ -83,7 +83,7 @@ def setup_exact_blacklist():
     blacklist += ['arch/x86/realmode/rm/video-bios.c', 'arch/x86/realmode/rm/video-mode.c', 'arch/x86/realmode/rm/video-vesa.c']
     blacklist += ['arch/x86/entry/vdso/vdso32/vclock_gettime.c']
     # reboot loop
-    blacklist += ['mm/vmstat.c', 'mm/page_alloc.c']
+    blacklist += ['mm/vmstat.c', 'mm/page_alloc.c', 'arch/x86/kernel/nmi.c']
     # TODO(glider): or maybe we can instrument main.c?
     blacklist += ['init/main.c']
     # Too much time spent in __kernel_text_address() and friends, which are mostly harmless.
@@ -92,6 +92,8 @@ def setup_exact_blacklist():
     blacklist += ['kernel/module.c']
     # Don't instrument kcov.
     blacklist += ['kernel/kcov.c']
+    # Boot-time crashes.
+    blacklist += ['arch/x86/kernel/cpu/common.c']
     return blacklist
 
 def want_msan_for_file(source):
@@ -99,56 +101,10 @@ def want_msan_for_file(source):
         return False
     # Order of application: exact blacklist > starts_whitelist > starts_blacklist
     starts_whitelist = []
+    # This is empty, as we want to instrument everything not explicitly blacklisted.
     starts_blacklist = []
     # Only exact filenames, no wildcards here!
     exact_blacklist = setup_exact_blacklist()
-
-    starts_blacklist += ['arch/x86/']
-
-    for i in 'm':
-        starts_blacklist.append('mm/' + i)
-
-    starts_blacklist += ['kernel/']
-
-    mm_black = ['percpu.c', 'pagewalk.c', 'percpu-km.c', 'pgtable-generic.c']
-    mm_black += ['percpu-vm.c', 'page_counter.c', 'page_ext.c', 'page_idle.c', 'page_io.c', 'page_isolation.c']
-    mm_black += ['page_owner.c', 'page_poison.c']
-    add_to_list(starts_blacklist, 'mm/', mm_black)
-
-    # TODO(glider): printk takes lock, calls memchr() on uninit memory, memchr() reports an uninit and attempts to take the same lock.
-    # TODO(glider): lib/vsprintf.c deadlocks when printing reports.
-
-    arch_x86_kernel_white = ['time.c', 'apic/apic.c', 'apic/io_apic.c', 'acpi/boot.c', 'process.c', 'rtc.c', 'irq.c', 'sys_x86_64.c', 'hpet.c']
-    arch_x86_kernel_white += ['pcspeaker.c', 'process_64.c', 'perf_regs.c', 'ldt.c', 'cpu/microcode/core.c', 'traps.c']
-    arch_x86_kernel_white += ['stacktrace.c', 'unwind_frame.c']
-    add_to_list(starts_whitelist, 'arch/x86/kernel/', arch_x86_kernel_white)
-    starts_whitelist += ['arch/x86/kernel/apic/']
-
-    starts_whitelist += ['arch/x86/pci/', 'arch/x86/lib/', 'arch/x86/boot/', 'arch/x86/events/', 'arch/x86/realmode/rm/']
-    for i in 'abhiprstuv':
-        starts_whitelist.append('arch/x86/kernel/cpu/' + i)
-
-    starts_whitelist += ['arch/x86/entry/vdso/', 'arch/x86/mm/', 'arch/x86/platform/']
-
-    starts_whitelist += ['kernel/printk/printk.c']
-    #starts_whitelist += ['arch/x86/kernel/cpu/']
-
-    for i in 'abcdeghijnrtw':
-        starts_whitelist.append('kernel/' + i)
-
-    mm_white = ['backing-dev.c', 'util.c', 'vmalloc.c', 'mmap.c', 'rmap.c', 'interval_tree.c', 'shmem.c', 'readahead.c']
-    mm_white += ['filemap.c', 'swap.c', 'truncate.c', 'page-writeback.c', 'swap_state.c', 'memory.c', 'swapfile.c', 'mlock.c', 'mprotect.c']
-    mm_white += ['mremap.c', 'mmzone.c', 'process_vm_access.c', 'mempolicy.c', 'migrate.c']
-    add_to_list(starts_whitelist, 'mm/', mm_white)
-
-    kernel_locking_white = ['rwsem-spinlock.c', 'rwsem-xadd.c', 'rtmutex.c']
-    add_to_list(starts_whitelist, 'kernel/locking/', kernel_locking_white)
-
-    kernel_white = ['softirq.c', 'smpboot.c', 'workqueue.c', 'kthread.c', 'stop_machine.c', 'fork.c', 'exit.c', 'groups.c', 'signal.c']
-    kernel_white += ['audit.c', 'params.c', 'pid.c', 'cred.c', 'user.c', 'nsproxy.c', 'kmod.c', 'smp.c', 'cpu.c', 'futex.c', 'kallsyms.c']
-    kernel_white += ['sys.c', 'ptrace.c', 'utsname.c']
-    add_to_list(starts_whitelist, 'kernel/', kernel_white)
-    starts_whitelist += ['kernel/trace/', 'kernel/events/', 'kernel/irq/', 'kernel/rcu/', 'kernel/time/', 'kernel/sched/', 'kernel/power/']
 
     for black in exact_blacklist:
         if source == black:
