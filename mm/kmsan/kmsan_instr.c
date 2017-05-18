@@ -482,6 +482,8 @@ void __kmsan_warning_32(u32 origin)
 	unsigned long irq_flags;
 	int inter = task_tls_index();
 
+	if (!kmsan_ready)
+		return;
 	if (IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
