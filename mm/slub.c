@@ -1226,6 +1226,14 @@ out:
 
 static int __init setup_slub_debug(char *str)
 {
+/*
+ * TODO(glider): too many potentially false reports from stack unwinding in
+ * alloc_debug_processing() when SLUB_DEBUG is enabled.
+ */
+#ifdef CONFIG_KMSAN
+	slub_debug = 0;
+	goto out;
+#endif
 	slub_debug = DEBUG_DEFAULT_FLAGS;
 	if (*str++ != '=' || !*str)
 		/*
