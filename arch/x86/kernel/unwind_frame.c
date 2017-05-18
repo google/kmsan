@@ -54,6 +54,11 @@ static void unwind_dump(struct unwind_state *state, unsigned long *sp)
 	}
 }
 
+/*
+ * unwind_get_return_address() operates on initialized memory and produces
+ * initialized result.
+ */
+__attribute__((no_sanitize("kernel-memory")))
 unsigned long unwind_get_return_address(struct unwind_state *state)
 {
 	unsigned long addr;
@@ -124,7 +129,10 @@ static bool is_last_task_frame(struct unwind_state *state)
 /*
  * This determines if the frame pointer actually contains an encoded pointer to
  * pt_regs on the stack.  See ENCODE_FRAME_POINTER.
+ * decode_frame_pointer() operates on initialized memory and produces initialized
+ * result.
  */
+__attribute__((no_sanitize("kernel-memory")))
 static struct pt_regs *decode_frame_pointer(unsigned long *bp)
 {
 	unsigned long regs = (unsigned long)bp;
@@ -159,6 +167,11 @@ static bool update_stack_state(struct unwind_state *state, void *addr,
 	return true;
 }
 
+/*
+ * unwind_next_frame() operates on initialized memory and produces initialized
+ * result.
+ */
+__attribute__((no_sanitize("kernel-memory")))
 bool unwind_next_frame(struct unwind_state *state)
 {
 	struct pt_regs *regs;
