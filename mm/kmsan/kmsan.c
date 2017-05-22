@@ -124,8 +124,11 @@ void inline do_kmsan_thread_create(struct task_struct *task)
 	kmsan_thread_state *state = &task->kmsan;
 
 	///kmsan_pr_err("in do_kmsan_thread_create(%p), pid=%d, current: %p, pid=%d task.stack: %p\n", task, task->pid, current, current->pid, task->stack);
+#ifdef CONFIG_VMAP_STACK
 	// TODO(glider): KMSAN isn't currently compatible with CONFIG_VMAP_STACK.
-	BUG_ON(!virt_addr_valid(task->stack));
+	// BUG_ON(!virt_addr_valid(task->stack));
+#error TODO(glider): KMSAN isn't currently compatible with CONFIG_VMAP_STACK
+#endif
 	for (i = 0; i < KMSAN_NUM_SHADOW_STACKS; i++) {
 		state->retval_tls[i] = kmsan_alloc_internal(RETVAL_SIZE, GFP_KERNEL);
 		state->va_arg_overflow_size_tls[i] = 0;
