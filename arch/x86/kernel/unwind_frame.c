@@ -55,8 +55,12 @@ static void unwind_dump(struct unwind_state *state, unsigned long *sp)
 }
 
 /*
- * unwind_get_return_address() operates on initialized memory and produces
- * initialized result.
+ * Here and below, the function may read ABI-specific data from the stack, e.g.
+ * the base pointer, which is not poisoned/unpoisoned by KMSAN. This data may
+ * retain the attributes of older stack frames, which may, in turn, lead to
+ * false positives. We apply the following __attribute__ to this code, which
+ * disables KMSAN checks and ensures the return value of the function is
+ * initialized.
  */
 __attribute__((no_sanitize("kernel-memory")))
 unsigned long unwind_get_return_address(struct unwind_state *state)
@@ -129,8 +133,6 @@ static bool is_last_task_frame(struct unwind_state *state)
 /*
  * This determines if the frame pointer actually contains an encoded pointer to
  * pt_regs on the stack.  See ENCODE_FRAME_POINTER.
- * decode_frame_pointer() operates on initialized memory and produces initialized
- * result.
  */
 __attribute__((no_sanitize("kernel-memory")))
 static struct pt_regs *decode_frame_pointer(unsigned long *bp)
@@ -143,6 +145,7 @@ static struct pt_regs *decode_frame_pointer(unsigned long *bp)
 	return (struct pt_regs *)(regs & ~0x1);
 }
 
+__attribute__((no_sanitize("kernel-memory")))
 static bool update_stack_state(struct unwind_state *state, void *addr,
 			       size_t len)
 {
@@ -167,10 +170,6 @@ static bool update_stack_state(struct unwind_state *state, void *addr,
 	return true;
 }
 
-/*
- * unwind_next_frame() operates on initialized memory and produces initialized
- * result.
- */
 __attribute__((no_sanitize("kernel-memory")))
 bool unwind_next_frame(struct unwind_state *state)
 {
@@ -291,6 +290,7 @@ the_end:
 }
 EXPORT_SYMBOL_GPL(unwind_next_frame);
 
+__attribute__((no_sanitize("kernel-memory")))
 void __unwind_start(struct unwind_state *state, struct task_struct *task,
 		    struct pt_regs *regs, unsigned long *first_frame)
 {

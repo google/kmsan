@@ -26,6 +26,8 @@ int panic_on_io_nmi;
 unsigned int code_bytes = 64;
 static int die_counter;
 
+/* in_task_stack() works with initialized data */
+__attribute__((no_sanitize("kernel-memory")))
 bool in_task_stack(unsigned long *stack, struct task_struct *task,
 		   struct stack_info *info)
 {
