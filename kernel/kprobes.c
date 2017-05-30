@@ -287,7 +287,9 @@ out:
  * Check given address is on the page of kprobe instruction slots.
  * This will be used for checking whether the address on a stack
  * is on a text area or not.
+ * KMSAN reports false positives here, although this function should be safe.
  */
+__attribute__((no_sanitize("kernel-memory")))
 bool __is_insn_slot_addr(struct kprobe_insn_cache *c, unsigned long addr)
 {
 	struct kprobe_insn_page *kip;
