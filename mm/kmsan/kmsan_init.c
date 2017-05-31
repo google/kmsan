@@ -94,7 +94,8 @@ void kmsan_initialize_shadow_for_text()
 	// Which is quite hard, because page_alloc can allocate at most 1 << (MAX_ORDER-1) pages.
 	for (addr = 0; addr < size; addr += (PAGE_SIZE << order)) {
 		page = virt_to_page((char*)addr + start);
-		kmsan_alloc_meta_for_pages(page, order, GFP_ATOMIC, NUMA_NO_NODE);
+		BUG_ON(kmsan_alloc_meta_for_pages(page, order, GFP_ATOMIC,
+							NUMA_NO_NODE));
 		///kmsan_alloc_meta_for_pages(upper, order, GFP_ATOMIC, NUMA_NO_NODE);
 	}
 	for (addr = 0; addr < 1 << order; addr += PAGE_SIZE) {
@@ -118,7 +119,8 @@ void __initdata kmsan_initialize_shadow_range(u64 start, u64 end)
 		if (page->shadow) {
 			///kmsan_pr_err("skipping %p (page %p)\n", addr, page);
 		} else {
-			kmsan_alloc_meta_for_pages(page, 0, GFP_ATOMIC, NUMA_NO_NODE);
+			BUG_ON(kmsan_alloc_meta_for_pages(page, 0, GFP_ATOMIC,
+							NUMA_NO_NODE));
 		}
 	}
 	///kmsan_pr_err("allocated metadata for addresses %p-%p\n", start, end);

@@ -1444,7 +1444,11 @@ static struct page *kmem_getpages(struct kmem_cache *cachep, gfp_t flags,
 		else
 			kmemcheck_mark_unallocated_pages(page, nr_pages);
 	}
-	kmsan_alloc_page(page, cachep->gfporder, cachep->flags, nodeid);
+	if (kmsan_alloc_page(page, cachep->gfporder, cachep->flags, nodeid) == -ENOMEM) {
+		__free_pages(page, cachep->gfporder);
+		slab_out_of_memory(cachep, flags, nodeid);
+		return NULL;
+	}
 
 	return page;
 }

@@ -58,7 +58,7 @@ struct kmsan_thread_s {
 void kmsan_thread_create(struct task_struct *task);
 void kmsan_task_exit(struct task_struct *task);
 void kmsan_alloc_shadow_for_region(void *start, size_t size);
-void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
+int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
 void kmsan_free_page(struct page *page, unsigned int order);
 void kmsan_split_page(struct page *page, unsigned int order);
 
@@ -80,7 +80,7 @@ void kmsan_wipe_params_shadow_origin(int inter);
 void kmsan_thread_create(struct task_struct *task) {}
 void kmsan_task_exit(struct task_struct *task) {}
 void kmsan_alloc_shadow_for_region(void *start, size_t size) {}
-void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags, int node) {}
+int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags, int node) { return 0; }
 void kmsan_free_page(struct page *page, unsigned int order) {}
 void kmsan_split_page(struct page *page, unsigned int order) {}
 

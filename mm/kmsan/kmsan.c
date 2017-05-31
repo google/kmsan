@@ -671,7 +671,7 @@ void kmsan_thread_create(struct task_struct *task)
 EXPORT_SYMBOL(kmsan_thread_create);
 
 extern char __bss_stop[];
-bool kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
+int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 		     		gfp_t flags, int node)
 {
 	struct page *shadow, *origin;
@@ -681,15 +681,18 @@ bool kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 	if (flags & __GFP_NO_KMSAN_SHADOW) {
 		for (i = 0; i < pages; i++)
 			page->is_kmsan_untracked_page = true;
-		return false;
+		return 0;
 	}
 
 	if (page->is_kmsan_untracked_page)
-		return false;
+		return 0;
 
 	flags = GFP_ATOMIC;  // TODO(glider)
 	shadow = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
-	BUG_ON(!shadow);
+	if (!shadow) {
+		page->is_kmsan_untracked_page = true;
+		return -ENOMEM;
+	}
 	atomic_add(pages, &meta_alloc_calls);
 	__memset(page_address(shadow), 0, PAGE_SIZE * pages);
 
@@ -700,7 +703,11 @@ bool kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 	atomic_add(pages, &meta_alloc_calls);
 	///kmsan_pr_err("allocated origin %p-%p\n", (char*)page_address(origin), page_address(origin) + pages * PAGE_SIZE);
 	// Assume we've allocated the origin.
-	BUG_ON(!origin);
+	if (!origin) {
+		__free_pages(shadow, order);
+		page->is_kmsan_untracked_page = true;
+		return -ENOMEM;
+	}
 	__memset(page_address(origin), 0, PAGE_SIZE * pages);
 	// TODO(glider): this is racy, need to set shadow & origin atomically
 	// for a page.
@@ -725,7 +732,7 @@ bool kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 		page[i].origin->origin = NULL;
 		page[i].is_kmsan_untracked_page = false;
 	}
-	return true;
+	return 0;
 }
 
 
@@ -739,19 +746,21 @@ void maybe_report_stats(void)
 	}
 }
 
-void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
+int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 {
 	unsigned long irq_flags;
 	int pages = 1 << order;  // TODO(glider): remove
+	int ret;
 
 	atomic_add(pages, &alloc_calls);
 
 	if (IN_RUNTIME())
-		return;
+		return 0;
 	maybe_report_stats();
 	ENTER_RUNTIME(irq_flags);
-	kmsan_alloc_meta_for_pages(page, order, flags, -1);
+	ret = kmsan_alloc_meta_for_pages(page, order, flags, -1);
 	LEAVE_RUNTIME(irq_flags);
+	return ret;
 }
 
 

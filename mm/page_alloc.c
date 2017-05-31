@@ -4013,7 +4013,10 @@ out:
 
 	trace_mm_page_alloc(page, order, alloc_mask, ac.migratetype);
 	if (page)
-		kmsan_alloc_page(page, order, gfp_mask);
+		if (kmsan_alloc_page(page, order, gfp_mask) == -ENOMEM) {
+			__free_pages(page, order);
+			page = NULL;
+		}
 	return page;
 }
 EXPORT_SYMBOL(__alloc_pages_nodemask);
