@@ -87,4 +87,11 @@ Also consider running a KMSAN-instrumented kernel under [syzkaller](https://gith
     packet_getsockopt()](https://lkml.org/lkml/2017/4/25/628)
     *   Status: [fixed
         upstream](https://github.com/torvalds/linux/commit/fd2c83b35752f0a8236b976978ad4658df14a59f)
-
+*   [incorrect input length validation in raw_send_hdrinc()
+    and rawv6_send_hdrinc()](https://lkml.org/lkml/2017/5/3/351)
+    *   Status: [fixed
+        upstream](https://github.com/torvalds/linux/commit/86f4c90a1c5c1493f07f2d12c1079f5bf01936f2)
+*   [missing check of nlmsg_parse() return value in
+    rtnl_fdb_dump()](https://lkml.org/lkml/2017/5/23/346)
+    *   Status: [fixed
+        upstream](https://github.com/torvalds/linux/commit/0ff50e83b5122e836ca492fefb11656b225ac29c)
