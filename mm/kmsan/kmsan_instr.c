@@ -28,7 +28,6 @@ void check_param_origin_tls(void)
 		return;
 
 	for (i = 0; i < KMSAN_PARAM_SIZE / sizeof(depot_stack_handle_t); i++) {
-		///if (current->kmsan.cstate[inter].param_origin_tls[i] == 0xfeedface) {
 		if (current->kmsan.cstate[inter].param_origin_tls[i]) {
 			spin_lock_irqsave(&report_lock, flags);
 			kmsan_pr_err("bad origin at function start: %p, inter=%d, &inter (~sp): %p\n", current->kmsan.cstate[inter].param_origin_tls[i], inter, &inter);
@@ -211,9 +210,6 @@ void __kmsan_store_shadow_origin_n_8(u64 addr, u64 s, u64 o, u64 size)
 	u32 new_o;
 	void *shadow;
 
-	// TODO(glider): the code actually works for other sizes, but
-	// it's interesting whether we need them.
-	///BUG_ON(size != 3);
 	if (!kmsan_ready || IN_RUNTIME()) {
 		return;
 	}

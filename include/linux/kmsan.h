@@ -2,9 +2,6 @@
 #ifndef LINUX_KMSAN_H
 #define LINUX_KMSAN_H
 
-//#include <linux/mm.h>
-//#include <linux/mm_types.h>
-//#include <linux/slab.h>
 #include <linux/stackdepot.h>
 #include <linux/types.h>
 
@@ -56,7 +53,6 @@ struct kmsan_thread_s {
 	int in_runtime;
 	bool is_switching;
 	bool debug;
-	volatile int busy, busy2; // TODO(glider): debug-only
 
 	kmsan_context_state *cstate;  // [KMSAN_NUM_SHADOW_STACKS]
 };

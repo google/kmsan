@@ -264,7 +264,6 @@ void kmsan_poison_slab(struct page *page, gfp_t flags)
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
-	///kmsan_pr_err("kmsan_poison_slab(%p[%p])\n", page_address(page), page);
 	if (flags & __GFP_ZERO) {
 		kmsan_internal_unpoison_shadow(page_address(page), PAGE_SIZE << compound_order(page));
 	} else {
@@ -669,12 +668,8 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 	atomic_add(pages, &meta_alloc_calls);
 	__memset(page_address(shadow), 0, PAGE_SIZE * pages);
 
-	//if (kmsan_ready)
-	//	kmsan_pr_err("allocated shadow for %p-%p\n", (char*)page_address(page), page_address(page) + pages * PAGE_SIZE);
-
 	origin = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
 	atomic_add(pages, &meta_alloc_calls);
-	///kmsan_pr_err("allocated origin %p-%p\n", (char*)page_address(origin), page_address(origin) + pages * PAGE_SIZE);
 	// Assume we've allocated the origin.
 	if (!origin) {
 		__free_pages(shadow, order);
@@ -787,7 +782,6 @@ void kmsan_free_page(struct page *page, unsigned int order)
 				current->kmsan.is_reporting = false;
 				break;
 			}
-		///kmsan_pr_err("trying to deallocate missing shadow for page %p\n", page);
 		LEAVE_RUNTIME(irq_flags);
 		return;
 	}
@@ -799,16 +793,13 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	for (i = 0; i < pages; i++) {
 		BUG_ON(!(page[i].shadow->is_kmsan_untracked_page));
 		page[i].shadow = NULL;
-		///kmsan_pr_err("Nullified shadow of %p\n", page_address(&page[i]));
 		BUG_ON(!page[i].origin->is_kmsan_untracked_page);
 		page[i].origin = NULL;
 	}
-	///kmsan_pr_err("freeing shadow: %p\n", shadow);
 	BUG_ON(!shadow->is_kmsan_untracked_page);
 	__free_pages(shadow, order);
 	atomic_add(pages, &meta_free_calls);
 
-	///kmsan_pr_err("freeing origin: %p\n", origin);
 	BUG_ON(!origin->is_kmsan_untracked_page);
 	__free_pages(origin, order);
 	atomic_add(pages, &meta_free_calls);
@@ -846,7 +837,6 @@ void kmsan_split_page(struct page *page, unsigned int order)
 EXPORT_SYMBOL(kmsan_split_page);
 
 DEFINE_SPINLOCK(report_lock);
-//static DEFINE_HASHTABLE(reporters_tbl, );
 #define MAX_REPORTS 12800
 static void *reporters_tbl[MAX_REPORTS];
 static int reporters_index = 0;
@@ -870,7 +860,6 @@ void save_reporter(void *caller, void **table, int *index)
 	if (*index >= MAX_REPORTS)
 		return;
 	table[(*index)++] = caller;
-	///kmsan_pr_err("saved pointer: %p in table %p\n", caller, table);
 }
 
 // TODO(glider): drop this fn?
@@ -951,9 +940,6 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin)
 	unsigned long flags;
 	struct stack_trace trace;
 	char *descr = NULL;
-	int i; // TODO(glider)
-	depot_stack_handle_t tmp_origin;
-	int inter = task_tls_index();
 
 	if (!kmsan_ready)
 		return;
