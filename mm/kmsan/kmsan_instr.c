@@ -27,18 +27,18 @@ void check_param_origin_tls(void)
 	if (!kmsan_ready)
 		return;
 
-	for (i = 0; i < PARAM_SIZE / sizeof(depot_stack_handle_t); i++) {
-		///if (current->kmsan.param_origin_tls[inter][i] == 0xfeedface) {
-		if (current->kmsan.param_origin_tls[inter][i]) {
+	for (i = 0; i < KMSAN_PARAM_SIZE / sizeof(depot_stack_handle_t); i++) {
+		///if (current->kmsan.cstate[inter].param_origin_tls[i] == 0xfeedface) {
+		if (current->kmsan.cstate[inter].param_origin_tls[i]) {
 			spin_lock_irqsave(&report_lock, flags);
-			kmsan_pr_err("bad origin at function start: %p, inter=%d, &inter (~sp): %p\n", current->kmsan.param_origin_tls[inter][i], inter, &inter);
+			kmsan_pr_err("bad origin at function start: %p, inter=%d, &inter (~sp): %p\n", current->kmsan.cstate[inter].param_origin_tls[i], inter, &inter);
 			dump_stack();
 			spin_unlock_irqrestore(&report_lock, flags);
 		}
-		current->kmsan.param_origin_tls[inter][i] = 0;
+		current->kmsan.cstate[inter].param_origin_tls[i] = 0;
 	}
-	for (i = 0; i < PARAM_SIZE / sizeof(void*); i++) {
-		current->kmsan.param_tls[inter][i] = 0;
+	for (i = 0; i < KMSAN_PARAM_SIZE / sizeof(void*); i++) {
+		current->kmsan.cstate[inter].param_tls[i] = 0;
 	}
 }
 
@@ -57,13 +57,13 @@ void kmsan_wipe_params_shadow_origin(int inter)
 		return;
 	ENTER_RUNTIME(irq_flags);
 	for (ind = start; ind < end; ind++) {
-		__memset(current->kmsan.param_origin_tls[ind], 0, PARAM_SIZE);
-		__memset(current->kmsan.param_tls[ind], 0, PARAM_SIZE);
-		__memset(current->kmsan.va_arg_tls[ind], 0, PARAM_SIZE);
-		__memset(current->kmsan.retval_tls[ind], 0, RETVAL_SIZE);
-		current->kmsan.retval_origin_tls[ind] = 0;
-		current->kmsan.origin_tls[ind] = 0;
-		current->kmsan.va_arg_overflow_size_tls[ind] = 0;
+		__memset(current->kmsan.cstate[ind].param_origin_tls, 0, KMSAN_PARAM_SIZE);
+		__memset(current->kmsan.cstate[ind].param_tls, 0, KMSAN_PARAM_SIZE);
+		__memset(current->kmsan.cstate[ind].va_arg_tls, 0, KMSAN_PARAM_SIZE);
+		__memset(current->kmsan.cstate[ind].retval_tls, 0, RETVAL_SIZE);
+		current->kmsan.cstate[ind].retval_origin_tls = 0;
+		current->kmsan.cstate[ind].origin_tls = 0;
+		current->kmsan.cstate[ind].va_arg_overflow_size_tls = 0;
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -419,8 +419,8 @@ void *__msan_memset(void *dst, int c, size_t n)
 	// TODO(glider): emit stores to param_tls and param_origin_tls in the compiler for KMSAN.
 	// (not for MSan, because __msan_memset could be called from the userspace RTL)
 	// Take the shadow and origin of |c|.
-	///shadow = (unsigned int)(current->kmsan.param_tls[inter][1]);
-	///origin = (depot_stack_handle_t)(current->kmsan.param_origin_tls[inter][1]);
+	///shadow = (unsigned int)(current->kmsan.cstate[inter].param_tls[1]);
+	///origin = (depot_stack_handle_t)(current->kmsan.cstate[inter].param_origin_tls[1]);
 	shadow = 0;
 	kmsan_internal_memset_shadow((u64)dst, shadow, n);
 	///new_origin = kmsan_internal_chain_origin(origin, /*full*/true);
@@ -494,6 +494,34 @@ void __kmsan_warning_32(u32 origin)
 EXPORT_SYMBOL(__kmsan_warning_32);
 
 // Per-task getters.
+kmsan_context_state *__kmsan_get_context_state(void)
+{
+	int inter = task_tls_index();
+	unsigned long irq_flags;
+	kmsan_context_state *ret;
+
+	if (!kmsan_threads_ready) {
+		__memset(&kmsan_dummy_state, 0, sizeof(kmsan_dummy_state));
+		return &kmsan_dummy_state;
+	}
+	__msan_init();
+	if (IN_RUNTIME() || !current->kmsan.enabled) {
+		// We're in runtime, don't care about the shadow.
+		///__memset(&kmsan_dummy_state, 0, sizeof(kmsan_dummy_state)); // TODO(glider)
+		return &kmsan_dummy_state;
+	}
+	// No need to enter/leave runtime?
+	ENTER_RUNTIME(irq_flags);
+	ret = &current->kmsan.cstate[inter];
+	LEAVE_RUNTIME(irq_flags);
+
+	BUG_ON(!ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(__kmsan_get_context_state);
+
+#if 0
 void *__kmsan_get_retval_tls(void)
 {
 	int inter = task_tls_index();
@@ -501,18 +529,18 @@ void *__kmsan_get_retval_tls(void)
 	void *ret;
 
 	if (!kmsan_threads_ready) {
-		__memset(kmsan_dummy_retval_tls, 0, RETVAL_SIZE); // TODO(glider)
-		return kmsan_dummy_retval_tls;
+		__memset(kmsan_dummy_state.retval_tls, 0, RETVAL_SIZE); // TODO(glider)
+		return kmsan_dummy_state.retval_tls;
 	}
 	__msan_init();
 	if (IN_RUNTIME() || !current->kmsan.enabled) {
 		// We're in runtime, don't care about the shadow.
-		///__memset(kmsan_dummy_retval_tls, 0, RETVAL_SIZE); // TODO(glider)
-		return kmsan_dummy_retval_tls;
+		///__memset(kmsan_dummy_state.retval_tls, 0, RETVAL_SIZE); // TODO(glider)
+		return kmsan_dummy_state.retval_tls;
 	}
 	// No need to enter/leave runtime.
 	ENTER_RUNTIME(irq_flags);
-	ret = current->kmsan.retval_tls[inter];
+	ret = current->kmsan.cstate[inter].retval_tls;
 	///__memset(ret, 0, RETVAL_SIZE); // TODO(glider)
 	LEAVE_RUNTIME(irq_flags);
 
@@ -527,17 +555,17 @@ u64 *__kmsan_get_va_arg_overflow_size_tls(void)
 	unsigned long irq_flags;
 
 	if (!kmsan_threads_ready) {
-		kmsan_dummy_va_arg_overflow_size_tls = 0;
-		return &kmsan_dummy_va_arg_overflow_size_tls;
+		kmsan_dummy_state.va_arg_overflow_size_tls = 0;
+		return &kmsan_dummy_state.va_arg_overflow_size_tls;
 	}
 	__msan_init();
 	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		kmsan_dummy_va_arg_overflow_size_tls = 0;
-		return &kmsan_dummy_va_arg_overflow_size_tls;
+		kmsan_dummy_state.va_arg_overflow_size_tls = 0;
+		return &kmsan_dummy_state.va_arg_overflow_size_tls;
 	}
 
 	ENTER_RUNTIME(irq_flags);
-	ret = &(current->kmsan.va_arg_overflow_size_tls[inter]);
+	ret = &(current->kmsan.cstate[inter].va_arg_overflow_size_tls);
 	LEAVE_RUNTIME(irq_flags);
 
 	return ret;
@@ -551,18 +579,18 @@ void **__kmsan_get_va_arg_tls(void)
 	unsigned long irq_flags;
 
 	if (!kmsan_threads_ready) {
-		__memset(kmsan_dummy_va_arg_tls, 0, PARAM_SIZE); // TODO(glider)
-		return kmsan_dummy_va_arg_tls;
+		__memset(kmsan_dummy_state.va_arg_tls, 0, KMSAN_PARAM_SIZE); // TODO(glider)
+		return kmsan_dummy_state.va_arg_tls;
 	}
 	__msan_init();
 	if (IN_RUNTIME() || !current->kmsan.enabled) {
 		// We're in runtime, don't care about the shadow.
-		///__memset(kmsan_dummy_va_arg_tls, 0, PARAM_SIZE); // TODO(glider)
-		return kmsan_dummy_va_arg_tls;
+		///__memset(kmsan_dummy_state.va_arg_tls, 0, KMSAN_PARAM_SIZE); // TODO(glider)
+		return kmsan_dummy_state.va_arg_tls;
 	}
 
 	ENTER_RUNTIME(irq_flags);
-	ret = current->kmsan.va_arg_tls[inter];
+	ret = current->kmsan.cstate[inter].va_arg_tls;
 	LEAVE_RUNTIME(irq_flags);
 
 	return ret;
@@ -577,19 +605,19 @@ void **__kmsan_get_param_tls(void)
 
 	// TODO(glider): disabled shadow tracking across function calls
 	if (!kmsan_threads_ready) {
-		__memset(kmsan_dummy_param_tls, 0, PARAM_SIZE); // TODO(glider)
-		return kmsan_dummy_param_tls;
+		__memset(kmsan_dummy_state.param_tls, 0, KMSAN_PARAM_SIZE); // TODO(glider)
+		return kmsan_dummy_state.param_tls;
 	}
 	__msan_init();
 	if (IN_RUNTIME() || !current->kmsan.enabled) {
 		// We're in runtime, don't care about the shadow.
-		///__memset(kmsan_dummy_param_tls, 0, PARAM_SIZE); // TODO(glider)
-		return kmsan_dummy_param_tls;
+		///__memset(kmsan_dummy_state.param_tls, 0, KMSAN_PARAM_SIZE); // TODO(glider)
+		return kmsan_dummy_state.param_tls;
 	}
 
 	ENTER_RUNTIME(irq_flags);
-	ret = current->kmsan.param_tls[inter];
-	///__memset(current->kmsan.param_tls[inter], 0, PARAM_SIZE); // TODO(glider)
+	ret = current->kmsan.cstate[inter].param_tls;
+	///__memset(current->kmsan.cstate[inter].param_tls, 0, KMSAN_PARAM_SIZE); // TODO(glider)
 	LEAVE_RUNTIME(irq_flags);
 
 	return ret;
@@ -605,17 +633,17 @@ u32 *__kmsan_get_origin_tls(void)
 	unsigned long irq_flags;
 
 	if (!kmsan_threads_ready) {
-		kmsan_dummy_origin_tls = 0;
-		return &kmsan_dummy_origin_tls;
+		kmsan_dummy_state.origin_tls = 0;
+		return &kmsan_dummy_state.origin_tls;
 	}
 	__msan_init();
 	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		kmsan_dummy_origin_tls = 0;
-		return &kmsan_dummy_origin_tls;
+		kmsan_dummy_state.origin_tls = 0;
+		return &kmsan_dummy_state.origin_tls;
 	}
 
 	ENTER_RUNTIME(irq_flags);
-	ret = &(current->kmsan.origin_tls[inter]);
+	ret = &(current->kmsan.cstate[inter].origin_tls);
 	*ret = 0;
 	LEAVE_RUNTIME(irq_flags);
 
@@ -634,21 +662,21 @@ u32 *__kmsan_get_param_origin_tls(void)
 
 	// TODO(glider): disabled shadow tracking across function calls
 	if (!kmsan_threads_ready) {
-		__memset(kmsan_dummy_param_origin_tls, 0, PARAM_SIZE); // TODO(glider)
-		return kmsan_dummy_param_origin_tls;
+		__memset(kmsan_dummy_state.param_origin_tls, 0, KMSAN_PARAM_SIZE); // TODO(glider)
+		return kmsan_dummy_state.param_origin_tls;
 	}
 	__msan_init();
 	if (IN_RUNTIME() || !current->kmsan.enabled) {
 		// We're in runtime, don't care about the shadow.
-	///	__memset(kmsan_dummy_param_origin_tls, 0, PARAM_SIZE); // TODO(glider)
-		return kmsan_dummy_param_origin_tls;
+	///	__memset(kmsan_dummy_state.param_origin_tls, 0, KMSAN_PARAM_SIZE); // TODO(glider)
+		return kmsan_dummy_state.param_origin_tls;
 	}
 	ENTER_RUNTIME(irq_flags);
 	///BUG_ON(READ_ONCE(current->kmsan.busy));
 	///WRITE_ONCE(current->kmsan.busy, 1);
-	ret = current->kmsan.param_origin_tls[inter];
+	ret = current->kmsan.cstate[inter].param_origin_tls;
 	///check_param_origin_tls();
-	///__memset(current->kmsan.param_origin_tls[inter], 0, PARAM_SIZE); // TODO(glider)
+	///__memset(current->kmsan.cstate[inter].param_origin_tls, 0, KMSAN_PARAM_SIZE); // TODO(glider)
 	///WRITE_ONCE(current->kmsan.busy, 0);
 	LEAVE_RUNTIME(irq_flags);
 
@@ -663,21 +691,22 @@ int *__kmsan_get_retval_origin_tls(void)
 	unsigned long irq_flags;
 
 	if (!kmsan_threads_ready) {
-		kmsan_dummy_retval_origin_tls = 0;
-		return &kmsan_dummy_retval_origin_tls;
+		kmsan_dummy_state.retval_origin_tls = 0;
+		return &kmsan_dummy_state.retval_origin_tls;
 	}
 	__msan_init();
 	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		kmsan_dummy_retval_origin_tls = 0;
-		return &kmsan_dummy_retval_origin_tls;
+		kmsan_dummy_state.retval_origin_tls = 0;
+		return &kmsan_dummy_state.retval_origin_tls;
 	}
 
 	ENTER_RUNTIME(irq_flags);
-	ret = &(current->kmsan.retval_origin_tls[inter]);
-	current->kmsan.retval_origin_tls[inter] = 0; // TODO(glider)
+	ret = &(current->kmsan.cstate[inter].retval_origin_tls);
+	BUG_ON(!ret);
+	*ret = 0;
 	LEAVE_RUNTIME(irq_flags);
 
 	return ret;
 }
 EXPORT_SYMBOL(__kmsan_get_retval_origin_tls);
-
+#endif

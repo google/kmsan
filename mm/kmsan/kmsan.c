@@ -47,14 +47,7 @@ bool use_chained_origins = true;  // TODO(glider)
 #define DUMMY_SHADOW_SIZE (PAGE_SIZE * 2)
 char kmsan_dummy_shadow[DUMMY_SHADOW_SIZE];
 char kmsan_dummy_origin[DUMMY_SHADOW_SIZE];
-
-void *kmsan_dummy_retval_tls[RETVAL_SIZE/sizeof(void*)];
-u64 kmsan_dummy_va_arg_overflow_size_tls;
-void *kmsan_dummy_va_arg_tls[PARAM_SIZE/sizeof(void*)];
-void *kmsan_dummy_param_tls[PARAM_SIZE/sizeof(void*)];
-depot_stack_handle_t kmsan_dummy_origin_tls;
-depot_stack_handle_t kmsan_dummy_param_origin_tls[PARAM_SIZE/sizeof(depot_stack_handle_t)];
-depot_stack_handle_t kmsan_dummy_retval_origin_tls;
+kmsan_context_state kmsan_dummy_state;
 
 extern int oops_in_progress;
 
@@ -92,35 +85,19 @@ void kmsan_leave_runtime(unsigned long *flags)
 }
 EXPORT_SYMBOL(kmsan_leave_runtime);
 
-// TODO(glider): switch to page_ext. We need to update the kernel version for that.
-// |size| in bytes, always less than one page.
-void *kmsan_alloc_internal(size_t size, gfp_t flags)
-{
-	size_t order = 0;
-	void *ret;
-	struct page *page;
-	if (size > (1 << order) * PAGE_SIZE) {
-		current->kmsan.is_reporting = true;
-		kmsan_pr_err("size: %d, order: %d\n", size, order);
-		current->kmsan.is_reporting = false;
-		BUG();
-	}
-	flags = GFP_ATOMIC;
-	page = alloc_pages(flags | __GFP_ZERO | __GFP_NO_KMSAN_SHADOW, order);
-	BUG_ON(!page);
-	BUG_ON(!page_address(page));
-	return page_address(page);
-}
-
 void kmsan_free_internal(void *ptr)
 {
 	size_t order = 0;  // TODO(glider): we're only allocating buffers <= PAGE_SIZE
+	BUG();
 	free_pages(ptr, order);
 }
 
+// TODO(glider): switch to page_ext. We need to update the kernel version for that.
 void inline do_kmsan_thread_create(struct task_struct *task)
 {
 	int i;
+	size_t order = 5;
+	struct page *page;
 	kmsan_thread_state *state = &task->kmsan;
 
 	///kmsan_pr_err("in do_kmsan_thread_create(%p), pid=%d, current: %p, pid=%d task.stack: %p\n", task, task->pid, current, current->pid, task->stack);
@@ -129,15 +106,11 @@ void inline do_kmsan_thread_create(struct task_struct *task)
 	// BUG_ON(!virt_addr_valid(task->stack));
 #error TODO(glider): KMSAN isn't currently compatible with CONFIG_VMAP_STACK
 #endif
-	for (i = 0; i < KMSAN_NUM_SHADOW_STACKS; i++) {
-		state->retval_tls[i] = kmsan_alloc_internal(RETVAL_SIZE, GFP_KERNEL);
-		state->va_arg_overflow_size_tls[i] = 0;
-		state->va_arg_tls[i] = kmsan_alloc_internal(PARAM_SIZE, GFP_KERNEL);
-		state->param_tls[i] = kmsan_alloc_internal(PARAM_SIZE, GFP_KERNEL);
-		state->origin_tls[i] = 0;
-		state->param_origin_tls[i] = kmsan_alloc_internal(PARAM_SIZE, GFP_KERNEL);
-		state->retval_origin_tls[i] = 0;
-	}
+	BUILD_BUG_ON(sizeof(kmsan_context_state) * KMSAN_NUM_SHADOW_STACKS > (1 << order) * PAGE_SIZE);
+	page = alloc_pages(GFP_ATOMIC | __GFP_ZERO | __GFP_NO_KMSAN_SHADOW, order);
+	BUG_ON(!page);
+	state->cstate = page_address(page);
+	BUG_ON(!state->cstate);
 	state->enabled = true;
 	state->allow_reporting = true;
 	state->is_reporting = false;
@@ -161,13 +134,13 @@ void kmsan_task_exit(struct task_struct *task)
 	// We must allocate one per-CPU array for IRQs and softirqs instead of per-task ones.
 	for (i = 0; i < 1; i++) {
 		break;  // TODO(glider);
-		kmsan_free_internal(state->retval_tls[i]);
-		state->va_arg_overflow_size_tls[i] = 0;
-		kmsan_free_internal(state->va_arg_tls[i]);
-		kmsan_free_internal(state->param_tls[i]);
-		state->origin_tls[i] = 0;
-		kmsan_free_internal(state->param_origin_tls[i]);
-		state->retval_origin_tls[i] = 0;
+		kmsan_free_internal(state->cstate[i].retval_tls);
+		state->cstate[i].va_arg_overflow_size_tls = 0;
+		kmsan_free_internal(state->cstate[i].va_arg_tls);
+		kmsan_free_internal(state->cstate[i].param_tls);
+		state->cstate[i].origin_tls = 0;
+		kmsan_free_internal(state->cstate[i].param_origin_tls);
+		state->cstate[i].retval_origin_tls = 0;
 	}
 	state->enabled = false;
 	state->allow_reporting = false;

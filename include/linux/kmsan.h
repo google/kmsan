@@ -8,7 +8,6 @@
 #include <linux/stackdepot.h>
 #include <linux/types.h>
 
-
 struct page;
 struct kmem_cache;
 struct task_struct;
@@ -25,14 +24,28 @@ static inline void kmsan_init(void) { }
 
 
 #ifdef CONFIG_KMSAN
-#define KMSAN_NUM_SHADOW_STACKS 5
+#define KMSAN_NUM_SHADOW_STACKS 4
 
 typedef struct kmsan_thread_s kmsan_thread_state;
+typedef struct kmsan_context_s kmsan_context_state;
 
 
 // TODO(glider): Factor out params, origins etc. into a separate
 // struct kmsan_context_state. Then make those for IRQs and exceptions per-cpu,
 // not per-task.
+// These constants are defined in the MSan LLVM instrumentation pass.
+#define RETVAL_SIZE 800
+#define KMSAN_PARAM_SIZE 800
+
+struct kmsan_context_s {
+	void *param_tls[KMSAN_PARAM_SIZE];
+	void *retval_tls[RETVAL_SIZE];
+	void *va_arg_tls[KMSAN_PARAM_SIZE];
+	u64 va_arg_overflow_size_tls;
+	depot_stack_handle_t param_origin_tls[KMSAN_PARAM_SIZE];
+	depot_stack_handle_t retval_origin_tls;
+	depot_stack_handle_t origin_tls;
+};
 
 struct kmsan_thread_s {
 	bool enabled;
@@ -45,14 +58,10 @@ struct kmsan_thread_s {
 	bool debug;
 	volatile int busy, busy2; // TODO(glider): debug-only
 
-	void **retval_tls[KMSAN_NUM_SHADOW_STACKS];
-	u64 va_arg_overflow_size_tls[KMSAN_NUM_SHADOW_STACKS];
-	void **va_arg_tls[KMSAN_NUM_SHADOW_STACKS];
-	void **param_tls[KMSAN_NUM_SHADOW_STACKS];
-	depot_stack_handle_t origin_tls[KMSAN_NUM_SHADOW_STACKS];
-	depot_stack_handle_t *param_origin_tls[KMSAN_NUM_SHADOW_STACKS];
-	depot_stack_handle_t retval_origin_tls[KMSAN_NUM_SHADOW_STACKS];
+	kmsan_context_state *cstate;  // [KMSAN_NUM_SHADOW_STACKS]
 };
+
+extern kmsan_context_state kmsan_dummy_state;
 
 // TODO(glider): rename to kmsan_task_create()
 void kmsan_thread_create(struct task_struct *task);

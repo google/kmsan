@@ -64,8 +64,6 @@ extern bool use_chained_origins;
 extern char kmsan_dummy_shadow[];
 extern char kmsan_dummy_origin[];
 
-#define RETVAL_SIZE 800
-#define PARAM_SIZE 800
 
 extern void *kmsan_dummy_retval_tls[];
 extern u64 kmsan_dummy_va_arg_overflow_size_tls;
