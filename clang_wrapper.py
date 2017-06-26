@@ -132,12 +132,9 @@ def want_msan_for_file(source):
 
 def msan_argv(flags, argv):
     source = flags[SOURCE]
-    #argv += ['-Wno-address-of-packed-member', '-g', '-v']
     argv += ['-Wno-address-of-packed-member', '-g']
     if want_msan_for_file(source):
-        argv += ['-fsanitize=kernel-memory', '-mllvm', '-msan-kernel=1', '-mllvm', '-msan-keep-going=1', '-mllvm', '-msan-track-origins=2']
-#        ]
-#        '-fsanitize-memory-track-origins=2']
+        argv += ['-fsanitize=kernel-memory']
     return argv
 
 def compiler_argv(flags, argv):
