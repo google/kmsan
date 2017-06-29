@@ -75,23 +75,28 @@ Also consider running a KMSAN-instrumented kernel under [syzkaller](https://gith
     syscall](https://lkml.org/lkml/2017/3/7/361)
     *   Status: [fixed
         upstream](https://github.com/torvalds/linux/commit/9f138fa609c47403374a862a08a41394be53d461)
-*   [incorrect input length validation in nl_fib_input()]()
+*   incorrect input length validation in `nl_fib_input()`
     *   Status: [fixed
         upstream](https://github.com/torvalds/linux/commit/c64c0b3cac4c5b8cb093727d2c19743ea3965c0b)
         by Eric Dumazet
 *   [uninitialized `sockc.tsflags` in
-    udpv6_sendmsg()](https://lkml.org/lkml/2017/3/21/505)
+    `udpv6_sendmsg()`](https://lkml.org/lkml/2017/3/21/505)
     *   Status: [fixed
         upstream](https://github.com/torvalds/linux/commit/d515684d78148884d5fc425ba904c50f03844020)
 *   [incorrect input length validation in
-    packet_getsockopt()](https://lkml.org/lkml/2017/4/25/628)
+    `packet_getsockopt()`](https://lkml.org/lkml/2017/4/25/628)
     *   Status: [fixed
         upstream](https://github.com/torvalds/linux/commit/fd2c83b35752f0a8236b976978ad4658df14a59f)
-*   [incorrect input length validation in raw_send_hdrinc()
-    and rawv6_send_hdrinc()](https://lkml.org/lkml/2017/5/3/351)
+*   [incorrect input length validation in `raw_send_hdrinc()`
+    and `rawv6_send_hdrinc()`](https://lkml.org/lkml/2017/5/3/351)
     *   Status: [fixed
         upstream](https://github.com/torvalds/linux/commit/86f4c90a1c5c1493f07f2d12c1079f5bf01936f2)
-*   [missing check of nlmsg_parse() return value in
-    rtnl_fdb_dump()](https://lkml.org/lkml/2017/5/23/346)
+*   [missing check of `nlmsg_parse()` return value in
+    `rtnl_fdb_dump()`](https://lkml.org/lkml/2017/5/23/346)
     *   Status: [fixed
         upstream](https://github.com/torvalds/linux/commit/0ff50e83b5122e836ca492fefb11656b225ac29c)
+*   [Linux kernel 2.6.0 to 4.12-rc4 infoleak due to a data race in ALSA timer](http://openwall.com/lists/oss-security/2017/06/12/2) ([CVE-2017-1000380](http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-1000380))
+    *   Status: fixed upstream ([1](https://github.com/torvalds/linux/commit/ba3021b2c79b2fa9114f92790a99deb27a65b728), [2](https://github.com/torvalds/linux/commit/d11662f4f798b50d8c8743f433842c3e40fe3378))
+*   [`strlen()` incorrectly called on user-supplied memory in `dev_set_alias()`](https://lkml.org/lkml/2017/5/31/394)
+    *   Status: [fixed
+        upstream](https://github.com/torvalds/linux/commit/c28294b941232931fbd714099798eb7aa7e865d7)
