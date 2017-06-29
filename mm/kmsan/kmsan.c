@@ -49,6 +49,8 @@ char kmsan_dummy_shadow[DUMMY_SHADOW_SIZE];
 char kmsan_dummy_origin[DUMMY_SHADOW_SIZE];
 kmsan_context_state kmsan_dummy_state;
 
+DEFINE_PER_CPU(kmsan_context_state[3], kmsan_percpu_cstate);
+
 extern int oops_in_progress;
 
 extern bool logbuf_lock_is_locked;
@@ -58,20 +60,20 @@ bool is_logbuf_locked(void)
 }
 EXPORT_SYMBOL(is_logbuf_locked);
 
-int task_tls_index()
+kmsan_context_state *task_kmsan_context_state(void)
 {
-	// TODO(glider): more than two indices.
 	int preempt = preempt_count();
+	int cpu = smp_processor_id();
+
 	if (preempt & HARDIRQ_MASK) {
-		return 1;
+		return &per_cpu(kmsan_percpu_cstate[0], cpu);
 	} else if (preempt & SOFTIRQ_OFFSET) {  // Sic!
-		return 2;
+		return &per_cpu(kmsan_percpu_cstate[1], cpu);
 	} else if (preempt & NMI_MASK) {
-		return 3;
+		return &per_cpu(kmsan_percpu_cstate[2], cpu);
 	}
-	return 0;
+	return &current->kmsan.cstate;
 }
-EXPORT_SYMBOL(task_tls_index);
 
 void kmsan_enter_runtime(unsigned long *flags)
 {
@@ -87,8 +89,8 @@ EXPORT_SYMBOL(kmsan_leave_runtime);
 
 void kmsan_free_internal(void *ptr)
 {
-	size_t order = 0;  // TODO(glider): we're only allocating buffers <= PAGE_SIZE
-	BUG();
+	size_t order = 5;  // TODO(glider): we're only allocating buffers <= PAGE_SIZE
+	///BUG();
 	free_pages(ptr, order);
 }
 
@@ -106,11 +108,7 @@ void inline do_kmsan_thread_create(struct task_struct *task)
 	// BUG_ON(!virt_addr_valid(task->stack));
 #error TODO(glider): KMSAN isn't currently compatible with CONFIG_VMAP_STACK
 #endif
-	BUILD_BUG_ON(sizeof(kmsan_context_state) * KMSAN_NUM_SHADOW_STACKS > (1 << order) * PAGE_SIZE);
-	page = alloc_pages(GFP_ATOMIC | __GFP_ZERO | __GFP_NO_KMSAN_SHADOW, order);
-	BUG_ON(!page);
-	state->cstate = page_address(page);
-	BUG_ON(!state->cstate);
+	__memset(&state->cstate, 0, sizeof(kmsan_context_state));
 	state->enabled = true;
 	state->allow_reporting = true;
 	state->is_reporting = false;
@@ -129,19 +127,6 @@ void kmsan_task_exit(struct task_struct *task)
 		return;
 
 	ENTER_RUNTIME(irq_flags);
-	///for (i = 0; i < KMSAN_NUM_SHADOW_STACKS; i++) {
-	// TODO(glider): not deleting IRQ arrays here.
-	// We must allocate one per-CPU array for IRQs and softirqs instead of per-task ones.
-	for (i = 0; i < 1; i++) {
-		break;  // TODO(glider);
-		kmsan_free_internal(state->cstate[i].retval_tls);
-		state->cstate[i].va_arg_overflow_size_tls = 0;
-		kmsan_free_internal(state->cstate[i].va_arg_tls);
-		kmsan_free_internal(state->cstate[i].param_tls);
-		state->cstate[i].origin_tls = 0;
-		kmsan_free_internal(state->cstate[i].param_origin_tls);
-		state->cstate[i].retval_origin_tls = 0;
-	}
 	state->enabled = false;
 	state->allow_reporting = false;
 	state->is_reporting = false;

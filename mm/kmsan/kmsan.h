@@ -90,5 +90,6 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 void __msan_init(void);
 
 int task_tls_index(void);
+kmsan_context_state *task_kmsan_context_state(void);
 
 #endif

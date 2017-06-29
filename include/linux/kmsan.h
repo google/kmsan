@@ -21,7 +21,6 @@ static inline void kmsan_init(void) { }
 
 
 #ifdef CONFIG_KMSAN
-#define KMSAN_NUM_SHADOW_STACKS 4
 
 typedef struct kmsan_thread_s kmsan_thread_state;
 typedef struct kmsan_context_s kmsan_context_state;
@@ -54,7 +53,7 @@ struct kmsan_thread_s {
 	bool is_switching;
 	bool debug;
 
-	kmsan_context_state *cstate;  // [KMSAN_NUM_SHADOW_STACKS]
+	kmsan_context_state cstate;
 };
 
 extern kmsan_context_state kmsan_dummy_state;
@@ -79,7 +78,7 @@ void kmsan_slab_setup_object(struct kmem_cache *s, void *object);
 void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 			size_t size, void *object);
 
-void kmsan_wipe_params_shadow_origin(int inter);
+void kmsan_wipe_params_shadow_origin(void);
 #else
 
 void kmsan_thread_create(struct task_struct *task) {}
