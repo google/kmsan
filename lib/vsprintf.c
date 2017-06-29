@@ -2048,8 +2048,10 @@ out:
 			end[-1] = '\0';
 	}
 
-	// TODO(glider): need this unless we instrument this file.
-	kmsan_unpoison_shadow(buf, str-buf+1);
+	if (buf) {
+		// TODO(glider): need this unless we instrument this file.
+		kmsan_unpoison_shadow(buf, (str < end) ? (str - buf + 1) : (end - buf));
+	}
 	/* the trailing null byte doesn't count towards the total */
 	return str-buf;
 }
