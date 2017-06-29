@@ -87,13 +87,6 @@ void kmsan_leave_runtime(unsigned long *flags)
 }
 EXPORT_SYMBOL(kmsan_leave_runtime);
 
-void kmsan_free_internal(void *ptr)
-{
-	size_t order = 5;  // TODO(glider): we're only allocating buffers <= PAGE_SIZE
-	///BUG();
-	free_pages(ptr, order);
-}
-
 // TODO(glider): switch to page_ext. We need to update the kernel version for that.
 void inline do_kmsan_thread_create(struct task_struct *task)
 {
@@ -531,9 +524,9 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 	// capacity. We can either return the same id or generate a new one.
 	if (!id) return id;
 
-// TODO(glider): this is slower, but will save us a lot of memory.
-// Let us store the chain length in the lowest byte of the magic.
-// Maybe we can cache the ids somehow to avoid fetching them?
+	// TODO(glider): this is slower, but will save us a lot of memory.
+	// Let us store the chain length in the lowest byte of the magic.
+	// Maybe we can cache the ids somehow to avoid fetching them?
 	depot_fetch_stack(id, &old_trace);
 	old_magic = old_trace.entries[0];
 	// TODO(glider): just make the chain magics more similar.
@@ -594,7 +587,6 @@ void kmsan_set_origin(u64 address, int size, u32 origin)
 		to_fill = (PAGE_SIZE - page_offset > size) ? size : PAGE_SIZE - page_offset;
 		to_fill = ALIGN(to_fill, 4);
 		BUG_ON(!to_fill);
-#if 1
 		origin_start = kmsan_get_origin_address(address, to_fill, true);
 		if (!origin_start) {
 			current->kmsan.is_reporting = true;
@@ -603,7 +595,6 @@ void kmsan_set_origin(u64 address, int size, u32 origin)
 			BUG();
 		}
 		kmsan_write_aligned_origin(origin_start, to_fill, origin);
-#endif
 		address += to_fill;
 		size -= to_fill;
 	}
@@ -847,12 +838,6 @@ void save_reporter(void *caller, void **table, int *index)
 	table[(*index)++] = caller;
 }
 
-// TODO(glider): drop this fn?
-void kmsan_fetch_stack(depot_stack_handle_t origin, struct stack_trace *trace)
-{
-	depot_fetch_stack(origin, trace);
-}
-
 static inline void kmsan_print_origin(depot_stack_handle_t origin)
 {
 	struct stack_trace trace, chained_trace;
@@ -864,15 +849,13 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 		return;
 
 	while (true) {
-		kmsan_fetch_stack(origin, &trace);
+		depot_fetch_stack(origin, &trace);
 		if ((trace.nr_entries == 4) &&
 		    ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_ALLOCA_MAGIC_ORIGIN)) {
 			descr = (char*)trace.entries[1];
 			pc1 = (void*)trace.entries[2];
 			pc2 = (void*)trace.entries[3];
-			//kmsan_pr_err("origin description: %s\n", descr);
-			// TODO(glider): don't print origin here.
-			kmsan_pr_err("origin description: %s (origin=%p)\n", descr, origin);
+			kmsan_pr_err("origin description: %s\n", descr);
 			kmsan_pr_err("local variable created at:\n");
 			kmsan_pr_err(" %pS\n", pc1);
 			kmsan_pr_err(" %pS\n", pc2);
@@ -882,41 +865,25 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
 				head = trace.entries[1];
 				origin = trace.entries[2];
-				///kmsan_pr_err("chained origin:\n");
-				kmsan_pr_err("chained origin: %p\n", head);  // TODO(glider)
-				kmsan_fetch_stack(head, &chained_trace);
+				kmsan_pr_err("chained origin:\n");
+				depot_fetch_stack(head, &chained_trace);
 				print_stack_trace(&chained_trace, 0);
 				continue;
 			} else
 			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FRAME) {
 				origin = trace.entries[2];
-				///kmsan_pr_err("chained origin:\n");
-				kmsan_pr_err("chained origin:\n");  // TODO(glider)
+				kmsan_pr_err("chained origin:\n");
 				kmsan_pr_err("%p - %pSR\n", trace.entries[1], trace.entries[1]);
 				continue;
 			}
 		}
-		///kmsan_pr_err("origin:\n");
-		kmsan_pr_err("origin: %p\n", origin);  // TODO(glider): remove the origin id.
+		kmsan_pr_err("origin:\n");
 		if (trace.entries)
 			print_stack_trace(&trace, 0);
 		else
 			kmsan_pr_err("No entries\n");
 		break;
 	}
-}
-
-#define STACK_TOP_MARGIN        128
-bool in_exception()
-{
-	struct orig_ist *oist;
-	u64 estack_top, estack_bottom;
-	oist = this_cpu_ptr(&orig_ist);
-	estack_top = (u64)oist->ist[0] - EXCEPTION_STKSZ + STACK_TOP_MARGIN;
-	estack_bottom = (u64)oist->ist[N_EXCEPTION_STACKS - 1];
-	if (&oist >= estack_top && &oist <= estack_bottom)
-		return true;
-	return false;
 }
 
 /*static*/
@@ -938,7 +905,7 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin)
 	if (!origin)
 		return;
 
-	kmsan_fetch_stack(origin, &trace);
+	depot_fetch_stack(origin, &trace);
 	if ((trace.nr_entries == 4) && trace.entries[0] == KMSAN_ALLOCA_MAGIC_ORIGIN) {
 		// TODO(glider): this is just to skip uniniteresting reports at the prototype stage.
 		// There can be actual bugs with duplicate descriptions.
@@ -1177,7 +1144,7 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 				kmsan_pr_err("Access of size %d at %p.\n", size, addr);
 				kmsan_pr_err("page[0].shadow: %p, page[1].shadow: %p\n", page_address(page->shadow), page_address(virt_to_page(addr + size - 1)));
 				origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr, 1, false);
-				kmsan_pr_err("origin: %p\n", origin);
+				kmsan_pr_err("origin: \n");
 				kmsan_print_origin(origin);
 				current->kmsan.is_reporting = false;
 				LEAVE_RUNTIME(irq_flags);
@@ -1198,7 +1165,6 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked)
 	void *ret;
 
 	if (!my_virt_addr_valid(addr)) {
-		///kmsan_pr_err("not a valid virtual address: %p\n", addr);
 		BUG_ON(size > PAGE_SIZE);
 		__memset(kmsan_dummy_origin, 0, DUMMY_SHADOW_SIZE); // TODO(glider)
 		return kmsan_dummy_origin;
@@ -1216,7 +1182,6 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked)
 		size += pad;
 	}
 	page_offset = (addr % PAGE_SIZE);
-	// TODO(glider): no lazy allocation!
 	if (!page->origin) {
 		kmsan_pr_err("No origin for address %p (page %p)\n", addr, page);
 		BUG_ON(page->shadow);
