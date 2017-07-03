@@ -81,14 +81,14 @@ typedef struct {
 
 typedef struct {
 	u64 s;
-	// TODO(glider): make __kmsan_load_shadow_origin() return 2 32-bit origin slots.
+	// TODO(glider): make __msan_load_shadow_origin() return 2 32-bit origin slots.
 	u32 o;
 	//u64 o;
 } shadow_origin_8;
 
 
 #define DECLARE_KMSAN_LOAD_SHADOW_ORIGIN(size, shadow_type) \
-shadow_origin_##size __kmsan_load_shadow_origin_##size(u64 addr) \
+shadow_origin_##size __msan_load_shadow_origin_##size(u64 addr) \
 {	\
 	shadow_origin_##size ret = {0, 0};	\
 	shadow_type *shadow;			\
@@ -112,7 +112,7 @@ shadow_origin_##size __kmsan_load_shadow_origin_##size(u64 addr) \
 leave:						\
 	return ret;				\
 }						\
-EXPORT_SYMBOL(__kmsan_load_shadow_origin_##size);
+EXPORT_SYMBOL(__msan_load_shadow_origin_##size);
 
 DECLARE_KMSAN_LOAD_SHADOW_ORIGIN(1, u8);
 DECLARE_KMSAN_LOAD_SHADOW_ORIGIN(2, u16);
@@ -124,7 +124,7 @@ typedef struct {
 	u32 o;
 } shadow_origin_n;
 
-shadow_origin_n __kmsan_load_shadow_origin_n_8(u64 addr, u64 size)
+shadow_origin_n __msan_load_shadow_origin_n_8(u64 addr, u64 size)
 {
 	shadow_origin_n ret = {0, 0};
 	u32 *origin;
@@ -149,7 +149,7 @@ leave:
 }
 
 // TODO(glider): pull this declaration under the macro below.
-void __kmsan_store_shadow_origin_8(u64 addr, u64 s, u64 o)
+void __msan_store_shadow_origin_8(u64 addr, u64 s, u64 o)
 {
 	unsigned long irq_flags;
 	u64 *shadow;
@@ -198,9 +198,9 @@ void __kmsan_store_shadow_origin_8(u64 addr, u64 s, u64 o)
 leave:
 	return;
 }
-EXPORT_SYMBOL(__kmsan_store_shadow_origin_8);
+EXPORT_SYMBOL(__msan_store_shadow_origin_8);
 
-void __kmsan_store_shadow_origin_n_8(u64 addr, u64 s, u64 o, u64 size)
+void __msan_store_shadow_origin_n_8(u64 addr, u64 s, u64 o, u64 size)
 {
 	unsigned long irq_flags;
 	u32 new_o;
@@ -226,7 +226,7 @@ leave:
 }
 
 #define DECLARE_KMSAN_STORE_SHADOW_ORIGIN(size, type_s)	\
-void __kmsan_store_shadow_origin_##size(u64 addr, u64 s, u64 o)	\
+void __msan_store_shadow_origin_##size(u64 addr, u64 s, u64 o)	\
 {						\
 	unsigned long irq_flags;		\
 	type_s *shadow;				\
@@ -253,7 +253,7 @@ void __kmsan_store_shadow_origin_##size(u64 addr, u64 s, u64 o)	\
 leave:									\
 	return;								\
 }									\
-EXPORT_SYMBOL(__kmsan_store_shadow_origin_##size);
+EXPORT_SYMBOL(__msan_store_shadow_origin_##size);
 DECLARE_KMSAN_STORE_SHADOW_ORIGIN(1, u8);
 DECLARE_KMSAN_STORE_SHADOW_ORIGIN(2, u16);
 DECLARE_KMSAN_STORE_SHADOW_ORIGIN(4, u32);
@@ -262,7 +262,7 @@ DECLARE_KMSAN_STORE_SHADOW_ORIGIN(4, u32);
 // TODO(glider): do we need any checks here?
 // TODO(glider): maybe save origins as well?
 // Another possible thing to do is to push/pop va_arg shadow.
-void __kmsan_load_overflow_arg_shadow(u64 dst, u64 src, u64 size)
+void __msan_load_arg_shadow(u64 dst, u64 src, u64 size)
 {
 	unsigned long irq_flags;
 
@@ -274,20 +274,13 @@ void __kmsan_load_overflow_arg_shadow(u64 dst, u64 src, u64 size)
 	kmsan_memcpy_mem_to_shadow(dst, src, size);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_load_overflow_arg_shadow);
-
-void __kmsan_restore_va_arg_shadow(u64 dst, u64 src, u64 size)
-	__attribute__((alias("__kmsan_load_overflow_arg_shadow")));
-EXPORT_SYMBOL(__kmsan_restore_va_arg_shadow);
-void __kmsan_load_arg_shadow(u64 dst, u64 src, u64 size)
-	__attribute__((alias("__kmsan_load_overflow_arg_shadow")));
-EXPORT_SYMBOL(__kmsan_load_arg_shadow);
+EXPORT_SYMBOL(__msan_load_arg_shadow);
 
 // Essentially a memcpy(dst, shadow(src), size).
 // TODO(glider): do we need any checks here?
 // TODO(glider): maybe save origins as well?
 // Another possible thing to do is to push/pop va_arg shadow.
-void __kmsan_store_overflow_arg_shadow(u64 dst, u64 src, u64 size)
+void __msan_store_arg_shadow(u64 dst, u64 src, u64 size)
 {
 	unsigned long irq_flags;
 
@@ -299,12 +292,9 @@ void __kmsan_store_overflow_arg_shadow(u64 dst, u64 src, u64 size)
 	kmsan_memcpy_shadow_to_mem(dst, src, size);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_store_overflow_arg_shadow);
-void __kmsan_store_arg_shadow(u64 dst, u64 src, u64 size)
-	__attribute__((alias("__kmsan_store_overflow_arg_shadow")));
-EXPORT_SYMBOL(__kmsan_store_arg_shadow);
+EXPORT_SYMBOL(__msan_store_arg_shadow);
 
-// TODO(glider): rename to __kmsan_memmove
+// TODO(glider): rename to __msan_memmove
 void *__msan_memmove(void *dst, void *src, u64 n)
 {
 	void *result;
@@ -337,7 +327,6 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 }
 EXPORT_SYMBOL(__msan_memmove);
 
-// TODO(glider): rename to __kmsan_memcpy
 void *__msan_memcpy(void *dst, const void *src, u64 n)
 {
 	void *result;
@@ -391,7 +380,6 @@ leave:
 EXPORT_SYMBOL(__msan_memcpy);
 
 
-// TODO(glider): rename to __kmsan_memset
 void *__msan_memset(void *dst, int c, size_t n)
 {
 	void *result;
@@ -423,7 +411,7 @@ void *__msan_memset(void *dst, int c, size_t n)
 }
 EXPORT_SYMBOL(__msan_memset);
 
-void __kmsan_poison_alloca(void *a, u64 size, char *descr/*checked*/, u64 pc)
+void __msan_poison_alloca(void *a, u64 size, char *descr/*checked*/, u64 pc)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[4];
@@ -451,9 +439,9 @@ void __kmsan_poison_alloca(void *a, u64 size, char *descr/*checked*/, u64 pc)
 	kmsan_set_origin((u64)a, (int)size, handle);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_poison_alloca);
+EXPORT_SYMBOL(__msan_poison_alloca);
 
-void __kmsan_unpoison(void *addr, u64 size)
+void __msan_unpoison(void *addr, u64 size)
 {
 	unsigned long irq_flags;
 	if (!kmsan_ready)
@@ -464,10 +452,10 @@ void __kmsan_unpoison(void *addr, u64 size)
 	kmsan_internal_unpoison_shadow(addr, size);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_unpoison);
+EXPORT_SYMBOL(__msan_unpoison);
 
 // Compiler API
-void __kmsan_warning_32(u32 origin)
+void __msan_warning_32(u32 origin)
 {
 	void *caller;
 	unsigned long irq_flags;
@@ -481,10 +469,10 @@ void __kmsan_warning_32(u32 origin)
 	kmsan_report(caller, origin);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_warning_32);
+EXPORT_SYMBOL(__msan_warning_32);
 
 // Per-task getters.
-kmsan_context_state *__kmsan_get_context_state(void)
+kmsan_context_state *__msan_get_context_state(void)
 {
 	unsigned long irq_flags;
 	kmsan_context_state *ret;
@@ -508,4 +496,4 @@ kmsan_context_state *__kmsan_get_context_state(void)
 
 	return ret;
 }
-EXPORT_SYMBOL(__kmsan_get_context_state);
+EXPORT_SYMBOL(__msan_get_context_state);
