@@ -172,6 +172,7 @@ static inline unsigned long current_stack_pointer(void)
  *		-1 if placed across a frame boundary (or outside stack)
  *		 0 unable to determine (no frame pointers, etc)
  */
+__attribute__((no_sanitize("kernel-memory")))
 static inline int arch_within_stack_frames(const void * const stack,
 					   const void * const stackend,
 					   const void *obj, unsigned long len)
