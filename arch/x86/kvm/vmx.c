@@ -1450,7 +1450,8 @@ static struct shared_msr_entry *find_msr_entry(struct vcpu_vmx *vmx, u32 msr)
 static void vmcs_clear(struct vmcs *vmcs)
 {
 	u64 phys_addr = __pa(vmcs);
-	u8 error;
+	///u8 error;
+	u8 error = 0;  // TODO(glider): this is a false positive.
 
 	asm volatile (__ex(ASM_VMX_VMCLEAR_RAX) "; setna %0"
 		      : "=qm"(error) : "a"(&phys_addr), "m"(phys_addr)
