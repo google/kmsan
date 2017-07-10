@@ -63,7 +63,8 @@ Also consider running a KMSAN-instrumented kernel under [syzkaller](https://gith
     `generic_block_bmap()`](https://lkml.org/lkml/2016/12/22/158)
     *   Writeup:
         https://github.com/google/kmsan/blob/master/kmsan-first-bug-writeup.txt
-    *   Status: taken to the ext4 tree (according to Ted Ts'o), upstream fix pending
+    *   Status: [fixed
+        upstream](https://github.com/torvalds/linux/commit/2a527d6858c246db8afc3d576dbcbff0902f933b)
 *   [`strlen()` called on non-terminated string in `bind()` for
     `AF_PACKET`](https://lkml.org/lkml/2017/2/28/270)
     *   Status: [fixed
