@@ -101,3 +101,7 @@ Also consider running a KMSAN-instrumented kernel under [syzkaller](https://gith
 *   [`strlen()` incorrectly called on user-supplied memory in `dev_set_alias()`](https://lkml.org/lkml/2017/5/31/394)
     *   Status: [fixed
         upstream](https://github.com/torvalds/linux/commit/c28294b941232931fbd714099798eb7aa7e865d7)
+
+### Confirmed bug reports by others:
+*   [`deprecated_sysctl_warning()` reads uninit memory](https://lkml.org/lkml/2017/5/24/498)
+*   [`struct sockaddr` length not checked in `llcp_sock_connect()`](https://github.com/torvalds/linux/commit/608c4adfcabab220142ee335a2a003ccd1c0b25b)
