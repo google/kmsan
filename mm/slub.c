@@ -3437,8 +3437,8 @@ static int init_kmem_cache_nodes(struct kmem_cache *s)
 			return 0;
 		}
 
-		init_kmem_cache_node(n);
 		s->node[node] = n;
+		init_kmem_cache_node(n);
 	}
 	return 1;
 }
