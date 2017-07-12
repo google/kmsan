@@ -1473,7 +1473,7 @@ static inline void loaded_vmcs_init(struct loaded_vmcs *loaded_vmcs)
 static void vmcs_load(struct vmcs *vmcs)
 {
 	u64 phys_addr = __pa(vmcs);
-	u8 error;
+	u8 error = 0; // TODO(glider): false positive
 
 	asm volatile (__ex(ASM_VMX_VMPTRLD_RAX) "; setna %0"
 			: "=qm"(error) : "a"(&phys_addr), "m"(phys_addr)
@@ -1685,7 +1685,7 @@ static noinline void vmwrite_error(unsigned long field, unsigned long value)
 
 static __always_inline void __vmcs_writel(unsigned long field, unsigned long value)
 {
-	u8 error;
+	u8 error = 0;  // TODO(glider): false positive
 
 	asm volatile (__ex(ASM_VMX_VMWRITE_RAX_RDX) "; setna %0"
 		       : "=q"(error) : "a"(value), "d"(field) : "cc");
@@ -5051,6 +5051,9 @@ static void vmx_set_constant_host_state(struct vcpu_vmx *vmx)
 	vmcs_write16(HOST_TR_SELECTOR, GDT_ENTRY_TSS*8);  /* 22.2.4 */
 
 	native_store_idt(&dt);
+	// TODO(glider): better properly handle unpoisoning in
+	// native_store_idt().
+	kmsan_unpoison_shadow(&dt, sizeof(dt));
 	vmcs_writel(HOST_IDTR_BASE, dt.address);   /* 22.2.4 */
 	vmx->host_idt_base = dt.address;
 
