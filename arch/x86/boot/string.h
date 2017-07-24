@@ -14,9 +14,11 @@ int memcmp(const void *s1, const void *s2, size_t len);
  * Access builtin version by default. If one needs to use optimized version,
  * do "undef memcpy" in .c file and link against right string.c
  */
+#ifndef __clang__ /* PR18415 */
 #define memcpy(d,s,l) __builtin_memcpy(d,s,l)
 #define memset(d,c,l) __builtin_memset(d,c,l)
 #define memcmp	__builtin_memcmp
+#endif
 
 extern int strcmp(const char *str1, const char *str2);
 extern int strncmp(const char *cs, const char *ct, size_t count);
