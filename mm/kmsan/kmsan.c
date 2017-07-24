@@ -450,7 +450,21 @@ void kmsan_memcpy_shadow_to_mem(u64 dst, u64 src, size_t n)
 
 // TODO(glider): overthink this.
 // Ideally, we want a chained origin for each distinct 4-byte slot.
-// Origins are aligned on 4
+// Origins are aligned on 4.
+// When copying 1 <= n <= 3 initialized bytes, we need to check that the
+// remaining 4-n bytes are initialized before overwriting the origin (if they
+// are not, no need to overwrite).
+// 3 cases:
+// 1. |dst| and |src| are 4-aligned. Just copy ALIGN(n, 4) origin bytes from
+//    the corresponding origin pages.
+// 2. |dst| is 4-aligned, |src| is not. We can write to at most
+//    [o(dst), (o(dst+ALIGN(n, 4))) bytes, while the interesting source origins
+//    reside at [o(ALIGN_DOWN(src, 4), o(ALIGN(src + n, 4)) ), which is 4 bytes
+//    longer.
+// ... (TODO)
+// The major problem is that there are cases in which N+1 origin slots
+// correspond to N*4 bytes of the kernel memory, so we need to evict one of the
+// origins.
 void kmsan_memcpy_origins(u64 dst, u64 src, size_t n)
 {
 	void *origin_src, *origin_dst;
@@ -467,7 +481,9 @@ void kmsan_memcpy_origins(u64 dst, u64 src, size_t n)
 	off = src % 4;
 	dst = (dst >> 2) << 2;
 	src = src - off;
-	n = ALIGN(n + off, 4);
+	// In the case |src| isn't aligned on 4, it touches the extra 4 origin bytes.
+	// Unfortunately we can't copy more than n bytes.
+	n = ALIGN(src + n, 4) - src;
 	while (n) {
 		rem_src = PAGE_SIZE - (src % PAGE_SIZE);
 		rem_dst = PAGE_SIZE - (dst % PAGE_SIZE);
@@ -1183,7 +1199,7 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked)
 	}
 	page_offset = (addr % PAGE_SIZE);
 	if (!page->origin) {
-		kmsan_pr_err("No origin for address %p (page %p)\n", addr, page);
+		kmsan_pr_err("No origin for address %p (page %p), size=%d\n", addr, page, size);
 		BUG_ON(page->shadow);
 		BUG_ON(!page->origin);
 	}
