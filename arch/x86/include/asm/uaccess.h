@@ -157,11 +157,13 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0UL), 0ULL, 0UL))
  * Clang/LLVM cares about the size of the register, but still wants
  * the base register for something that ends up being a pair.
  */
+
+register unsigned long int __sp asm(_ASM_SP);
+
 #define get_user(x, ptr)						\
 ({									\
 	int __ret_gu;							\
 	register __inttype(*(ptr)) __val_gu asm("%"_ASM_DX);		\
-	register void *__sp asm(_ASM_SP);				\
 	__chk_user_ptr(ptr);						\
 	might_fault();							\
 	asm volatile("call __get_user_%P4"				\
