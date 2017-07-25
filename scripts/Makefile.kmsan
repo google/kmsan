@@ -1,0 +1,12 @@
+ifdef CONFIG_KMSAN
+
+CFLAGS_KMSAN := -fsanitize=kernel-memory
+
+ifeq ($(call cc-option, $(CFLAGS_KMSAN) -Werror),)
+   ifneq ($(CONFIG_COMPILE_TEST),y)
+        $(warning Cannot use CONFIG_KMSAN: \
+            -fsanitize=kernel-memory is not supported by compiler)
+   endif
+endif
+
+endif
