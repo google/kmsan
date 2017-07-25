@@ -8,12 +8,12 @@ config KMSAN
 	depends on SLUB
 	select STACKDEPOT
 	help
-	  TODO
+	  TODO(glider)
 
 config TEST_KMSAN
 	tristate "Module for testing KMSAN for bug detection"
 	depends on m && KMSAN
 	help
-	  TODO
+	  TODO(glider)
 
 endif
