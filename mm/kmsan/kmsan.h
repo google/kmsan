@@ -1,7 +1,7 @@
 #ifndef __MM_KMSAN_KMSAN_H
 #define __MM_KMSAN_KMSAN_H
 
-//#include <asm-generic/current.h>
+#include <asm/current.h>
 #include <linux/irqflags.h>
 #include <linux/sched.h>
 #include <linux/stackdepot.h>
@@ -23,6 +23,15 @@ bool is_logbuf_locked(void);
 			pr_err(__VA_ARGS__); \
 	} while (0)
 
+
+/*
+ * When a compiler hook is invoked, it may make a call to instrumented code
+ * and eventually call itself recursively. To avoid that, we protect the
+ * runtime entry points with ENTER_RUNTIME()/LEAVE_RUNTIME() macros and exit
+ * the hook if IN_RUNTIME() is true. But when an interrupt occurs inside the
+ * runtime, the hooks won’t run either, which may lead to errors.
+ * Therefore we have to disable interrupts inside the runtime.
+ */
 #define IN_RUNTIME()	(current->kmsan.in_runtime)
 #define ENTER_RUNTIME(irq_flags) \
 	do { \
@@ -55,8 +64,6 @@ extern bool use_chained_origins;
 extern char kmsan_dummy_shadow[];
 extern char kmsan_dummy_origin[];
 
-#define RETVAL_SIZE 800
-#define PARAM_SIZE 800
 
 extern void *kmsan_dummy_retval_tls[];
 extern u64 kmsan_dummy_va_arg_overflow_size_tls;
@@ -77,11 +84,12 @@ void do_kmsan_thread_create(struct task_struct *task);
 void kmsan_set_origin(u64 address, int size, u32 origin);
 inline void kmsan_report(void *caller, depot_stack_handle_t origin);
 
-bool kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
-		     		gfp_t flags, int node);
+int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
+				gfp_t flags, int node);
 
 void __msan_init(void);
 
 int task_tls_index(void);
+kmsan_context_state *task_kmsan_context_state(void);
 
 #endif

@@ -1,7 +1,18 @@
-/* KMSAN compiler API
+/*
+ * KMSAN compiler API.
+ *
+ * Copyright (C) 2017 Google, Inc
+ * Author: Alexander Potapenko <glider@google.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
  */
 
+
 #include "kmsan.h"
+#include <linux/gfp.h>
 
 // TODO(glider): dummy shadow should be per-task.
 // TODO(glider): ideally, there should be no dummy shadow once we're initialized.
@@ -9,51 +20,46 @@
 
 void check_param_origin_tls(void)
 {
-	int inter = task_tls_index();
+	kmsan_context_state *cstate = task_kmsan_context_state();
 	int i;
 	unsigned long flags;
 	return;
 	if (!kmsan_ready)
 		return;
 
-	for (i = 0; i < PARAM_SIZE / sizeof(depot_stack_handle_t); i++) {
-		///if (current->kmsan.param_origin_tls[inter][i] == 0xfeedface) {
-		if (current->kmsan.param_origin_tls[inter][i]) {
+	for (i = 0; i < KMSAN_PARAM_SIZE / sizeof(depot_stack_handle_t); i++) {
+		if (cstate->param_origin_tls[i]) {
 			spin_lock_irqsave(&report_lock, flags);
-			kmsan_pr_err("bad origin at function start: %p, inter=%d, &inter (~sp): %p\n", current->kmsan.param_origin_tls[inter][i], inter, &inter);
 			dump_stack();
 			spin_unlock_irqrestore(&report_lock, flags);
 		}
-		current->kmsan.param_origin_tls[inter][i] = 0;
+		cstate->param_origin_tls[i] = 0;
 	}
-	for (i = 0; i < PARAM_SIZE / sizeof(void*); i++) {
-		current->kmsan.param_tls[inter][i] = 0;
+	for (i = 0; i < KMSAN_PARAM_SIZE / sizeof(void*); i++) {
+		cstate->param_tls[i] = 0;
 	}
 }
 
 // TODO(glider): remove this fn?
 // Looks like it's enough to mark syscall entries non-instrumented.
-void kmsan_wipe_params_shadow_origin(int inter)
+void kmsan_wipe_params_shadow_origin()
 {
 	int ind, num;
 	unsigned long irq_flags;
-	int start = (inter == -1) ? 0 : inter;
-	int end = (inter == -1) ? KMSAN_NUM_SHADOW_STACKS : inter + 1;
+	kmsan_context_state *cstate = task_kmsan_context_state();
 
 	if (!kmsan_ready)
 		return;
 	if (IN_RUNTIME() || !current->kmsan.enabled)
 		return;
 	ENTER_RUNTIME(irq_flags);
-	for (ind = start; ind < end; ind++) {
-		__memset(current->kmsan.param_origin_tls[ind], 0, PARAM_SIZE);
-		__memset(current->kmsan.param_tls[ind], 0, PARAM_SIZE);
-		__memset(current->kmsan.va_arg_tls[ind], 0, PARAM_SIZE);
-		__memset(current->kmsan.retval_tls[ind], 0, RETVAL_SIZE);
-		current->kmsan.retval_origin_tls[ind] = 0;
-		current->kmsan.origin_tls[ind] = 0;
-		current->kmsan.va_arg_overflow_size_tls[ind] = 0;
-	}
+	__memset(cstate->param_origin_tls, 0, KMSAN_PARAM_SIZE);
+	__memset(cstate->param_tls, 0, KMSAN_PARAM_SIZE);
+	__memset(cstate->va_arg_tls, 0, KMSAN_PARAM_SIZE);
+	__memset(cstate->retval_tls, 0, RETVAL_SIZE);
+	cstate->retval_origin_tls = 0;
+	cstate->origin_tls = 0;
+	cstate->va_arg_overflow_size_tls = 0;
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_wipe_params_shadow_origin);
@@ -75,14 +81,14 @@ typedef struct {
 
 typedef struct {
 	u64 s;
-	// TODO(glider): make __kmsan_load_shadow_origin() return 2 32-bit origin slots.
+	// TODO(glider): make __msan_load_shadow_origin() return 2 32-bit origin slots.
 	u32 o;
 	//u64 o;
 } shadow_origin_8;
 
 
 #define DECLARE_KMSAN_LOAD_SHADOW_ORIGIN(size, shadow_type) \
-shadow_origin_##size __kmsan_load_shadow_origin_##size(u64 addr) \
+shadow_origin_##size __msan_load_shadow_origin_##size(u64 addr) \
 {	\
 	shadow_origin_##size ret = {0, 0};	\
 	shadow_type *shadow;			\
@@ -106,7 +112,7 @@ shadow_origin_##size __kmsan_load_shadow_origin_##size(u64 addr) \
 leave:						\
 	return ret;				\
 }						\
-EXPORT_SYMBOL(__kmsan_load_shadow_origin_##size);
+EXPORT_SYMBOL(__msan_load_shadow_origin_##size);
 
 DECLARE_KMSAN_LOAD_SHADOW_ORIGIN(1, u8);
 DECLARE_KMSAN_LOAD_SHADOW_ORIGIN(2, u16);
@@ -118,7 +124,7 @@ typedef struct {
 	u32 o;
 } shadow_origin_n;
 
-shadow_origin_n __kmsan_load_shadow_origin_n_8(u64 addr, u64 size)
+shadow_origin_n __msan_load_shadow_origin_n_8(u64 addr, u64 size)
 {
 	shadow_origin_n ret = {0, 0};
 	u32 *origin;
@@ -143,7 +149,7 @@ leave:
 }
 
 // TODO(glider): pull this declaration under the macro below.
-void __kmsan_store_shadow_origin_8(u64 addr, u64 s, u64 o)
+void __msan_store_shadow_origin_8(u64 addr, u64 s, u64 o)
 {
 	unsigned long irq_flags;
 	u64 *shadow;
@@ -192,17 +198,14 @@ void __kmsan_store_shadow_origin_8(u64 addr, u64 s, u64 o)
 leave:
 	return;
 }
-EXPORT_SYMBOL(__kmsan_store_shadow_origin_8);
+EXPORT_SYMBOL(__msan_store_shadow_origin_8);
 
-void __kmsan_store_shadow_origin_n_8(u64 addr, u64 s, u64 o, u64 size)
+void __msan_store_shadow_origin_n_8(u64 addr, u64 s, u64 o, u64 size)
 {
 	unsigned long irq_flags;
 	u32 new_o;
 	void *shadow;
 
-	// TODO(glider): the code actually works for other sizes, but
-	// it's interesting whether we need them.
-	BUG_ON(size != 3);
 	if (!kmsan_ready || IN_RUNTIME()) {
 		return;
 	}
@@ -223,7 +226,7 @@ leave:
 }
 
 #define DECLARE_KMSAN_STORE_SHADOW_ORIGIN(size, type_s)	\
-void __kmsan_store_shadow_origin_##size(u64 addr, u64 s, u64 o)	\
+void __msan_store_shadow_origin_##size(u64 addr, u64 s, u64 o)	\
 {						\
 	unsigned long irq_flags;		\
 	type_s *shadow;				\
@@ -250,7 +253,7 @@ void __kmsan_store_shadow_origin_##size(u64 addr, u64 s, u64 o)	\
 leave:									\
 	return;								\
 }									\
-EXPORT_SYMBOL(__kmsan_store_shadow_origin_##size);
+EXPORT_SYMBOL(__msan_store_shadow_origin_##size);
 DECLARE_KMSAN_STORE_SHADOW_ORIGIN(1, u8);
 DECLARE_KMSAN_STORE_SHADOW_ORIGIN(2, u16);
 DECLARE_KMSAN_STORE_SHADOW_ORIGIN(4, u32);
@@ -259,7 +262,7 @@ DECLARE_KMSAN_STORE_SHADOW_ORIGIN(4, u32);
 // TODO(glider): do we need any checks here?
 // TODO(glider): maybe save origins as well?
 // Another possible thing to do is to push/pop va_arg shadow.
-void __kmsan_load_overflow_arg_shadow(u64 dst, u64 src, u64 size)
+void __msan_load_arg_shadow(u64 dst, u64 src, u64 size)
 {
 	unsigned long irq_flags;
 
@@ -271,20 +274,13 @@ void __kmsan_load_overflow_arg_shadow(u64 dst, u64 src, u64 size)
 	kmsan_memcpy_mem_to_shadow(dst, src, size);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_load_overflow_arg_shadow);
-
-void __kmsan_restore_va_arg_shadow(u64 dst, u64 src, u64 size)
-	__attribute__((alias("__kmsan_load_overflow_arg_shadow")));
-EXPORT_SYMBOL(__kmsan_restore_va_arg_shadow);
-void __kmsan_load_arg_shadow(u64 dst, u64 src, u64 size)
-	__attribute__((alias("__kmsan_load_overflow_arg_shadow")));
-EXPORT_SYMBOL(__kmsan_load_arg_shadow);
+EXPORT_SYMBOL(__msan_load_arg_shadow);
 
 // Essentially a memcpy(dst, shadow(src), size).
 // TODO(glider): do we need any checks here?
 // TODO(glider): maybe save origins as well?
 // Another possible thing to do is to push/pop va_arg shadow.
-void __kmsan_store_overflow_arg_shadow(u64 dst, u64 src, u64 size)
+void __msan_store_arg_shadow(u64 dst, u64 src, u64 size)
 {
 	unsigned long irq_flags;
 
@@ -296,12 +292,9 @@ void __kmsan_store_overflow_arg_shadow(u64 dst, u64 src, u64 size)
 	kmsan_memcpy_shadow_to_mem(dst, src, size);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_store_overflow_arg_shadow);
-void __kmsan_store_arg_shadow(u64 dst, u64 src, u64 size)
-	__attribute__((alias("__kmsan_store_overflow_arg_shadow")));
-EXPORT_SYMBOL(__kmsan_store_arg_shadow);
+EXPORT_SYMBOL(__msan_store_arg_shadow);
 
-// TODO(glider): rename to __kmsan_memmove
+// TODO(glider): rename to __msan_memmove
 void *__msan_memmove(void *dst, void *src, u64 n)
 {
 	void *result;
@@ -334,12 +327,19 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 }
 EXPORT_SYMBOL(__msan_memmove);
 
-// TODO(glider): rename to __kmsan_memcpy
 void *__msan_memcpy(void *dst, const void *src, u64 n)
 {
 	void *result;
 	void *shadow_dst;
 	unsigned long irq_flags;
+	if ((dst != src) && (!(((u64)dst + n <= (u64)src) || ((u64)src + n <= (u64)dst)))) {
+		kmsan_pr_err("==================================================================\n");
+		// TODO(glider): avoid __builtin_return_address(1).
+		kmsan_pr_err("WARNING: memcpy-param-overlap in %pS\n", __builtin_return_address(1));
+		kmsan_pr_err("__msan_memcpy(%p, %p, %d)\n", dst, src, n);
+		dump_stack();
+		kmsan_pr_err("==================================================================\n");
+	}
 
 	result = __memcpy(dst, src, n);
 
@@ -380,7 +380,6 @@ leave:
 EXPORT_SYMBOL(__msan_memcpy);
 
 
-// TODO(glider): rename to __kmsan_memset
 void *__msan_memset(void *dst, int c, size_t n)
 {
 	void *result;
@@ -388,7 +387,6 @@ void *__msan_memset(void *dst, int c, size_t n)
 	depot_stack_handle_t origin, new_origin;
 	unsigned int shadow;
 	void *caller;
-	int inter = task_tls_index();
 
 	result = __memset(dst, c, n);
 	if (IN_RUNTIME())
@@ -400,8 +398,8 @@ void *__msan_memset(void *dst, int c, size_t n)
 	// TODO(glider): emit stores to param_tls and param_origin_tls in the compiler for KMSAN.
 	// (not for MSan, because __msan_memset could be called from the userspace RTL)
 	// Take the shadow and origin of |c|.
-	///shadow = (unsigned int)(current->kmsan.param_tls[inter][1]);
-	///origin = (depot_stack_handle_t)(current->kmsan.param_origin_tls[inter][1]);
+	///shadow = (unsigned int)(current->kmsan.cstate.param_tls[1]);
+	///origin = (depot_stack_handle_t)(current->kmsan.cstate.param_origin_tls[1]);
 	shadow = 0;
 	kmsan_internal_memset_shadow((u64)dst, shadow, n);
 	///new_origin = kmsan_internal_chain_origin(origin, /*full*/true);
@@ -413,30 +411,7 @@ void *__msan_memset(void *dst, int c, size_t n)
 }
 EXPORT_SYMBOL(__msan_memset);
 
-
-// TODO(glider): rename to __kmsan_chain_origin, make sure this function is emitted.
-// Or do we need it at all?
-#if 0
-u32 __msan_chain_origin(u32 id)
-{
-	depot_stack_handle_t handle;
-	unsigned long irq_flags;
-
-	if (!use_chained_origins)
-		return id;
-	if (!kmsan_ready)
-		return id;
-	if (IN_RUNTIME())
-		return id;
-	ENTER_RUNTIME(irq_flags);
-	handle = kmsan_internal_chain_origin(id, /*full*/false);
-	LEAVE_RUNTIME(irq_flags);
-	return handle;
-}
-EXPORT_SYMBOL(__msan_chain_origin);
-#endif
-
-void __kmsan_poison_alloca(void *a, u64 size, char *descr/*checked*/, u64 pc)
+void __msan_poison_alloca(void *a, u64 size, char *descr/*checked*/, u64 pc)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[4];
@@ -464,9 +439,9 @@ void __kmsan_poison_alloca(void *a, u64 size, char *descr/*checked*/, u64 pc)
 	kmsan_set_origin((u64)a, (int)size, handle);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_poison_alloca);
+EXPORT_SYMBOL(__msan_poison_alloca);
 
-void __kmsan_unpoison(void *addr, u64 size)
+void __msan_unpoison(void *addr, u64 size)
 {
 	unsigned long irq_flags;
 	if (!kmsan_ready)
@@ -477,31 +452,16 @@ void __kmsan_unpoison(void *addr, u64 size)
 	kmsan_internal_unpoison_shadow(addr, size);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_unpoison);
+EXPORT_SYMBOL(__msan_unpoison);
 
 // Compiler API
-// TODO(glider): rename to __kmsan_warning, pass origin as a parameter.
-void __msan_warning(void)
+void __msan_warning_32(u32 origin)
 {
 	void *caller;
 	unsigned long irq_flags;
-	int inter = task_tls_index();
 
-	if (IN_RUNTIME())
+	if (!kmsan_ready)
 		return;
-	ENTER_RUNTIME(irq_flags);
-	caller = __builtin_return_address(0);
-	kmsan_report(caller, current->kmsan.origin_tls[inter]);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(__msan_warning);
-
-void __kmsan_warning_32(u32 origin)
-{
-	void *caller;
-	unsigned long irq_flags;
-	int inter = task_tls_index();
-
 	if (IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
@@ -509,206 +469,31 @@ void __kmsan_warning_32(u32 origin)
 	kmsan_report(caller, origin);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__kmsan_warning_32);
+EXPORT_SYMBOL(__msan_warning_32);
 
 // Per-task getters.
-void *__kmsan_get_retval_tls(void)
+kmsan_context_state *__msan_get_context_state(void)
 {
-	int inter = task_tls_index();
 	unsigned long irq_flags;
-	void *ret;
+	kmsan_context_state *ret;
 
 	if (!kmsan_threads_ready) {
-		__memset(kmsan_dummy_retval_tls, 0, RETVAL_SIZE); // TODO
-		return kmsan_dummy_retval_tls;
+		__memset(&kmsan_dummy_state, 0, sizeof(kmsan_dummy_state));
+		return &kmsan_dummy_state;
 	}
 	__msan_init();
 	if (IN_RUNTIME() || !current->kmsan.enabled) {
 		// We're in runtime, don't care about the shadow.
-		///__memset(kmsan_dummy_retval_tls, 0, RETVAL_SIZE); // TODO
-		return kmsan_dummy_retval_tls;
+		///__memset(&kmsan_dummy_state, 0, sizeof(kmsan_dummy_state)); // TODO(glider)
+		return &kmsan_dummy_state;
 	}
-	// No need to enter/leave runtime.
+	// No need to enter/leave runtime?
 	ENTER_RUNTIME(irq_flags);
-	ret = current->kmsan.retval_tls[inter];
-	///__memset(ret, 0, RETVAL_SIZE); // TODO
+	ret = task_kmsan_context_state();
 	LEAVE_RUNTIME(irq_flags);
+
+	BUG_ON(!ret);
 
 	return ret;
 }
-EXPORT_SYMBOL(__kmsan_get_retval_tls);
-
-u64 *__kmsan_get_va_arg_overflow_size_tls(void)
-{
-	int inter = task_tls_index();
-	u64 *ret;
-	unsigned long irq_flags;
-
-	if (!kmsan_threads_ready) {
-		kmsan_dummy_va_arg_overflow_size_tls = 0;
-		return &kmsan_dummy_va_arg_overflow_size_tls;
-	}
-	__msan_init();
-	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		kmsan_dummy_va_arg_overflow_size_tls = 0;
-		return &kmsan_dummy_va_arg_overflow_size_tls;
-	}
-
-	ENTER_RUNTIME(irq_flags);
-	ret = &(current->kmsan.va_arg_overflow_size_tls[inter]);
-	LEAVE_RUNTIME(irq_flags);
-
-	return ret;
-}
-EXPORT_SYMBOL(__kmsan_get_va_arg_overflow_size_tls);
-
-void **__kmsan_get_va_arg_tls(void)
-{
-	int inter = task_tls_index();
-	void **ret;
-	unsigned long irq_flags;
-
-	if (!kmsan_threads_ready) {
-		__memset(kmsan_dummy_va_arg_tls, 0, PARAM_SIZE); // TODO
-		return kmsan_dummy_va_arg_tls;
-	}
-	__msan_init();
-	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		// We're in runtime, don't care about the shadow.
-		///__memset(kmsan_dummy_va_arg_tls, 0, PARAM_SIZE); // TODO
-		return kmsan_dummy_va_arg_tls;
-	}
-
-	ENTER_RUNTIME(irq_flags);
-	ret = current->kmsan.va_arg_tls[inter];
-	LEAVE_RUNTIME(irq_flags);
-
-	return ret;
-}
-EXPORT_SYMBOL(__kmsan_get_va_arg_tls);
-
-void **__kmsan_get_param_tls(void)
-{
-	int inter = task_tls_index();
-	void **ret;
-	unsigned long irq_flags;
-
-	// TODO(glider): disabled shadow tracking across function calls
-	if (!kmsan_threads_ready) {
-		__memset(kmsan_dummy_param_tls, 0, PARAM_SIZE); // TODO
-		return kmsan_dummy_param_tls;
-	}
-	__msan_init();
-	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		// We're in runtime, don't care about the shadow.
-		///__memset(kmsan_dummy_param_tls, 0, PARAM_SIZE); // TODO
-		return kmsan_dummy_param_tls;
-	}
-
-	ENTER_RUNTIME(irq_flags);
-	ret = current->kmsan.param_tls[inter];
-	///__memset(current->kmsan.param_tls[inter], 0, PARAM_SIZE); // TODO
-	LEAVE_RUNTIME(irq_flags);
-
-	return ret;
-}
-EXPORT_SYMBOL(__kmsan_get_param_tls);
-
-// TODO(glider): get rid of current->kmsan.origin_tls.
-// Use a parameter to __msan_warning() instead.
-u32 *__kmsan_get_origin_tls(void)
-{
-	int inter = task_tls_index();
-	u32 *ret;
-	unsigned long irq_flags;
-
-	if (!kmsan_threads_ready) {
-		kmsan_dummy_origin_tls = 0;
-		return &kmsan_dummy_origin_tls;
-	}
-	__msan_init();
-	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		kmsan_dummy_origin_tls = 0;
-		return &kmsan_dummy_origin_tls;
-	}
-
-	ENTER_RUNTIME(irq_flags);
-	ret = &(current->kmsan.origin_tls[inter]);
-	*ret = 0;
-	LEAVE_RUNTIME(irq_flags);
-
-	return ret;
-}
-EXPORT_SYMBOL(__kmsan_get_origin_tls);
-
-
-u32 *__kmsan_get_param_origin_tls(void)
-{
-	int inter = task_tls_index();
-	u32 *ret;
-	unsigned long irq_flags;
-	int i;
-	unsigned long flags;
-
-	// TODO(glider): disabled shadow tracking across function calls
-	if (!kmsan_threads_ready) {
-		__memset(kmsan_dummy_param_origin_tls, 0, PARAM_SIZE); // TODO
-		return kmsan_dummy_param_origin_tls;
-	}
-	__msan_init();
-	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		// We're in runtime, don't care about the shadow.
-	///	__memset(kmsan_dummy_param_origin_tls, 0, PARAM_SIZE); // TODO
-		return kmsan_dummy_param_origin_tls;
-	}
-	ENTER_RUNTIME(irq_flags);
-	///BUG_ON(READ_ONCE(current->kmsan.busy));
-#if 0
-	if (READ_ONCE(current->kmsan.busy)) {
-		pr_err("first stack below\n");
-		dump_stack();
-		pr_err("first stack above\n");
-		WRITE_ONCE(current->kmsan.busy2, 1);
-		///while (READ_ONCE(current->kmsan.busy2)) {
-		//msleep(2000);
-		WRITE_ONCE(current->kmsan.busy2, 0);
-		///}
-		///BUG();
-	}
-#endif
-	///WRITE_ONCE(current->kmsan.busy, 1);
-	ret = current->kmsan.param_origin_tls[inter];
-	///check_param_origin_tls();
-	///__memset(current->kmsan.param_origin_tls[inter], 0, PARAM_SIZE); // TODO
-	///WRITE_ONCE(current->kmsan.busy, 0);
-	LEAVE_RUNTIME(irq_flags);
-
-	return ret;
-}
-EXPORT_SYMBOL(__kmsan_get_param_origin_tls);
-
-int *__kmsan_get_retval_origin_tls(void)
-{
-	int inter = task_tls_index();
-	int *ret;
-	unsigned long irq_flags;
-
-	if (!kmsan_threads_ready) {
-		kmsan_dummy_retval_origin_tls = 0;
-		return &kmsan_dummy_retval_origin_tls;
-	}
-	__msan_init();
-	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		kmsan_dummy_retval_origin_tls = 0;
-		return &kmsan_dummy_retval_origin_tls;
-	}
-
-	ENTER_RUNTIME(irq_flags);
-	ret = &(current->kmsan.retval_origin_tls[inter]);
-	current->kmsan.retval_origin_tls[inter] = 0; // TODO
-	LEAVE_RUNTIME(irq_flags);
-
-	return ret;
-}
-EXPORT_SYMBOL(__kmsan_get_retval_origin_tls);
-
+EXPORT_SYMBOL(__msan_get_context_state);
