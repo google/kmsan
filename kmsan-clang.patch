@@ -1,0 +1,185 @@
+Index: tools/clang/include/clang/Basic/Sanitizers.def
+===================================================================
+--- tools/clang/include/clang/Basic/Sanitizers.def	(revision 304977)
++++ tools/clang/include/clang/Basic/Sanitizers.def	(working copy)
+@@ -47,6 +47,9 @@
+ // MemorySanitizer
+ SANITIZER("memory", Memory)
+ 
++// Kernel MemorySanitizer (KMSAN)
++SANITIZER("kernel-memory", KernelMemory)
++
+ // libFuzzer
+ SANITIZER("fuzzer", Fuzzer)
+ 
+Index: tools/clang/lib/CodeGen/BackendUtil.cpp
+===================================================================
+--- tools/clang/lib/CodeGen/BackendUtil.cpp	(revision 304977)
++++ tools/clang/lib/CodeGen/BackendUtil.cpp	(working copy)
+@@ -232,14 +232,14 @@
+                                           /*Recover*/true));
+ }
+ 
+-static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
+-                                   legacy::PassManagerBase &PM) {
++static void addGeneralOptsForMemorySanitizer(const PassManagerBuilder &Builder,
++                                   legacy::PassManagerBase &PM, bool CompileKernel) {
+   const PassManagerBuilderWrapper &BuilderWrapper =
+       static_cast<const PassManagerBuilderWrapper&>(Builder);
+   const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
+   int TrackOrigins = CGOpts.SanitizeMemoryTrackOrigins;
+   bool Recover = CGOpts.SanitizeRecover.has(SanitizerKind::Memory);
+-  PM.add(createMemorySanitizerPass(TrackOrigins, Recover));
++  PM.add(createMemorySanitizerPass(TrackOrigins, Recover, CompileKernel));
+ 
+   // MemorySanitizer inserts complex instrumentation that mostly follows
+   // the logic of the original code, but operates on "shadow" values.
+@@ -254,6 +254,28 @@
+   }
+ }
+ 
++static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
++                                   legacy::PassManagerBase &PM) {
++///  const PassManagerBuilderWrapper &BuilderWrapper =
++///      static_cast<const PassManagerBuilderWrapper&>(Builder);
++///  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
++///  PM.add(createMemorySanitizerPass(CGOpts.SanitizeMemoryTrackOrigins,
++///                                   Recover,
++///                                   /*CompileKernel*/false));
++  addGeneralOptsForMemorySanitizer(Builder, PM, /*CompileKernel*/false);
++}
++
++static void addKernelMemorySanitizerPass(const PassManagerBuilder &Builder,
++                                         legacy::PassManagerBase &PM) {
++///  const PassManagerBuilderWrapper &BuilderWrapper =
++///      static_cast<const PassManagerBuilderWrapper&>(Builder);
++///  const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
++///  PM.add(createMemorySanitizerPass(CGOpts.SanitizeMemoryTrackOrigins,
++///                                   Recover,
++///                                   /*CompileKernel*/true));
++  addGeneralOptsForMemorySanitizer(Builder, PM, /*CompileKernel*/true);
++}
++
+ static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
+                                    legacy::PassManagerBase &PM) {
+   PM.add(createThreadSanitizerPass());
+@@ -557,6 +579,13 @@
+                            addMemorySanitizerPass);
+   }
+ 
++  if (LangOpts.Sanitize.has(SanitizerKind::KernelMemory)) {
++    PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
++                           addKernelMemorySanitizerPass);
++    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
++                           addKernelMemorySanitizerPass);
++  }
++
+   if (LangOpts.Sanitize.has(SanitizerKind::Thread)) {
+     PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
+                            addThreadSanitizerPass);
+Index: tools/clang/lib/CodeGen/CGDeclCXX.cpp
+===================================================================
+--- tools/clang/lib/CodeGen/CGDeclCXX.cpp	(revision 304977)
++++ tools/clang/lib/CodeGen/CGDeclCXX.cpp	(working copy)
+@@ -284,7 +284,8 @@
+       Fn->addFnAttr(llvm::Attribute::SanitizeAddress);
+     if (getLangOpts().Sanitize.has(SanitizerKind::Thread))
+       Fn->addFnAttr(llvm::Attribute::SanitizeThread);
+-    if (getLangOpts().Sanitize.has(SanitizerKind::Memory))
++    if (getLangOpts().Sanitize.hasOneOf(SanitizerKind::Memory |
++                                        SanitizerKind::KernelMemory))
+       Fn->addFnAttr(llvm::Attribute::SanitizeMemory);
+     if (getLangOpts().Sanitize.has(SanitizerKind::SafeStack))
+       Fn->addFnAttr(llvm::Attribute::SafeStack);
+Index: tools/clang/lib/CodeGen/CodeGenFunction.cpp
+===================================================================
+--- tools/clang/lib/CodeGen/CodeGenFunction.cpp	(revision 304977)
++++ tools/clang/lib/CodeGen/CodeGenFunction.cpp	(working copy)
+@@ -757,7 +757,7 @@
+     Fn->addFnAttr(llvm::Attribute::SanitizeAddress);
+   if (SanOpts.has(SanitizerKind::Thread))
+     Fn->addFnAttr(llvm::Attribute::SanitizeThread);
+-  if (SanOpts.has(SanitizerKind::Memory))
++  if (SanOpts.hasOneOf(SanitizerKind::Memory | SanitizerKind::KernelMemory))
+     Fn->addFnAttr(llvm::Attribute::SanitizeMemory);
+   if (SanOpts.has(SanitizerKind::SafeStack))
+     Fn->addFnAttr(llvm::Attribute::SafeStack);
+Index: tools/clang/lib/Driver/SanitizerArgs.cpp
+===================================================================
+--- tools/clang/lib/Driver/SanitizerArgs.cpp	(revision 304977)
++++ tools/clang/lib/Driver/SanitizerArgs.cpp	(working copy)
+@@ -32,7 +32,8 @@
+   RequiresPIE = DataFlow,
+   NeedsUnwindTables = Address | Thread | Memory | DataFlow,
+   SupportsCoverage =
+-      Address | Memory | Leak | Undefined | Integer | Nullability | DataFlow,
++      Address | KernelAddress | Memory | KernelMemory | Leak | Undefined |
++      Integer | Nullability | DataFlow,
+   RecoverableByDefault = Undefined | Integer | Nullability,
+   Unrecoverable = Unreachable | Return,
+   LegacyFsanitizeRecoverMask = Undefined | Integer,
+@@ -322,11 +323,17 @@
+       std::make_pair(KernelAddress, Leak),
+       std::make_pair(KernelAddress, Thread),
+       std::make_pair(KernelAddress, Memory),
++      std::make_pair(KernelMemory, Address),
++      std::make_pair(KernelMemory, KernelAddress),
++      std::make_pair(KernelMemory, Thread),
++      std::make_pair(KernelMemory, Memory),
++      std::make_pair(KernelMemory, Leak),
+       std::make_pair(Efficiency, Address),
+       std::make_pair(Efficiency, Leak),
+       std::make_pair(Efficiency, Thread),
+       std::make_pair(Efficiency, Memory),
+-      std::make_pair(Efficiency, KernelAddress)};
++      std::make_pair(Efficiency, KernelAddress),
++      std::make_pair(Efficiency, KernelMemory)};
+   for (auto G : IncompatibleGroups) {
+     SanitizerMask Group = G.first;
+     if (Kinds & Group) {
+Index: tools/clang/lib/Driver/ToolChains/Linux.cpp
+===================================================================
+--- tools/clang/lib/Driver/ToolChains/Linux.cpp	(revision 304977)
++++ tools/clang/lib/Driver/ToolChains/Linux.cpp	(working copy)
+@@ -837,8 +837,10 @@
+     Res |= SanitizerKind::Leak;
+   if (IsX86_64 || IsMIPS64 || IsAArch64 || IsPowerPC64)
+     Res |= SanitizerKind::Thread;
+-  if (IsX86_64 || IsMIPS64 || IsPowerPC64 || IsAArch64)
++  if (IsX86_64 || IsMIPS64 || IsPowerPC64 || IsAArch64) {
+     Res |= SanitizerKind::Memory;
++    Res |= SanitizerKind::KernelMemory;
++  }
+   if (IsX86_64 || IsMIPS64)
+     Res |= SanitizerKind::Efficiency;
+   if (IsX86 || IsX86_64) {
+Index: tools/clang/lib/Frontend/CompilerInvocation.cpp
+===================================================================
+--- tools/clang/lib/Frontend/CompilerInvocation.cpp	(revision 304977)
++++ tools/clang/lib/Frontend/CompilerInvocation.cpp	(working copy)
+@@ -2608,7 +2608,9 @@
+   // names.
+   Res.getCodeGenOpts().DiscardValueNames &=
+       !LangOpts.Sanitize.has(SanitizerKind::Address) &&
+-      !LangOpts.Sanitize.has(SanitizerKind::Memory);
++      !LangOpts.Sanitize.has(SanitizerKind::KernelAddress) &&
++      !LangOpts.Sanitize.has(SanitizerKind::Memory) &&
++      !LangOpts.Sanitize.has(SanitizerKind::KernelMemory);
+ 
+   // FIXME: ParsePreprocessorArgs uses the FileManager to read the contents of
+   // PCH file and find the original header name. Remove the need to do that in
+Index: tools/clang/lib/Lex/PPMacroExpansion.cpp
+===================================================================
+--- tools/clang/lib/Lex/PPMacroExpansion.cpp	(revision 304977)
++++ tools/clang/lib/Lex/PPMacroExpansion.cpp	(working copy)
+@@ -1133,7 +1133,9 @@
+       .Case("enumerator_attributes", true)
+       .Case("nullability", true)
+       .Case("nullability_on_arrays", true)
+-      .Case("memory_sanitizer", LangOpts.Sanitize.has(SanitizerKind::Memory))
++      .Case("memory_sanitizer",
++            LangOpts.Sanitize.hasOneOf(SanitizerKind::Memory |
++                                       SanitizerKind::KernelMemory))
+       .Case("thread_sanitizer", LangOpts.Sanitize.has(SanitizerKind::Thread))
+       .Case("dataflow_sanitizer", LangOpts.Sanitize.has(SanitizerKind::DataFlow))
+       .Case("efficiency_sanitizer",
