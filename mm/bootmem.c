@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 #include <linux/kmemleak.h>
+#include <linux/kmsan.h>
 #include <linux/range.h>
 #include <linux/bug.h>
 #include <linux/io.h>
@@ -590,6 +591,7 @@ find_block:
 		 * are never reported as leaks.
 		 */
 		kmemleak_alloc(region, size, 0, 0);
+		kmsan_alloc_shadow_for_region(region, size);
 		return region;
 	}
 
