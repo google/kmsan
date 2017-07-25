@@ -1,7 +1,7 @@
 #ifndef __MM_KMSAN_KMSAN_H
 #define __MM_KMSAN_KMSAN_H
 
-#include <asm-generic/current.h>
+//#include <asm-generic/current.h>
 #include <linux/irqflags.h>
 #include <linux/sched.h>
 #include <linux/stackdepot.h>
