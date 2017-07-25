@@ -2,12 +2,8 @@
 #ifndef LINUX_KMSAN_H
 #define LINUX_KMSAN_H
 
-//#include <linux/mm.h>
-//#include <linux/mm_types.h>
-//#include <linux/slab.h>
 #include <linux/stackdepot.h>
 #include <linux/types.h>
-
 
 struct page;
 struct kmem_cache;
@@ -25,14 +21,27 @@ static inline void kmsan_init(void) { }
 
 
 #ifdef CONFIG_KMSAN
-#define KMSAN_NUM_SHADOW_STACKS 5
 
 typedef struct kmsan_thread_s kmsan_thread_state;
+typedef struct kmsan_context_s kmsan_context_state;
 
 
 // TODO(glider): Factor out params, origins etc. into a separate
 // struct kmsan_context_state. Then make those for IRQs and exceptions per-cpu,
 // not per-task.
+// These constants are defined in the MSan LLVM instrumentation pass.
+#define RETVAL_SIZE 800
+#define KMSAN_PARAM_SIZE 800
+
+struct kmsan_context_s {
+	void *param_tls[KMSAN_PARAM_SIZE];
+	void *retval_tls[RETVAL_SIZE];
+	void *va_arg_tls[KMSAN_PARAM_SIZE];
+	u64 va_arg_overflow_size_tls;
+	depot_stack_handle_t param_origin_tls[KMSAN_PARAM_SIZE];
+	depot_stack_handle_t retval_origin_tls;
+	depot_stack_handle_t origin_tls;
+};
 
 struct kmsan_thread_s {
 	bool enabled;
@@ -43,22 +52,17 @@ struct kmsan_thread_s {
 	int in_runtime;
 	bool is_switching;
 	bool debug;
-	volatile int busy, busy2; // TODO(glider): debug-only
 
-	void **retval_tls[KMSAN_NUM_SHADOW_STACKS];
-	u64 va_arg_overflow_size_tls[KMSAN_NUM_SHADOW_STACKS];
-	void **va_arg_tls[KMSAN_NUM_SHADOW_STACKS];
-	void **param_tls[KMSAN_NUM_SHADOW_STACKS];
-	depot_stack_handle_t origin_tls[KMSAN_NUM_SHADOW_STACKS];
-	depot_stack_handle_t *param_origin_tls[KMSAN_NUM_SHADOW_STACKS];
-	depot_stack_handle_t retval_origin_tls[KMSAN_NUM_SHADOW_STACKS];
+	kmsan_context_state cstate;
 };
+
+extern kmsan_context_state kmsan_dummy_state;
 
 // TODO(glider): rename to kmsan_task_create()
 void kmsan_thread_create(struct task_struct *task);
 void kmsan_task_exit(struct task_struct *task);
 void kmsan_alloc_shadow_for_region(void *start, size_t size);
-void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
+int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
 void kmsan_free_page(struct page *page, unsigned int order);
 void kmsan_split_page(struct page *page, unsigned int order);
 
@@ -74,13 +78,13 @@ void kmsan_slab_setup_object(struct kmem_cache *s, void *object);
 void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 			size_t size, void *object);
 
-void kmsan_wipe_params_shadow_origin(int inter);
+void kmsan_wipe_params_shadow_origin(void);
 #else
 
 void kmsan_thread_create(struct task_struct *task) {}
 void kmsan_task_exit(struct task_struct *task) {}
 void kmsan_alloc_shadow_for_region(void *start, size_t size) {}
-void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags, int node) {}
+int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags, int node) { return 0; }
 void kmsan_free_page(struct page *page, unsigned int order) {}
 void kmsan_split_page(struct page *page, unsigned int order) {}
 
