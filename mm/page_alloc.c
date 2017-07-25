@@ -26,6 +26,8 @@
 #include <linux/kernel.h>
 #include <linux/kmemcheck.h>
 #include <linux/kasan.h>
+#include <linux/kmsan.h>
+#include <linux/kmsan-checks.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
 #include <linux/pagevec.h>
@@ -71,6 +73,9 @@
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
 #include "internal.h"
+
+#undef memset
+#define memset __memset
 
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
@@ -1014,6 +1019,7 @@ static __always_inline bool free_pages_prepare(struct page *page,
 
 	trace_mm_page_free(page, order);
 	kmemcheck_free_shadow(page, order);
+	kmsan_free_page(page, order);
 
 	/*
 	 * Check tail pages before head page information is cleared to
@@ -1751,6 +1757,8 @@ inline void post_alloc_hook(struct page *page, unsigned int order,
 	kernel_map_pages(page, 1 << order, 1);
 	kernel_poison_pages(page, 1 << order, 1);
 	kasan_alloc_pages(page, order);
+	///TODO(glider): don't call kmsan_alloc_page here
+	///kmsan_alloc_page(page, order, gfp_flags);
 	set_page_owner(page, order, gfp_flags);
 }
 
@@ -2616,7 +2624,7 @@ void split_page(struct page *page, unsigned int order)
 	if (kmemcheck_page_is_tracked(page))
 		split_page(virt_to_page(page[0].shadow), order);
 #endif
-
+	kmsan_split_page(page, order);
 	for (i = 1; i < (1 << order); i++)
 		set_page_refcounted(page + i);
 	split_page_owner(page, order);
@@ -3214,6 +3222,8 @@ __alloc_pages_may_oom(gfp_t gfp_mask, unsigned int order,
 		.gfp_mask = gfp_mask,
 		.order = order,
 	};
+	// Unpoison because we don't instrument this file.
+	kmsan_unpoison_shadow(&oc, sizeof(oc));
 	struct page *page;
 
 	*did_some_progress = 0;
@@ -3458,6 +3468,9 @@ __perform_reclaim(gfp_t gfp_mask, unsigned int order,
 	noreclaim_flag = memalloc_noreclaim_save();
 	lockdep_set_current_reclaim_state(gfp_mask);
 	reclaim_state.reclaimed_slab = 0;
+	// TODO(glider): __perform_state() is uninstrumented, therefore
+	// unpoison |reclaim_state|.
+	kmsan_unpoison_shadow(&reclaim_state, sizeof(reclaim_state));
 	current->reclaim_state = &reclaim_state;
 
 	progress = try_to_free_pages(ac->zonelist, order, gfp_mask,
@@ -4014,9 +4027,13 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order,
 		return NULL;
 
 	finalise_ac(gfp_mask, order, &ac);
+	// TODO(glider): we assume |ac| is fully initialized here.
+	// TODO(glider): need to check |zonelist|, |nodemask|, etc?
+	kmsan_unpoison_shadow(&ac, sizeof(struct alloc_context));
 
 	/* First allocation attempt */
 	page = get_page_from_freelist(alloc_mask, order, alloc_flags, &ac);
+
 	if (likely(page))
 		goto out;
 
@@ -4049,7 +4066,11 @@ out:
 		kmemcheck_pagealloc_alloc(page, order, gfp_mask);
 
 	trace_mm_page_alloc(page, order, alloc_mask, ac.migratetype);
-
+	if (page)
+		if (kmsan_alloc_page(page, order, gfp_mask) == -ENOMEM) {
+			__free_pages(page, order);
+			page = NULL;
+		}
 	return page;
 }
 EXPORT_SYMBOL(__alloc_pages_nodemask);
@@ -4199,6 +4220,12 @@ refill:
 	nc->pagecnt_bias--;
 	nc->offset = offset;
 
+	// TODO(glider): looks like we need to poison this buffer.
+	// However skb buffers are mainly used in network drivers, where data
+	// is copied from devices via DMA, so it's hard to track all places
+	// where it's initialized.
+	// Therefore disable poisoning for now:
+	// kmsan_poison_shadow(nc->va + offset, fragsz, gfp_mask);
 	return nc->va + offset;
 }
 EXPORT_SYMBOL(page_frag_alloc);
@@ -4400,9 +4427,12 @@ void si_meminfo(struct sysinfo *val)
 	val->sharedram = global_node_page_state(NR_SHMEM);
 	val->freeram = global_page_state(NR_FREE_PAGES);
 	val->bufferram = nr_blockdev_pages();
+	kmsan_unpoison_shadow(&(val->totalram), sizeof(__kernel_long_t) * 4);
 	val->totalhigh = totalhigh_pages;
 	val->freehigh = nr_free_highpages();
+	kmsan_unpoison_shadow(&(val->totalhigh), sizeof(__kernel_long_t) * 2);
 	val->mem_unit = PAGE_SIZE;
+	kmsan_unpoison_shadow(&(val->mem_unit), sizeof(__u32));
 }
 
 EXPORT_SYMBOL(si_meminfo);
@@ -7201,6 +7231,7 @@ void *__init alloc_large_system_hash(const char *tablename,
 	unsigned long log2qty, size;
 	void *table = NULL;
 
+	// TODO(glider): check input params?
 	/* allow the kernel cmdline to have a say */
 	if (!numentries) {
 		/* round applicable memory size up to nearest megabyte */
@@ -7269,10 +7300,14 @@ void *__init alloc_large_system_hash(const char *tablename,
 	pr_info("%s hash table entries: %ld (order: %d, %lu bytes)\n",
 		tablename, 1UL << log2qty, ilog2(size) - PAGE_SHIFT, size);
 
-	if (_hash_shift)
+	if (_hash_shift) {
 		*_hash_shift = log2qty;
-	if (_hash_mask)
+		kmsan_unpoison_shadow(_hash_shift, sizeof(*_hash_shift));
+	}
+	if (_hash_mask) {
 		*_hash_mask = (1 << log2qty) - 1;
+		kmsan_unpoison_shadow(_hash_mask, sizeof(*_hash_mask));
+	}
 
 	return table;
 }
@@ -7715,3 +7750,5 @@ bool is_free_buddy_page(struct page *page)
 
 	return order < MAX_ORDER;
 }
+
+#undef memset
