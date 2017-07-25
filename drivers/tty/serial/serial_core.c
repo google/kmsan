@@ -35,6 +35,7 @@
 #include <linux/serial_core.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/kmsan-checks.h>
 
 #include <asm/irq.h>
 #include <linux/uaccess.h>
