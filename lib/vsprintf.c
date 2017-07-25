@@ -24,6 +24,7 @@
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/kallsyms.h>
 #include <linux/math64.h>
 #include <linux/uaccess.h>
@@ -44,79 +45,6 @@
 
 #include <linux/string_helpers.h>
 #include "kstrtox.h"
-
-/**
- * simple_strtoull - convert a string to an unsigned long long
- * @cp: The start of the string
- * @endp: A pointer to the end of the parsed string will be placed here
- * @base: The number base to use
- *
- * This function is obsolete. Please use kstrtoull instead.
- */
-unsigned long long simple_strtoull(const char *cp, char **endp, unsigned int base)
-{
-	unsigned long long result;
-	unsigned int rv;
-
-	cp = _parse_integer_fixup_radix(cp, &base);
-	rv = _parse_integer(cp, base, &result);
-	/* FIXME */
-	cp += (rv & ~KSTRTOX_OVERFLOW);
-
-	if (endp)
-		*endp = (char *)cp;
-
-	return result;
-}
-EXPORT_SYMBOL(simple_strtoull);
-
-/**
- * simple_strtoul - convert a string to an unsigned long
- * @cp: The start of the string
- * @endp: A pointer to the end of the parsed string will be placed here
- * @base: The number base to use
- *
- * This function is obsolete. Please use kstrtoul instead.
- */
-unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base)
-{
-	return simple_strtoull(cp, endp, base);
-}
-EXPORT_SYMBOL(simple_strtoul);
-
-/**
- * simple_strtol - convert a string to a signed long
- * @cp: The start of the string
- * @endp: A pointer to the end of the parsed string will be placed here
- * @base: The number base to use
- *
- * This function is obsolete. Please use kstrtol instead.
- */
-long simple_strtol(const char *cp, char **endp, unsigned int base)
-{
-	if (*cp == '-')
-		return -simple_strtoul(cp + 1, endp, base);
-
-	return simple_strtoul(cp, endp, base);
-}
-EXPORT_SYMBOL(simple_strtol);
-
-/**
- * simple_strtoll - convert a string to a signed long long
- * @cp: The start of the string
- * @endp: A pointer to the end of the parsed string will be placed here
- * @base: The number base to use
- *
- * This function is obsolete. Please use kstrtoll instead.
- */
-long long simple_strtoll(const char *cp, char **endp, unsigned int base)
-{
-	if (*cp == '-')
-		return -simple_strtoull(cp + 1, endp, base);
-
-	return simple_strtoull(cp, endp, base);
-}
-EXPORT_SYMBOL(simple_strtoll);
 
 static noinline_for_stack
 int skip_atoi(const char **s)
@@ -2123,9 +2051,12 @@ out:
 			end[-1] = '\0';
 	}
 
+	if (buf) {
+		// TODO(glider): need this unless we instrument this file.
+		kmsan_unpoison_shadow(buf, (str < end) ? (str - buf + 1) : (end - buf));
+	}
 	/* the trailing null byte doesn't count towards the total */
 	return str-buf;
-
 }
 EXPORT_SYMBOL(vsnprintf);
 
@@ -2597,6 +2528,15 @@ EXPORT_SYMBOL_GPL(bprintf);
  * @fmt:	format of buffer
  * @args:	arguments
  */
+
+#define COPY_ARG(type, val) \
+do {		\
+	type *_vp = va_arg(args, type *);		\
+	*_vp = val;					\
+	kmsan_unpoison_shadow(_vp, sizeof(type));	\
+} while (0)
+// TODO(glider): not all va_args are unpoisoned.
+// Better route vsscanf into a wrapper in kmsan.c
 int vsscanf(const char *buf, const char *fmt, va_list args)
 {
 	const char *str = buf;
@@ -2679,7 +2619,7 @@ int vsscanf(const char *buf, const char *fmt, va_list args)
 
 		if (*fmt == 'n') {
 			/* return number of characters read so far */
-			*va_arg(args, int *) = str - buf;
+			COPY_ARG(int, str - buf);
 			++fmt;
 			continue;
 		}
@@ -2833,36 +2773,36 @@ int vsscanf(const char *buf, const char *fmt, va_list args)
 		switch (qualifier) {
 		case 'H':	/* that's 'hh' in format */
 			if (is_sign)
-				*va_arg(args, signed char *) = val.s;
+				COPY_ARG(signed char, val.s);
 			else
-				*va_arg(args, unsigned char *) = val.u;
+				COPY_ARG(unsigned char, val.u);
 			break;
 		case 'h':
 			if (is_sign)
-				*va_arg(args, short *) = val.s;
+				COPY_ARG(short, val.s);
 			else
-				*va_arg(args, unsigned short *) = val.u;
+				COPY_ARG(unsigned short, val.u);
 			break;
 		case 'l':
 			if (is_sign)
-				*va_arg(args, long *) = val.s;
+				COPY_ARG(long, val.s);
 			else
-				*va_arg(args, unsigned long *) = val.u;
+				COPY_ARG(unsigned long, val.u);
 			break;
 		case 'L':
 			if (is_sign)
-				*va_arg(args, long long *) = val.s;
+				COPY_ARG(long long, val.s);
 			else
-				*va_arg(args, unsigned long long *) = val.u;
+				COPY_ARG(unsigned long long, val.u);
 			break;
 		case 'z':
-			*va_arg(args, size_t *) = val.u;
+			COPY_ARG(size_t, val.u);
 			break;
 		default:
 			if (is_sign)
-				*va_arg(args, int *) = val.s;
+				COPY_ARG(int, val.s);
 			else
-				*va_arg(args, unsigned int *) = val.u;
+				COPY_ARG(unsigned int, val.u);
 			break;
 		}
 		num++;
