@@ -31,6 +31,7 @@
 #include <linux/nmi.h>
 #include <linux/percpu.h>
 #include <linux/kmod.h>
+#include <linux/kmsan.h>
 #include <linux/vmalloc.h>
 #include <linux/kernel_stat.h>
 #include <linux/start_kernel.h>
@@ -485,6 +486,7 @@ static void __init mm_init(void)
 	ioremap_huge_init();
 }
 
+void kmsan_initialize_shadow(void);
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
@@ -544,6 +546,11 @@ asmlinkage __visible void __init start_kernel(void)
 	sort_main_extable();
 	trap_init();
 	mm_init();
+	kmsan_initialize_shadow();
+	kmsan_ready = true;
+	kmsan_threads_ready = true;
+	pr_err("kmsan_ready = %d\n", kmsan_ready);
+	pr_err("kmsan_threads_ready = %d\n", kmsan_threads_ready);
 
 	ftrace_init();
 
