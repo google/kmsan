@@ -353,7 +353,7 @@ void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 bool kmsan_slab_free(struct kmem_cache *s, void *object)
 {
 	/* RCU slabs could be legally used after free within the RCU period */
-	if (unlikely(s->flags & SLAB_DESTROY_BY_RCU))
+	if (unlikely(s->flags & SLAB_TYPESAFE_BY_RCU))
 		return false;
 	kmsan_internal_poison_shadow((void *)object, s->object_size, GFP_KERNEL);
 	return true;
