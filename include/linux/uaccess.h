@@ -4,6 +4,7 @@
 #include <linux/sched.h>
 #include <linux/thread_info.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1
@@ -60,18 +61,26 @@
 static __always_inline unsigned long
 __copy_from_user_inatomic(void *to, const void __user *from, unsigned long n)
 {
+	unsigned long to_copy = n;
+
 	kasan_check_write(to, n);
 	check_object_size(to, n, false);
-	return raw_copy_from_user(to, from, n);
+	n = raw_copy_from_user(to, from, n);
+	kmsan_unpoison_shadow(to, to_copy - n);
+	return n;
 }
 
 static __always_inline unsigned long
 __copy_from_user(void *to, const void __user *from, unsigned long n)
 {
+	unsigned long to_copy = n;
+
 	might_fault();
 	kasan_check_write(to, n);
 	check_object_size(to, n, false);
-	return raw_copy_from_user(to, from, n);
+	n = raw_copy_from_user(to, from, n);
+	kmsan_unpoison_shadow(to, to_copy - n);
+	return n;
 }
 
 /**
@@ -90,18 +99,26 @@ __copy_from_user(void *to, const void __user *from, unsigned long n)
 static __always_inline unsigned long
 __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
 {
+	unsigned long to_copy = n;
+
 	kasan_check_read(from, n);
 	check_object_size(from, n, true);
-	return raw_copy_to_user(to, from, n);
+	n = raw_copy_to_user(to, from, n);
+	kmsan_check_memory(from, to_copy - n);
+	return n;
 }
 
 static __always_inline unsigned long
 __copy_to_user(void __user *to, const void *from, unsigned long n)
 {
+	unsigned long to_copy = n;
+
 	might_fault();
 	kasan_check_read(from, n);
 	check_object_size(from, n, true);
-	return raw_copy_to_user(to, from, n);
+	n = raw_copy_to_user(to, from, n);
+	kmsan_check_memory(from, to_copy - n);
+	return n;
 }
 
 #ifdef INLINE_COPY_FROM_USER
@@ -154,6 +171,7 @@ copy_to_user(void __user *to, const void *from, unsigned long n)
 		n = _copy_to_user(to, from, n);
 	return n;
 }
+
 #ifdef CONFIG_COMPAT
 static __always_inline unsigned long __must_check
 copy_in_user(void __user *to, const void *from, unsigned long n)
