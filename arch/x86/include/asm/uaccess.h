@@ -5,6 +5,7 @@
  */
 #include <linux/compiler.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 #include <linux/string.h>
 #include <asm/asm.h>
 #include <asm/page.h>
@@ -170,6 +171,7 @@ register unsigned long int __sp asm(_ASM_SP);
 		     : "=a" (__ret_gu), "=r" (__val_gu), "+r" (__sp)	\
 		     : "0" (ptr), "i" (sizeof(*(ptr))));		\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
+	kmsan_unpoison_shadow(&(x), sizeof(*(ptr)));			\
 	__builtin_expect(__ret_gu, 0);					\
 })
 
