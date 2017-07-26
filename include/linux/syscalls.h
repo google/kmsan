@@ -76,6 +76,7 @@ union bpf_attr;
 #include <linux/signal.h>
 #include <linux/list.h>
 #include <linux/bug.h>
+#include <linux/kmsan.h>
 #include <linux/sem.h>
 #include <asm/siginfo.h>
 #include <linux/unistd.h>
@@ -241,6 +242,7 @@ static inline int is_syscall_trace_event(struct trace_event_call *tp_event)
 	ALLOW_ERROR_INJECTION(sys##name, ERRNO);			\
 	static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
 	asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__));	\
+	__attribute__((no_sanitize("kernel-memory")))			\
 	asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
 	{								\
 		long ret = __do_sys##name(__MAP(x,__SC_CAST,__VA_ARGS__));\
