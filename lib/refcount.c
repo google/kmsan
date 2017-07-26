@@ -112,7 +112,7 @@ EXPORT_SYMBOL(refcount_add);
  *
  * Return: true if the increment was successful, false otherwise
  */
-bool refcount_inc_not_zero(refcount_t *r)
+noinline bool refcount_inc_not_zero(refcount_t *r)
 {
 	unsigned int new, val = atomic_read(&r->refs);
 
@@ -145,7 +145,7 @@ EXPORT_SYMBOL(refcount_inc_not_zero);
  * Will WARN if the refcount is 0, as this represents a possible use-after-free
  * condition.
  */
-void refcount_inc(refcount_t *r)
+noinline void refcount_inc(refcount_t *r)
 {
 	WARN_ONCE(!refcount_inc_not_zero(r), "refcount_t: increment on 0; use-after-free.\n");
 }
