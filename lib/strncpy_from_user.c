@@ -1,6 +1,7 @@
 #include <linux/compiler.h>
 #include <linux/export.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 #include <linux/thread_info.h>
 #include <linux/uaccess.h>
 #include <linux/kernel.h>
@@ -44,6 +45,7 @@ static inline long do_strncpy_from_user(char *dst, const char __user *src, long 
 		unsafe_get_user(c, (unsigned long __user *)(src+res), byte_at_a_time);
 
 		*(unsigned long *)(dst+res) = c;
+		kmsan_unpoison_shadow(dst+res, sizeof(unsigned long));
 		if (has_zero(c, &data, &constants)) {
 			data = prep_zero_mask(c, data, &constants);
 			data = create_zero_mask(data);
@@ -59,6 +61,7 @@ byte_at_a_time:
 
 		unsafe_get_user(c,src+res, efault);
 		dst[res] = c;
+		kmsan_unpoison_shadow(&(dst[res]), 1);
 		if (!c)
 			return res;
 		res++;

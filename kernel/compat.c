@@ -23,6 +23,7 @@
 #include <linux/timex.h>
 #include <linux/export.h>
 #include <linux/migrate.h>
+#include <linux/kmsan-checks.h>
 #include <linux/posix-timers.h>
 #include <linux/times.h>
 #include <linux/ptrace.h>
@@ -478,7 +479,11 @@ COMPAT_SYSCALL_DEFINE2(old_getrlimit, unsigned int, resource,
 	mm_segment_t old_fs = get_fs();
 
 	set_fs(KERNEL_DS);
+	// TODO(glider): calling old_getrlimit() from kernel/sys.c here.
+	// It does copy_to_user(), which is strange.
+	// Just initialize &r for now.
 	ret = sys_old_getrlimit(resource, (struct rlimit __user *)&r);
+	kmsan_unpoison_shadow(&r, sizeof(struct rlimit));
 	set_fs(old_fs);
 
 	if (!ret) {

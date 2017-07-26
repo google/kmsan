@@ -28,6 +28,7 @@
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/kexec.h>
+#include <linux/kmsan-checks.h>
 #include <linux/sched.h>
 #include <linux/sched/task_stack.h>
 #include <linux/timer.h>
@@ -522,6 +523,8 @@ dotraplinkage void
 do_general_protection(struct pt_regs *regs, long error_code)
 {
 	struct task_struct *tsk;
+	// TODO(glider)
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	cond_local_irq_enable(regs);

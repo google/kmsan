@@ -19,6 +19,7 @@
 #include <linux/serio.h>
 #include <linux/i8042.h>
 #include <linux/libps2.h>
+#include <linux/kmsan-checks.h>
 
 #define DRIVER_DESC	"PS/2 driver library"
 
@@ -239,9 +240,12 @@ int __ps2_command(struct ps2dev *ps2dev, unsigned char *param, int command)
 
 	serio_pause_rx(ps2dev->serio);
 
-	if (param)
+	if (param) {
 		for (i = 0; i < receive; i++)
 			param[i] = ps2dev->cmdbuf[(receive - 1) - i];
+		// TODO(glider): presumably received |receive| initialized bytes.
+		kmsan_unpoison_shadow(ps2dev->cmdbuf, receive);
+	}
 
 	if (ps2dev->cmdcnt && (command != PS2_CMD_RESET_BAT || ps2dev->cmdcnt != 1))
 		goto out_reset_flags;

@@ -8,6 +8,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/sched.h>
 #include <linux/sched/task_stack.h>
 #include <linux/mm.h>
@@ -264,8 +265,11 @@ __visible inline void syscall_return_slowpath(struct pt_regs *regs)
 }
 
 #ifdef CONFIG_X86_64
+// TODO(glider): |regs| and |*regs| are initialized.
+__attribute__((no_sanitize("kernel-memory")))
 __visible void do_syscall_64(struct pt_regs *regs)
 {
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	struct thread_info *ti = current_thread_info();
 	unsigned long nr = regs->orig_ax;
 

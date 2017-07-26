@@ -260,6 +260,7 @@
 #include <linux/fips.h>
 #include <linux/ptrace.h>
 #include <linux/kmemcheck.h>
+#include <linux/kmsan-checks.h>
 #include <linux/workqueue.h>
 #include <linux/irq.h>
 #include <linux/syscalls.h>
@@ -839,6 +840,7 @@ static void crng_reseed(struct crng_state *crng, struct entropy_store *r)
 			rv = random_get_entropy();
 		crng->state[i+4] ^= buf.key[i] ^ rv;
 	}
+	kmsan_unpoison_shadow(crng->state, sizeof(crng->state));
 	memzero_explicit(&buf, sizeof(buf));
 	crng->init_time = jiffies;
 	spin_unlock_irqrestore(&primary_crng.lock, flags);
@@ -1139,6 +1141,7 @@ void add_interrupt_randomness(int irq, int irq_flags)
 	fast_pool->pool[3] ^= (sizeof(ip) > 4) ? ip >> 32 :
 		get_reg(fast_pool, regs);
 
+	kmsan_unpoison_shadow(fast_pool, sizeof(struct fast_pool));
 	fast_mix(fast_pool);
 	add_interrupt_bench(cycles);
 
@@ -1482,6 +1485,8 @@ static ssize_t extract_entropy_user(struct entropy_store *r, void __user *buf,
 void get_random_bytes(void *buf, int nbytes)
 {
 	__u8 tmp[CHACHA20_BLOCK_SIZE];
+	int old_nbytes = nbytes;
+	void *old_buf = buf;
 
 #if DEBUG_RANDOM_BOOT > 0
 	if (!crng_ready())
@@ -1499,9 +1504,12 @@ void get_random_bytes(void *buf, int nbytes)
 	if (nbytes > 0) {
 		extract_crng(tmp);
 		memcpy(buf, tmp, nbytes);
+		// TODO(glider): most certainly it's correct to assume the RNG returns initialized data.
+		// Need to investigate though.
 		crng_backtrack_protect(tmp, nbytes);
 	} else
 		crng_backtrack_protect(tmp, CHACHA20_BLOCK_SIZE);
+	kmsan_unpoison_shadow(old_buf, old_nbytes);
 	memzero_explicit(tmp, sizeof(tmp));
 }
 EXPORT_SYMBOL(get_random_bytes);
@@ -1644,6 +1652,10 @@ static int rand_initialize(void)
 	init_std_data(&input_pool);
 	init_std_data(&blocking_pool);
 	crng_initialize(&primary_crng);
+	// TODO(glider): still doesn't work.
+	///kmsan_unpoison_shadow(input_pool_data, sizeof(__u32) * INPUT_POOL_WORDS);
+	///kmsan_unpoison_shadow(blocking_pool_data, sizeof(__u32) * OUTPUT_POOL_WORDS);
+
 
 #ifdef CONFIG_NUMA
 	pool = kcalloc(nr_node_ids, sizeof(*pool), GFP_KERNEL|__GFP_NOFAIL);

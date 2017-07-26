@@ -24,6 +24,7 @@
 #include <linux/module.h>
 #include <linux/hrtimer.h>
 #include <linux/kmemleak.h>
+#include <linux/kmsan-checks.h>
 #include <linux/dma-mapping.h>
 #include <xen/xen.h>
 
@@ -751,6 +752,8 @@ void *virtqueue_get_buf_ctx(struct virtqueue *_vq, unsigned int *len,
 #endif
 
 	END_USE(vq);
+	// TODO(glider): we're receiving a buffer from the hypervisor here.
+	kmsan_unpoison_shadow(ret, *len);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(virtqueue_get_buf_ctx);

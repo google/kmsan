@@ -4,6 +4,7 @@
 #include <linux/cpu.h>
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
+#include <linux/kmsan-checks.h>
 #include <linux/of.h>
 #include <linux/seq_file.h>
 #include <linux/smp.h>
@@ -209,8 +210,15 @@ u64 arch_irq_stat(void)
  * SMP cross-CPU interrupts have their own specific
  * handlers).
  */
+// TODO(glider): looks like |regs| (not *regs) is poisoned.
+__attribute__((no_sanitize("kernel-memory")))
 __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
 {
+	// TODO(glider): this is critical.
+	// common_interrupt() allocates |regs| on the current task stack.
+	// This is done in assembly, so |regs| isn't unpoisoned and may overlap
+	// with the dirty frame of a previously invoked function.
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	struct pt_regs *old_regs = set_irq_regs(regs);
 	struct irq_desc * desc;
 	/* high bit used in ret_from_ code  */
@@ -294,6 +302,7 @@ __visible void smp_kvm_posted_intr_ipi(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	entering_ack_irq();
 	inc_irq_stat(kvm_posted_intr_ipis);
 	exiting_irq();
@@ -307,6 +316,7 @@ __visible void smp_kvm_posted_intr_wakeup_ipi(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	entering_ack_irq();
 	inc_irq_stat(kvm_posted_intr_wakeup_ipis);
 	kvm_posted_intr_wakeup_handler();

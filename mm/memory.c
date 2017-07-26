@@ -59,6 +59,7 @@
 #include <linux/memcontrol.h>
 #include <linux/mmu_notifier.h>
 #include <linux/kallsyms.h>
+#include <linux/kmsan-checks.h>
 #include <linux/swapops.h>
 #include <linux/elf.h>
 #include <linux/gfp.h>
@@ -4194,6 +4195,7 @@ int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
 	}
 	up_read(&mm->mmap_sem);
 
+	kmsan_unpoison_shadow(old_buf, buf - old_buf);
 	return buf - old_buf;
 }
 

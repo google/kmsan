@@ -8,6 +8,7 @@
 #include <linux/kdebug.h>		/* oops_begin/end, ...		*/
 #include <linux/extable.h>		/* search_exception_tables	*/
 #include <linux/bootmem.h>		/* max_low_pfn			*/
+#include <linux/kmsan-checks.h>		/* kmsan_unpoison_shadow	*/
 #include <linux/kprobes.h>		/* NOKPROBE_SYMBOL, ...		*/
 #include <linux/mmiotrace.h>		/* kmmio_handler, ...		*/
 #include <linux/perf_event.h>		/* perf_sw_event		*/
@@ -1494,6 +1495,8 @@ dotraplinkage void notrace
 do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
 	unsigned long address = read_cr2(); /* Get the faulting address */
+	// TODO(glider): need to do that in read_cr2() and other paravirt calls.
+	kmsan_unpoison_shadow(address, sizeof(address));
 	enum ctx_state prev_state;
 
 	/*
@@ -1503,7 +1506,7 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	 *
 	 * exception_{enter,exit}() contain all sorts of tracepoints.
 	 */
-
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	prev_state = exception_enter();
 	__do_page_fault(regs, error_code, address);
 	exception_exit(prev_state);
@@ -1521,6 +1524,7 @@ trace_page_fault_entries(unsigned long address, struct pt_regs *regs,
 		trace_page_fault_kernel(address, regs, error_code);
 }
 
+// TODO(glider): pt_regs are initialized.
 dotraplinkage void notrace
 trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
@@ -1531,7 +1535,10 @@ trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	 * the faulting address now.
 	 */
 	unsigned long address = read_cr2();
+	// TODO(glider): need to do that in read_cr2() and other paravirt calls.
+	kmsan_unpoison_shadow(address, sizeof(address));
 	enum ctx_state prev_state;
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 
 	prev_state = exception_enter();
 	trace_page_fault_entries(address, regs, error_code);

@@ -26,6 +26,7 @@
 #include <linux/fs.h>
 #include <linux/sysfs.h>
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/elf.h>
@@ -1739,6 +1740,9 @@ static void module_remove_modinfo_attrs(struct module *mod)
 static void mod_kobject_put(struct module *mod)
 {
 	DECLARE_COMPLETION_ONSTACK(c);
+	// TODO(glider): we don't instrument this file, so false positives are
+	// possible if we don't unpoison |c|.
+	kmsan_unpoison_shadow(&c, sizeof(struct completion));
 	mod->mkobj.kobj_completion = &c;
 	kobject_put(&mod->mkobj.kobj);
 	wait_for_completion(&c);

@@ -7,6 +7,7 @@
 #include <asm/checksum.h>
 #include <linux/export.h>
 #include <linux/uaccess.h>
+#include <linux/kmsan-checks.h>
 #include <asm/smap.h>
 
 /**
@@ -57,6 +58,8 @@ csum_partial_copy_from_user(const void __user *src, void *dst,
 	isum = csum_partial_copy_generic((__force const void *)src,
 				dst, len, isum, errp, NULL);
 	clac();
+	// TODO(glider): csum_partial_copy_generic() is in assembly.
+	kmsan_unpoison_shadow(dst, len);
 	if (unlikely(*errp))
 		goto out_err;
 
@@ -111,6 +114,7 @@ csum_partial_copy_to_user(const void *src, void __user *dst,
 
 	*errp = 0;
 	stac();
+	// TODO(glider): check the memory copied to the user.
 	ret = csum_partial_copy_generic(src, (void __force *)dst,
 					len, isum, NULL, errp);
 	clac();
@@ -130,7 +134,11 @@ EXPORT_SYMBOL(csum_partial_copy_to_user);
 __wsum
 csum_partial_copy_nocheck(const void *src, void *dst, int len, __wsum sum)
 {
-	return csum_partial_copy_generic(src, dst, len, sum, NULL, NULL);
+	__wsum ret;
+	ret = csum_partial_copy_generic(src, dst, len, sum, NULL, NULL);
+	// TODO(glider): need something like kmsan_copy_shadow_origin() here.
+	memcpy(dst, src, len);
+	return ret;
 }
 EXPORT_SYMBOL(csum_partial_copy_nocheck);
 

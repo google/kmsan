@@ -29,6 +29,7 @@
 #include "e1000.h"
 #include <net/ip6_checksum.h>
 #include <linux/io.h>
+#include <linux/kmsan-checks.h>
 #include <linux/prefetch.h>
 #include <linux/bitops.h>
 #include <linux/if_vlan.h>
@@ -4344,6 +4345,8 @@ static struct sk_buff *e1000_copybreak(struct e1000_adapter *adapter,
 
 	dma_sync_single_for_cpu(&adapter->pdev->dev, buffer_info->dma,
 				length, DMA_FROM_DEVICE);
+	// TODO(glider): assume that the device returns initialized memory.
+	kmsan_unpoison_shadow((void *)data, length);
 
 	memcpy(skb_put(skb, length), data, length);
 
