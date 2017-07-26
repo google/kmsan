@@ -27,7 +27,9 @@ cc_label:								\
 
 #define __GEN_RMWcc(fullop, var, cc, ...)				\
 do {									\
-	bool c;								\
+        /* TODO(glider): false positive */  \
+	/*bool c;*/								\
+	bool c = 0;								\
 	asm volatile (fullop ";" CC_SET(cc)				\
 			: "+m" (var), CC_OUT(cc) (c)			\
 			: __VA_ARGS__ : "memory");			\
