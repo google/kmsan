@@ -370,9 +370,6 @@ void kmsan_kfree_large(const void *ptr)
 	ENTER_RUNTIME(irq_flags);
 	page = virt_to_page(ptr);
 	kmsan_internal_poison_shadow((void*)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL);
-	// TODO(glider): delete?
-	handle = kmsan_save_stack();
-	kmsan_set_origin((u64)ptr, PAGE_SIZE << compound_order(page), handle);
 	LEAVE_RUNTIME(irq_flags);
 }
 
@@ -386,10 +383,12 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 	if (IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
-	kmsan_internal_poison_shadow((void*)ptr, size, flags);
-	// TODO(glider): delete?
-	handle = kmsan_save_stack_with_flags(flags);
-	kmsan_set_origin((u64)ptr, size, handle);
+	if (flags & __GFP_ZERO) {
+		// TODO(glider) do we poison by default?
+		kmsan_internal_unpoison_shadow((void *)ptr, size);
+	} else {
+		kmsan_internal_poison_shadow((void *)ptr, size, flags);
+	}
 	LEAVE_RUNTIME(irq_flags);
 }
 
