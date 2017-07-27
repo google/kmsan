@@ -82,7 +82,8 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id, bool f
 
 void do_kmsan_thread_create(struct task_struct *task);
 void kmsan_set_origin(u64 address, int size, u32 origin);
-inline void kmsan_report(void *caller, depot_stack_handle_t origin);
+inline void kmsan_report(void *caller, depot_stack_handle_t origin,
+			int size, int off);
 
 int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 				gfp_t flags, int node);

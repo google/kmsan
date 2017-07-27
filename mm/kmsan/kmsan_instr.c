@@ -468,7 +468,7 @@ void __msan_warning_32(u32 origin)
 		return;
 	ENTER_RUNTIME(irq_flags);
 	caller = __builtin_return_address(0);
-	kmsan_report(caller, origin);
+	kmsan_report(caller, origin, /*size*/0, /*off*/0);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_warning_32);
