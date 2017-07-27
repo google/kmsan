@@ -902,7 +902,8 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 }
 
 /*static*/
-inline void kmsan_report(void *caller, depot_stack_handle_t origin)
+inline void kmsan_report(void *caller, depot_stack_handle_t origin,
+			int size, int off)
 {
 	unsigned long flags;
 	struct stack_trace trace;
@@ -941,6 +942,8 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin)
 	kmsan_pr_err("BUG: KMSAN: use of uninitialized memory in %pS\n", __builtin_return_address(1));
 	dump_stack();
 	kmsan_print_origin(origin);
+	if (size)
+		kmsan_pr_err("byte %d of %d is uninitialized\n", off, size);
 	kmsan_pr_err("==================================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irqrestore(&report_lock, flags);
@@ -1018,7 +1021,7 @@ void kmsan_check_memory(const void *addr, size_t size)
 		if (!shadow[i]) continue;
 		// Not checking for the second time.
 		origin = kmsan_get_origin_address(addr, size, /*checked*/false);
-		kmsan_report(_THIS_IP_, *origin);
+		kmsan_report(_THIS_IP_, *origin, size, i);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
