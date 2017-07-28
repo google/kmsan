@@ -1027,11 +1027,46 @@ void kmsan_check_memory(const void *addr, size_t size)
 }
 EXPORT_SYMBOL(kmsan_check_memory);
 
+// TODO(glider): this check shouldn't be performed for origin pages, because
+// they're always accessed after the shadow pages.
+inline bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
+	u64 cur_addr, next_addr, cur_meta_addr, next_meta_addr;
+	struct page *cur_page, *next_page;
+	depot_stack_handle_t origin;
+	for (cur_addr = addr; next_addr < addr + size;
+			cur_addr = next_addr, next_addr += PAGE_SIZE) {
+		next_addr = cur_addr + PAGE_SIZE;
+		cur_page = virt_to_page(cur_addr);
+		next_page = virt_to_page(next_addr);
+		cur_meta_addr = page_address(is_origin ? cur_page->shadow : cur_page->origin);
+		next_meta_addr = page_address(is_origin ? next_page->shadow : next_page->origin);
+		if (cur_meta_addr != next_meta_addr - PAGE_SIZE) {
+			if ((addr < _sdata) || (addr >= _edata)) {
+				const char *fname = is_origin ? "shadow" : "origin";
+				// Skip reports on __data.
+				// TODO(glider): allocate contiguous shadow for __data instead.
+				current->kmsan.is_reporting = true;
+				kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
+				dump_stack();
+				kmsan_pr_err("Access of size %d at %p.\n", size, addr);
+				kmsan_pr_err("Addresses belonging to different ranges are: %p and %p\n", cur_addr, next_addr);
+				kmsan_pr_err("page[0].%s: %p, page[1].%s: %p\n", fname, cur_meta_addr, fname, next_meta_addr);
+				origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr, 1, false);
+				kmsan_pr_err("origin: %p\n", origin);
+				kmsan_print_origin(origin);
+				current->kmsan.is_reporting = false;
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 // TODO(glider): do we want to inline this into kmsan_instr.c?
 inline
 void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked)
 {
-	struct page *page, *next_page;
+	struct page *page, *cur_page, *next_page;
 	unsigned long page_offset, shadow_size;
 	void *ret;
 	depot_stack_handle_t origin;
@@ -1064,32 +1099,21 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked)
 	if (!page->shadow) {
 		oops_in_progress = 1;
 		kmsan_pr_err("not allocated shadow for addr %p (page %p)\n", addr, page);
+		kmsan_pr_err("attempted to access %d bytes\n", size);
 		BUG();
 	}
 	page_offset = addr % PAGE_SIZE;
 
 	if (checked && (page_offset + size - 1 > PAGE_SIZE)) {
-		/* The access overflows the current page and touches the next
-		 * one. Make sure the shadow pages are also consequent.
+		/* The access overflows the current page and touches the
+		 * subsequent ones. Make sure the shadow pages are also
+		 * consequent.
 		 */
-		next_page = virt_to_page(addr + size - 1);
-		if (page_address(page->shadow) != page_address(next_page->shadow) - PAGE_SIZE) {
-			if ((addr < _sdata) || (addr >= _edata)) {
-				// Skip reports on __data.
-				// TODO(glider): allocate contiguous shadow for __data instead.
-				current->kmsan.is_reporting = true;
-				kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
-				dump_stack();
-				kmsan_pr_err("Access of size %d at %p.\n", size, addr);
-				kmsan_pr_err("page[0].shadow: %p, page[1].shadow: %p\n", page_address(page->shadow), page_address(virt_to_page(addr + size - 1)));
-				origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr, 1, false);
-				kmsan_pr_err("origin: %p\n", origin);
-				kmsan_print_origin(origin);
-				current->kmsan.is_reporting = false;
-			}
+		if (!metadata_is_contiguous(addr, size, /*is_origin*/false)) {
 			__memset(kmsan_dummy_shadow, 0, DUMMY_SHADOW_SIZE); // TODO(glider)
 			return kmsan_dummy_shadow;
 		}
+
 	}
 	ret = page_address(page->shadow) + page_offset;
 	return ret;
@@ -1150,6 +1174,10 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 		/* The access overflows the current page and touches the next
 		 * one. Make sure the shadow pages are also consequent.
 		 */
+		if (!metadata_is_contiguous(addr, size, /*is_origin*/false)) {
+			return NULL;
+		}
+#if 0
 		next_page = virt_to_page(addr + size - 1);
 		if (page_address(page->shadow) != page_address(next_page->shadow) - PAGE_SIZE) {
 			if ((addr < _sdata) || (addr >= _edata)) {
@@ -1169,6 +1197,7 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 			}
 			return NULL;
 		}
+#endif
 	}
 	ret = page_address(page->shadow) + page_offset;
 	return ret;
@@ -1212,13 +1241,10 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked)
 	}
 	/* TODO(glider): this is conservative. */
 	if (checked && (page_offset + size - 1 > PAGE_SIZE)) {
-		current->kmsan.is_reporting = true;
-		kmsan_pr_err("BUG: attempting to access two origin page ranges.\n");
-		kmsan_pr_err("Access of size %d at %p.\n", size - pad, addr + pad);
-		kmsan_pr_err("page[0].origin: %p, page[1].origin: %p\n", page_address(page->origin), page_address(virt_to_page(addr + size - 1)));
-		current->kmsan.is_reporting = false;
-		__memset(kmsan_dummy_origin, 0, DUMMY_SHADOW_SIZE); // TODO(glider)
-		return kmsan_dummy_origin;
+		if (!metadata_is_contiguous(addr, size, /*is_origin*/true)) {
+			__memset(kmsan_dummy_origin, 0, DUMMY_SHADOW_SIZE); // TODO(glider)
+			return kmsan_dummy_origin;
+		}
 	}
 	ret = page_address(page->origin) + page_offset;
 	return ret;
