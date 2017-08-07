@@ -304,6 +304,9 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 	unsigned long irq_flags;
 
 	result = __memmove(dst, src, n);
+	if (!n)
+		// Some people call memmove() with zero length.
+		return result;
 	if (IN_RUNTIME())
 		return result;
 	if (!kmsan_ready)
@@ -344,6 +347,9 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 	}
 
 	result = __memcpy(dst, src, n);
+	if (!n)
+		// Some people call memcpy() with zero length.
+		return result;
 
 	if (IN_RUNTIME())
 		return result;
