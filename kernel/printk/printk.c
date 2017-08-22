@@ -17,6 +17,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/kmsan.h>
 #include <linux/mm.h>
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
@@ -1841,8 +1842,6 @@ EXPORT_SYMBOL_GPL(vprintk_default);
  *
  * See the vsnprintf() documentation for format string extensions over C99.
  */
-// TODO(glider): move to header.
-extern void kmsan_vprintk_func(const char *fmt, va_list args);
 asmlinkage __visible int printk(const char *fmt, ...)
 {
 	va_list args;

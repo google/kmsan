@@ -150,6 +150,8 @@ void __initdata kmsan_initialize_shadow(void)
 	}
 	// TODO(glider): should be init_task.
 	do_kmsan_thread_create(current);
+	kmsan_ready = true;
+	kmsan_threads_ready = true;
 }
 EXPORT_SYMBOL(kmsan_initialize_shadow);
 
