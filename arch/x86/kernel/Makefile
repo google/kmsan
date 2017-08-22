@@ -26,6 +26,9 @@ KASAN_SANITIZE_dumpstack.o				:= n
 KASAN_SANITIZE_dumpstack_$(BITS).o			:= n
 KASAN_SANITIZE_stacktrace.o := n
 
+KMSAN_SANITIZE_nmi.o := n
+KMSAN_SANITIZE_head64.o := n
+
 OBJECT_FILES_NON_STANDARD_head_$(BITS).o		:= y
 OBJECT_FILES_NON_STANDARD_relocate_kernel_$(BITS).o	:= y
 OBJECT_FILES_NON_STANDARD_ftrace_$(BITS).o		:= y
