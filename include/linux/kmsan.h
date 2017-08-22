@@ -14,9 +14,11 @@ extern bool kmsan_threads_ready;
 #ifdef CONFIG_KMSAN
 void __init kmsan_early_init(void);
 void __init kmsan_init(void);
+void __init kmsan_initialize_shadow(void);
 #else
 static inline void kmsan_early_init(void) { }
 static inline void kmsan_init(void) { }
+static inline void __init kmsan_initialize_shadow(void) { }
 #endif
 
 
@@ -79,23 +81,44 @@ void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 			size_t size, void *object);
 
 void kmsan_wipe_params_shadow_origin(void);
+void kmsan_record_future_shadow_range(u64 start, u64 end);
+
+void kmsan_vprintk_func(const char *fmt, va_list args);
 #else
 
-void kmsan_thread_create(struct task_struct *task) {}
-void kmsan_task_exit(struct task_struct *task) {}
-void kmsan_alloc_shadow_for_region(void *start, size_t size) {}
-int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags, int node) { return 0; }
-void kmsan_free_page(struct page *page, unsigned int order) {}
-void kmsan_split_page(struct page *page, unsigned int order) {}
+static inline void kmsan_thread_create(struct task_struct *task) {}
+static inline void kmsan_task_exit(struct task_struct *task) {}
+static inline void kmsan_alloc_shadow_for_region(void *start, size_t size) {}
+static inline int kmsan_alloc_page(
+	struct page *page, unsigned int order, gfp_t flags)
+{
+	return 0;
+}
+static inline void kmsan_free_page(struct page *page, unsigned int order) {}
+static inline void kmsan_split_page(struct page *page, unsigned int order) {}
+static inline void kmsan_poison_slab(struct page *page, gfp_t flags) {}
+static inline void kmsan_kmalloc_large(
+	const void *ptr, size_t size, gfp_t flags) {}
+static inline void kmsan_kfree_large(const void *ptr) {}
+static inline void kmsan_kmalloc(
+	struct kmem_cache *s, const void *object, size_t size, gfp_t flags) {}
+static inline void kmsan_slab_alloc(
+	struct kmem_cache *s, void *object, gfp_t flags) {}
+// TODO(glider): make it return void.
+static inline bool kmsan_slab_free(struct kmem_cache *s, void *object)
+{
+	return false;
+}
 
-void kmsan_cache_create(struct kmem_cache *cache, size_t *size,
-			unsigned long *flags) {}
+static inline void kmsan_slab_setup_object(
+	struct kmem_cache *s, void *object) {}
+static inline void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
+	size_t size, void *object) {}
+static inline void kmsan_wipe_params_shadow_origin(void) {}
+static inline void kmsan_record_future_shadow_range(u64 start, u64 end) {}
 
+static inline void kmsan_vprintk_func(const char *fmt, va_list args) {}
 
-void kmsan_slab_setup_object(struct kmem_cache *s, void *object) {}
-void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
-			size_t size, void *object) {}
-void kmsan_wipe_params_shadow_origin(void) {}
 #endif
 
 #endif /* LINUX_KMSAN_H */

@@ -11,6 +11,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/kmsan.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/bitops.h>
@@ -1273,7 +1274,6 @@ phys_addr_t __init memblock_alloc_try_nid(phys_addr_t size, phys_addr_t align, i
  * RETURNS:
  * Virtual address of allocated memory block on success, NULL on failure.
  */
-void kmsan_record_future_shadow_range(u64 start, u64 end);
 static void * __init memblock_virt_alloc_internal(
 				phys_addr_t size, phys_addr_t align,
 				phys_addr_t min_addr, phys_addr_t max_addr,
