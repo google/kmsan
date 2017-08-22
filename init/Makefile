@@ -2,6 +2,8 @@
 # Makefile for the linux kernel.
 #
 
+KMSAN_SANITIZE_main.o := n
+
 ccflags-y := -fno-function-sections -fno-data-sections
 
 obj-y                          := main.o version.o mounts.o
