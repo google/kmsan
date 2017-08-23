@@ -104,7 +104,7 @@ __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
 	kasan_check_read(from, n);
 	check_object_size(from, n, true);
 	n = raw_copy_to_user(to, from, n);
-	kmsan_check_memory(from, to_copy - n);
+	kmsan_copy_to_user(to, from, to_copy, n);
 	return n;
 }
 
@@ -117,7 +117,7 @@ __copy_to_user(void __user *to, const void *from, unsigned long n)
 	kasan_check_read(from, n);
 	check_object_size(from, n, true);
 	n = raw_copy_to_user(to, from, n);
-	kmsan_check_memory(from, to_copy - n);
+	kmsan_copy_to_user(to, from, to_copy, n);
 	return n;
 }
 
@@ -126,10 +126,13 @@ static inline unsigned long
 _copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	unsigned long res = n;
+	unsigned long to_copy = n;
+
 	might_fault();
 	if (likely(access_ok(VERIFY_READ, from, n))) {
 		kasan_check_write(to, n);
 		res = raw_copy_from_user(to, from, n);
+		kmsan_copy_to_user(to, from, to_copy, n);
 	}
 	if (unlikely(res))
 		memset(to + (n - res), 0, res);
@@ -144,10 +147,13 @@ _copy_from_user(void *, const void __user *, unsigned long);
 static inline unsigned long
 _copy_to_user(void __user *to, const void *from, unsigned long n)
 {
+	unsigned long to_copy = n;
+
 	might_fault();
 	if (access_ok(VERIFY_WRITE, to, n)) {
 		kasan_check_read(from, n);
 		n = raw_copy_to_user(to, from, n);
+		kmsan_copy_to_user(to, from, to_copy, n);
 	}
 	return n;
 }

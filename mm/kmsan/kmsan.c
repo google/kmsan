@@ -1007,8 +1007,7 @@ void kmsan_check_memory(const void *addr, size_t size)
 	depot_stack_handle_t *origin;
 	size_t i;
 
-	// copy_to_user() may copy zero bytes. No need to check.
-	if (!kmsan_ready || IN_RUNTIME() || !size)
+	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
 	shadow = kmsan_get_shadow_address(addr, size, /*checked*/true);
@@ -1026,6 +1025,33 @@ void kmsan_check_memory(const void *addr, size_t size)
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
+
+
+void kmsan_copy_to_user(const void *to, const void *from,
+			size_t to_copy, size_t left)
+{
+	void *shadow;
+	// copy_to_user() may copy zero bytes. No need to check.
+	if (!to_copy)
+		return;
+	if (to < TASK_SIZE) {
+		// This is a user memory access, check it.
+		kmsan_check_memory(from, to_copy - left);
+		return;
+	}
+	// Otherwise this is a kernel memory access. This happens when a compat
+	// syscall passes an argument allocated on the kernel stack to a real
+	// syscall.
+	// Don't check anything, just copy the corresponding shadow if the
+	// access succeeded.
+	BUG_ON(left);
+	shadow = kmsan_get_shadow_address(to, to_copy - left, /*checked*/true);
+	if (shadow) {
+		kmsan_memcpy_shadow(to, from, to_copy - left);
+		kmsan_memcpy_origins(to, from, to_copy - left);
+	}
+}
+EXPORT_SYMBOL(kmsan_copy_to_user);
 
 // TODO(glider): this check shouldn't be performed for origin pages, because
 // they're always accessed after the shadow pages.
