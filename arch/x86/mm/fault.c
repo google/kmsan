@@ -1496,6 +1496,7 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	unsigned long address = read_cr2(); /* Get the faulting address */
 	enum ctx_state prev_state;
 
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	/*
 	 * We must have this function tagged with __kprobes, notrace and call
 	 * read_cr2() before calling anything else. To avoid calling any kind
