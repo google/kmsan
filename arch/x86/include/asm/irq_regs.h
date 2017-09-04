@@ -14,6 +14,7 @@
 
 DECLARE_PER_CPU(struct pt_regs *, irq_regs);
 
+__attribute__((no_sanitize("kernel-memory")))
 static inline struct pt_regs *get_irq_regs(void)
 {
 	return this_cpu_read(irq_regs);
