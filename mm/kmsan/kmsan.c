@@ -1027,6 +1027,8 @@ void kmsan_check_memory(const void *addr, size_t size)
 EXPORT_SYMBOL(kmsan_check_memory);
 
 
+// TODO(glider): at this point we've copied the memory already.
+// Might be better to check it before copying.
 void kmsan_copy_to_user(const void *to, const void *from,
 			size_t to_copy, size_t left)
 {
