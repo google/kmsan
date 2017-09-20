@@ -155,7 +155,7 @@ static inline int __down_write_killable(struct rw_semaphore *sem)
  */
 static inline bool __down_write_trylock(struct rw_semaphore *sem)
 {
-	bool result;
+	bool result = false;	// TODO(glider): false positive here.
 	long tmp0, tmp1;
 	asm volatile("# beginning __down_write_trylock\n\t"
 		     "  mov          %[count],%[tmp0]\n\t"
