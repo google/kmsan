@@ -30,10 +30,10 @@ cd llvm
 wget https://raw.githubusercontent.com/google/kmsan/master/kmsan-llvm.patch
 patch -p0 -i kmsan-llvm.patch
 # Apply a patch fixing https://bugs.llvm.org/show_bug.cgi?id=32842
-wget https://reviews.llvm.org/file/data/sktw7c6s7lpz7ah3p6ib/PHID-FILE-v75mhkvsosaxnkl55lki/D32915.diff
+wget https://reviews.llvm.org/D32915?download=true -O D32915.diff
 patch -p0 -i D32915.diff
 wget https://raw.githubusercontent.com/google/kmsan/master/kmsan-clang.patch
-(cd tools/clang && patch -p0 -i ../../kmsan-clang.patch)
+patch -p0 -i kmsan-clang.patch
 mkdir llvm_cmake_build && cd llvm_cmake_build
 cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON ../
 make -j64 clang
