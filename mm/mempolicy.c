@@ -72,6 +72,7 @@
 #include <linux/highmem.h>
 #include <linux/hugetlb.h>
 #include <linux/kernel.h>
+#include <linux/kmsan.h>
 #include <linux/sched.h>
 #include <linux/sched/mm.h>
 #include <linux/sched/numa_balancing.h>
@@ -278,6 +279,9 @@ static struct mempolicy *mpol_new(unsigned short mode, unsigned short flags,
 	policy->mode = mode;
 	policy->flags = flags;
 
+	// TODO(glider): this is a bit heavy-handed, but we cannot instrument
+	// the whole file.
+	kmsan_unpoison_shadow(policy, sizeof(struct mempolicy));
 	return policy;
 }
 
@@ -2021,6 +2025,9 @@ struct mempolicy *__mpol_dup(struct mempolicy *old)
 		mpol_rebind_policy(new, &mems);
 	}
 	atomic_set(&new->refcnt, 1);
+	// TODO(glider): this is a bit heavy-handed, but we cannot instrument
+	// the whole file.
+	kmsan_unpoison_shadow(new, sizeof(struct mempolicy));
 	return new;
 }
 
