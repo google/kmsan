@@ -8,7 +8,7 @@ Contact: ramosian-glider@
 ## Code
 
 *   The kernel branch with KMSAN patches is available at https://github.com/google/kmsan
-*   Patches for LLVM r298239: [LLVM patch](https://github.com/google/kmsan/blob/master/kmsan-llvm.patch),
+*   Patches for LLVM r304977: [LLVM patch](https://github.com/google/kmsan/blob/master/kmsan-llvm.patch),
     [Clang patch](https://github.com/google/kmsan/blob/master/kmsan-clang.patch)
 *   Clang wrapper: https://github.com/google/kmsan/blob/master/clang_wrapper.py
 
@@ -22,18 +22,15 @@ export WORLD=`pwd`
 
 ### Build Clang
 ```
-R=298239
+R=304977
 svn co -r $R http://llvm.org/svn/llvm-project/llvm/trunk llvm
 cd llvm
 (cd tools && svn co -r $R http://llvm.org/svn/llvm-project/cfe/trunk clang)
 (cd projects && svn co -r $R http://llvm.org/svn/llvm-project/compiler-rt/trunk compiler-rt)
 wget https://raw.githubusercontent.com/google/kmsan/master/kmsan-llvm.patch
 patch -p0 -i kmsan-llvm.patch
-# Apply a patch fixing https://bugs.llvm.org/show_bug.cgi?id=32842
-wget https://reviews.llvm.org/file/data/sktw7c6s7lpz7ah3p6ib/PHID-FILE-v75mhkvsosaxnkl55lki/D32915.diff
-patch -p0 -i D32915.diff
 wget https://raw.githubusercontent.com/google/kmsan/master/kmsan-clang.patch
-(cd tools/clang && patch -p0 -i ../../kmsan-clang.patch)
+patch -p0 -i kmsan-clang.patch
 mkdir llvm_cmake_build && cd llvm_cmake_build
 cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON ../
 make -j64 clang
