@@ -1534,6 +1534,7 @@ trace_do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	unsigned long address = read_cr2();
 	enum ctx_state prev_state;
 
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	prev_state = exception_enter();
 	trace_page_fault_entries(address, regs, error_code);
 	__do_page_fault(regs, error_code, address);
