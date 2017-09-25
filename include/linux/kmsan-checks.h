@@ -20,6 +20,8 @@ void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy, size_t
 void *__msan_memcpy(void *dst, const void *src, u64 n);
 void kmsan_enter_runtime(unsigned long *flags);
 void kmsan_leave_runtime(unsigned long *flags);
+void kmsan_csum_partial_copy_generic(const void *src, const void *dst,
+		size_t len);
 
 #else
 static inline void kmsan_poison_shadow(void *address, size_t size, gfp_t flags) {}
@@ -34,6 +36,8 @@ static inline void *__msan_memcpy(void *dst, const void *src, u64 n)
 
 static inline void kmsan_enter_runtime(unsigned long *flags) {}
 static inline void kmsan_leave_runtime(unsigned long *flags) {}
+void kmsan_csum_partial_copy_generic(const void *src, const void *dst,
+		size_t len) {}
 
 #endif
 

@@ -1055,6 +1055,41 @@ void kmsan_copy_to_user(const void *to, const void *from,
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
 
+
+// Handle csum_partial_copy_generic(), which may be copying memory from/to both
+// userspace and kernel.
+// Note the order of arguments: |src| before |dst| to match that of
+// csum_partial_copy_generic().
+void kmsan_csum_partial_copy_generic(const void *src, const void *dst,
+		size_t len)
+{
+	bool is_user_src = src < TASK_SIZE;
+	bool is_user_dst = dst < TASK_SIZE;
+
+	if (is_user_src) {
+		if (is_user_dst) {
+			// Copying memory from userspace to userspace.
+			// TODO(glider): do we need this case?
+			return;
+		} else {
+			// Copying memory from userspace to kernel - unpoison dst.
+			kmsan_unpoison_shadow((void*)dst, len);
+			return;
+		}
+	} else {
+		if (is_user_dst) {
+			// Copying memory from kernel to userspace - check src.
+			kmsan_check_memory(src, len);
+			return;
+		} else {
+			// Copying memory from kernel to kernel - copy metadata.
+			kmsan_memcpy_shadow(dst, src, len);
+			kmsan_memcpy_origins(dst, src, len);
+		}
+	}
+}
+EXPORT_SYMBOL(kmsan_csum_partial_copy_generic);
+
 // TODO(glider): this check shouldn't be performed for origin pages, because
 // they're always accessed after the shadow pages.
 inline bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
