@@ -8,7 +8,7 @@ Contact: ramosian-glider@
 ## Code
 
 *   The kernel branch with KMSAN patches is available at https://github.com/google/kmsan
-*   Patches for LLVM r304977: [LLVM patch](https://github.com/google/kmsan/blob/master/kmsan-llvm.patch),
+*   Patches for LLVM r313704: [LLVM patch](https://github.com/google/kmsan/blob/master/kmsan-llvm.patch),
     [Clang patch](https://github.com/google/kmsan/blob/master/kmsan-clang.patch)
 *   Clang wrapper: https://github.com/google/kmsan/blob/master/clang_wrapper.py
 
@@ -22,7 +22,7 @@ export WORLD=`pwd`
 
 ### Build Clang
 ```
-R=304977
+R=313704
 svn co -r $R http://llvm.org/svn/llvm-project/llvm/trunk llvm
 cd llvm
 (cd tools && svn co -r $R http://llvm.org/svn/llvm-project/cfe/trunk clang)
