@@ -901,9 +901,10 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 	}
 }
 
-/*static*/
+// |deep| is a dirty hack to skip an additional frame when calling
+// kmsan_report() from kmsan_copy_to_user().
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
-			int size, int off)
+			int size, int off, bool deep)
 {
 	unsigned long flags;
 	struct stack_trace trace;
@@ -939,7 +940,8 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	save_reporter(caller, reporters_tbl, &reporters_index);
 	kmsan_pr_err("==================================================================\n");
 	// TODO(glider): inline this properly, avoid __builtin_return_address(1).
-	kmsan_pr_err("BUG: KMSAN: use of uninitialized memory in %pS\n", __builtin_return_address(1));
+	kmsan_pr_err("BUG: KMSAN: use of uninitialized memory in %pS\n",
+		deep ? __builtin_return_address(2) : __builtin_return_address(1));
 	dump_stack();
 	kmsan_print_origin(origin);
 	if (size)
@@ -1000,7 +1002,8 @@ bool my_virt_addr_valid(unsigned long x)
 	return pfn_valid(x >> PAGE_SHIFT);
 }
 
-void kmsan_check_memory(const void *addr, size_t size)
+inline
+void kmsan_internal_check_memory(const void *addr, size_t size)
 {
 	unsigned long irq_flags;
 	char *shadow;
@@ -1020,9 +1023,14 @@ void kmsan_check_memory(const void *addr, size_t size)
 		if (!shadow[i]) continue;
 		// Not checking for the second time.
 		origin = kmsan_get_origin_address(addr, size, /*checked*/false);
-		kmsan_report(_THIS_IP_, *origin, size, i);
+		kmsan_report(_THIS_IP_, *origin, size, i, /*deep*/true);
 	}
 	LEAVE_RUNTIME(irq_flags);
+}
+
+void kmsan_check_memory(const void *addr, size_t size)
+{
+	return kmsan_internal_check_memory(addr, size);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
 
@@ -1038,7 +1046,7 @@ void kmsan_copy_to_user(const void *to, const void *from,
 		return;
 	if (to < TASK_SIZE) {
 		// This is a user memory access, check it.
-		kmsan_check_memory(from, to_copy - left);
+		kmsan_internal_check_memory(from, to_copy - left);
 		return;
 	}
 	// Otherwise this is a kernel memory access. This happens when a compat
@@ -1079,7 +1087,7 @@ void kmsan_csum_partial_copy_generic(const void *src, const void *dst,
 	} else {
 		if (is_user_dst) {
 			// Copying memory from kernel to userspace - check src.
-			kmsan_check_memory(src, len);
+			kmsan_internal_check_memory(src, len);
 			return;
 		} else {
 			// Copying memory from kernel to kernel - copy metadata.
