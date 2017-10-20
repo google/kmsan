@@ -51,11 +51,14 @@ bool is_logbuf_locked(void);
 void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked);
 void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked);
 void *kmsan_get_origin_address(u64 addr, size_t size, bool checked);
+void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked);
 
 void kmsan_memcpy_shadow(u64 dst, u64 src, size_t n);
 void kmsan_memmove_shadow(u64 dst, u64 src, size_t n);
 void kmsan_memcpy_shadow_to_mem(u64 dst, u64 src, size_t n);
+void kmsan_memcpy_origin_to_mem(u64 dst, u64 src, size_t n);
 void kmsan_memcpy_mem_to_shadow(u64 dst, u64 src, size_t n);
+void kmsan_memcpy_mem_to_origin(u64 dst, u64 src, size_t n);
 
 void kmsan_memcpy_origins(u64 dst, u64 src, size_t n);
 void kmsan_memmove_origins(u64 dst, u64 src, size_t n);

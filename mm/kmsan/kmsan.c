@@ -447,6 +447,24 @@ void kmsan_memcpy_shadow_to_mem(u64 dst, u64 src, size_t n)
 	}
 }
 
+// memcpy(dst, origin(src), n). The source may not be contiguous.
+void kmsan_memcpy_origin_to_mem(u64 dst, u64 src, size_t n)
+{
+	void *origin_src;
+	size_t to_copy, rem_src;
+	if (!n)
+		return;
+	while (n) {
+		rem_src = PAGE_SIZE - (src % PAGE_SIZE);
+		to_copy = min_num(n, rem_src);
+		origin_src = kmsan_get_origin_address(src, to_copy, true);
+		__memcpy(dst, origin_src, to_copy);
+		dst += to_copy;
+		src += to_copy;
+		n -= to_copy;
+	}
+}
+
 // TODO(glider): overthink this.
 // Ideally, we want a chained origin for each distinct 4-byte slot.
 // Origins are aligned on 4.
@@ -533,7 +551,11 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 	struct stack_trace old_trace;
 	int depth = 0;
 	u64 old_magic;
-	static int skipped;
+	static int skipped = 0;
+	static int stat_origins = 0;
+
+	if (!kmsan_ready)
+		return 0;
 
 	// TODO(glider): invalid id may denote we've hit the stack depot
 	// capacity. We can either return the same id or generate a new one.
@@ -1248,31 +1270,71 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 		if (!metadata_is_contiguous(addr, size, /*is_origin*/false)) {
 			return NULL;
 		}
-#if 0
-		next_page = virt_to_page(addr + size - 1);
-		if (page_address(page->shadow) != page_address(next_page->shadow) - PAGE_SIZE) {
-			if ((addr < _sdata) || (addr >= _edata)) {
-				ENTER_RUNTIME(irq_flags);
-				// Skip reports on __data.
-				// TODO(glider): allocate contiguous shadow for __data instead.
-				current->kmsan.is_reporting = true;
-				kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
-				dump_stack();
-				kmsan_pr_err("Access of size %d at %p.\n", size, addr);
-				kmsan_pr_err("page[0].shadow: %p, page[1].shadow: %p\n", page_address(page->shadow), page_address(virt_to_page(addr + size - 1)));
-				origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr, 1, false);
-				kmsan_pr_err("origin: \n");
-				kmsan_print_origin(origin);
-				current->kmsan.is_reporting = false;
-				LEAVE_RUNTIME(irq_flags);
-			}
-			return NULL;
-		}
-#endif
 	}
 	ret = page_address(page->shadow) + page_offset;
 	return ret;
 }
+
+/* kmsan_get_origin_address_noruntime() must not be called from within runtime. */
+inline
+void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
+{
+	struct page *page, *next_page;
+	unsigned long page_offset, shadow_size;
+	void *ret;
+	depot_stack_handle_t origin;
+	unsigned long irq_flags;
+
+	u64 caller = __builtin_return_address(1);
+
+	// TODO(glider): For some reason vmalloc'ed addresses aren't considered valid.
+	if (!my_virt_addr_valid(addr)) {
+		ENTER_RUNTIME(irq_flags);
+		///kmsan_pr_err("not a valid virtual address: %p\n", addr);
+		// TODO(glider): Trinity is able to trigger the check below with size=14240.
+		// No point in increasing the dummy origin size further.
+		if (size > PAGE_SIZE) {
+			WARN("kmsan_get_origin_address_noruntime(%p, %d, %d)\n", addr, size, checked);
+			if (checked)
+				BUG();
+			else
+				return NULL;
+		}
+		LEAVE_RUNTIME(irq_flags);
+		return NULL;
+	}
+
+	page = virt_to_page(addr);
+	if (!page) {
+		return NULL;
+		ENTER_RUNTIME(irq_flags);
+		current->kmsan.is_reporting = true;
+		kmsan_pr_err("no page for address %p\n", addr);
+		current->kmsan.is_reporting = false;
+		LEAVE_RUNTIME(irq_flags);
+		return NULL;
+	}
+	if (!(page->origin)) {
+		ENTER_RUNTIME(irq_flags);
+		oops_in_progress = 1;
+		kmsan_pr_err("not allocated origin for addr %p (page %p)\n", addr, page);
+		BUG();
+		LEAVE_RUNTIME(irq_flags);
+	}
+	page_offset = addr % PAGE_SIZE;
+
+	if (checked && (page_offset + size - 1 > PAGE_SIZE)) {
+		/* The access overflows the current page and touches the next
+		 * one. Make sure the origin pages are also consequent.
+		 */
+		if (!metadata_is_contiguous(addr, size, /*is_origin*/true)) {
+			return NULL;
+		}
+	}
+	ret = page_address(page->origin) + page_offset;
+	return ret;
+}
+
 
 inline
 void *kmsan_get_origin_address(u64 addr, size_t size, bool checked)
@@ -1318,5 +1380,6 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked)
 		}
 	}
 	ret = page_address(page->origin) + page_offset;
+	BUG_ON(!IS_ALIGNED((u64)ret, 4));
 	return ret;
 }
