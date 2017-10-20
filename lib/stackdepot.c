@@ -188,6 +188,12 @@ void depot_fetch_stack(depot_stack_handle_t handle, struct stack_trace *trace)
 	size_t offset = parts.offset << STACK_ALLOC_ALIGN;
 	struct stack_record *stack = slab + offset;
 
+	if (!slab) {
+		pr_err("slab=NULL attempting to fetch handle %p\n", handle);
+		dump_stack();
+		BUG();
+	}
+
 	trace->nr_entries = trace->max_entries = stack->size;
 	trace->entries = stack->entries;
 	trace->skip = 0;
