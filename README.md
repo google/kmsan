@@ -99,6 +99,11 @@ Also consider running a KMSAN-instrumented kernel under [syzkaller](https://gith
     *   Status: [fixed
         upstream](https://github.com/torvalds/linux/commit/c28294b941232931fbd714099798eb7aa7e865d7)
 
+*   [`waitid()` copies uninitialized data to userspace (CVE-2017-14954)](http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-14954)
+    *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/6c85501f2fabcfc4fc6ed976543d252c4eaf4be9) by Al Viro
+*   [local infoleak via an `SG_GET_REQUEST_TABLE` ioctl call for `/dev/sg0`](http://www.openwall.com/lists/oss-security/2017/10/09/6) ([CVE-2017-14991](https://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-14991))
+    *   Status: [fixed upstream](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3e0097499839e0fe3af380410eababe5a47c4cf9)
+
 ### Confirmed bug reports by others:
 *   [`deprecated_sysctl_warning()` reads uninit memory](https://lkml.org/lkml/2017/5/24/498)
 *   [`struct sockaddr` length not checked in `llcp_sock_connect()`](https://github.com/torvalds/linux/commit/608c4adfcabab220142ee335a2a003ccd1c0b25b)
