@@ -261,6 +261,77 @@ DECLARE_KMSAN_STORE_SHADOW_ORIGIN(1, u8);
 DECLARE_KMSAN_STORE_SHADOW_ORIGIN(2, u16);
 DECLARE_KMSAN_STORE_SHADOW_ORIGIN(4, u32);
 
+typedef struct {
+	void* s;
+	void* o;
+} shadow_origin_ptr_t;
+
+char dummy_shadow_load_page[PAGE_SIZE];
+char dummy_origin_load_page[PAGE_SIZE];
+char dummy_shadow_store_page[PAGE_SIZE];
+char dummy_origin_store_page[PAGE_SIZE];
+
+static inline
+shadow_origin_ptr_t msan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
+{
+	shadow_origin_ptr_t ret;
+	void *shadow, *origin;
+	unsigned long irq_flags;
+
+	if (store) {
+		ret.s = dummy_shadow_store_page;
+		ret.o = dummy_origin_store_page;
+	} else {
+		ret.s = dummy_shadow_load_page;
+		ret.o = dummy_origin_load_page;
+	}
+	if (!kmsan_ready || IN_RUNTIME()) {
+		return ret;
+	}
+	shadow = kmsan_get_shadow_address_noruntime(addr, size, /*checked*/true);
+	if (!shadow)
+		goto leave;
+	ret.s = shadow;
+	///ENTER_RUNTIME(irq_flags);
+	origin = kmsan_get_origin_address_noruntime(addr, size, /*checked*/true);
+	// origin cannot be NULL, because shadow is already non-NULL.
+	BUG_ON(!origin);
+	///LEAVE_RUNTIME(irq_flags);
+leave:
+	return ret;
+}
+
+shadow_origin_ptr_t __msan_metadata_ptr_for_load_n(u64 addr, u64 size)
+{
+	return msan_get_shadow_origin_ptr(addr, size, /*store*/false);
+}
+EXPORT_SYMBOL(__msan_metadata_ptr_for_load_n);
+
+shadow_origin_ptr_t __msan_metadata_ptr_for_store_n(u64 addr, u64 size)
+{
+	return msan_get_shadow_origin_ptr(addr, size, /*store*/true);
+}
+EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
+
+#define DECLARE_METADATA_PTR_GETTER(size)	\
+shadow_origin_ptr_t __msan_metadata_ptr_for_load_##size(u64 addr)	\
+{		\
+	return msan_get_shadow_origin_ptr(addr, size, /*store*/false);	\
+}		\
+EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);			\
+		\
+shadow_origin_ptr_t __msan_metadata_ptr_for_store_##size(u64 addr)	\
+{									\
+	return msan_get_shadow_origin_ptr(addr, size, /*store*/true);	\
+}									\
+EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size);
+
+DECLARE_METADATA_PTR_GETTER(1);
+DECLARE_METADATA_PTR_GETTER(2);
+DECLARE_METADATA_PTR_GETTER(4);
+DECLARE_METADATA_PTR_GETTER(8);
+
+
 // Essentially a memcpy(shadow(dst), src, size).
 // TODO(glider): do we need any checks here?
 // TODO(glider): maybe save origins as well?
