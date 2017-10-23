@@ -350,9 +350,8 @@ void __msan_load_arg_shadow(u64 dst, u64 src, u64 size)
 }
 EXPORT_SYMBOL(__msan_load_arg_shadow);
 
-// Essentially a memcpy(dst, shadow(src), size).
+// Essentially a memcpy(dst, shadow(src), size)
 // TODO(glider): do we need any checks here?
-// TODO(glider): maybe save origins as well?
 // Another possible thing to do is to push/pop va_arg shadow.
 void __msan_store_arg_shadow(u64 dst, u64 src, u64 size)
 {
@@ -385,6 +384,21 @@ void __msan_store_arg_origin(u64 dst, u64 src, u64 size)
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_store_arg_origin);
+
+void __msan_store_arg_shadow_origin(u64 dst_shadow, u64 dst_origin, u64 src, u64 size)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || !kmsan_threads_ready)
+		return;
+	if (IN_RUNTIME())
+		return;
+	ENTER_RUNTIME(irq_flags);
+	kmsan_store_arg_shadow_origin(dst_shadow, dst_origin, src, size);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(__msan_store_arg_shadow_origin);
+
 
 // TODO(glider): rename to __msan_memmove
 void *__msan_memmove(void *dst, void *src, u64 n)
