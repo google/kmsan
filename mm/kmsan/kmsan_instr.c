@@ -104,11 +104,11 @@ shadow_origin_##size __msan_load_shadow_origin_##size(u64 addr) \
 	ret.s = (u64)*shadow;			\
 	if (!ret.s)				\
 		goto leave;			\
-	ENTER_RUNTIME(irq_flags);		\
-	origin = kmsan_get_origin_address(addr, size, /*checked*/true);	\
+	/*ENTER_RUNTIME(irq_flags);*/		\
+	origin = kmsan_get_origin_address_noruntime(addr, size, /*checked*/true);	\
 	BUG_ON(!origin);			\
 	ret.o = *origin;			\
-	LEAVE_RUNTIME(irq_flags);		\
+	/*LEAVE_RUNTIME(irq_flags);*/		\
 leave:						\
 	return ret;				\
 }						\
@@ -138,13 +138,14 @@ shadow_origin_n __msan_load_shadow_origin_n_8(u64 addr, u64 size)
 	}
 	ENTER_RUNTIME(irq_flags);
 	kmsan_memcpy_shadow_to_mem(&ret.s, addr, size);
+	LEAVE_RUNTIME(irq_flags);
 	if (!ret.s)
 		goto leave;
-	origin = kmsan_get_origin_address(addr, size, /*checked*/true);
+	origin = kmsan_get_origin_address_noruntime(addr, size, /*checked*/true);
 	BUG_ON(!origin);
 	ret.o = *origin;
 leave:
-	LEAVE_RUNTIME(irq_flags);
+	///LEAVE_RUNTIME(irq_flags);
 	return ret;
 }
 EXPORT_SYMBOL(__msan_load_shadow_origin_n_8);
