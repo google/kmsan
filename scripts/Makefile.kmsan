@@ -1,6 +1,6 @@
 ifdef CONFIG_KMSAN
 
-CFLAGS_KMSAN := -fsanitize=kernel-memory -mllvm -msan-kernel-use-meta-pointers=0
+CFLAGS_KMSAN := -fsanitize=kernel-memory -mllvm -msan-kernel-use-meta-pointers=1
 
 ifeq ($(call cc-option, $(CFLAGS_KMSAN) -Werror),)
    ifneq ($(CONFIG_COMPILE_TEST),y)
