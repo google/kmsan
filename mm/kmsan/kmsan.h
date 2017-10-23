@@ -60,6 +60,8 @@ void kmsan_memcpy_origin_to_mem(u64 dst, u64 src, size_t n);
 void kmsan_memcpy_mem_to_shadow(u64 dst, u64 src, size_t n);
 void kmsan_memcpy_mem_to_origin(u64 dst, u64 src, size_t n);
 
+
+void kmsan_store_arg_shadow_origin(u64 dst_shadow, u64 dst_origin, u64 src, u64 size);
 void kmsan_memcpy_origins(u64 dst, u64 src, size_t n);
 void kmsan_memmove_origins(u64 dst, u64 src, size_t n);
 

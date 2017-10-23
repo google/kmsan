@@ -539,6 +539,35 @@ void kmsan_memcpy_origins(u64 dst, u64 src, size_t n)
 	}
 }
 
+void kmsan_store_arg_shadow_origin(u64 dst_shadow, u64 dst_origin, u64 src, u64 size) {
+	u64 origin_size = ALIGN(size, 4);
+	BUG_ON(origin_size != size);  // TODO(glider)
+	depot_stack_handle_t origin;
+	u64 to_copy;
+	u32 *src_shadow;
+	depot_stack_handle_t *src_origin;
+
+	while (size) {
+		to_copy = min_num(4, size);
+		// The above memcpy has performed the check already.
+		src_shadow = (u32*)kmsan_get_shadow_address(src, to_copy, /*check*/true);
+		__memcpy(dst_shadow, src_shadow, to_copy);
+		if (*src_shadow) {
+			src_origin = kmsan_get_origin_address(src, origin_size, /*check*/false);
+			origin = *src_origin;
+			origin = kmsan_internal_chain_origin(origin, /*full*/true);
+		} else {
+			origin = 0;
+		}
+		*(depot_stack_handle_t*)dst_origin = origin;
+		size -= to_copy;
+		dst_shadow += to_copy;
+		dst_origin += to_copy;
+		src += to_copy;
+	}
+}
+
+
 void kmsan_memmove_shadow(u64 dst, u64 src, size_t n)
 {
 	// TODO(glider): must be real memmove.
