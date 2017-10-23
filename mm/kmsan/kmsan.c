@@ -1328,10 +1328,14 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 	void *ret;
 	depot_stack_handle_t origin;
 	unsigned long irq_flags;
-
-	u64 caller = __builtin_return_address(1);
+	size_t pad;
 
 	// TODO(glider): For some reason vmalloc'ed addresses aren't considered valid.
+	if (!IS_ALIGNED(addr, 4)) {
+		pad = addr % 4;
+		addr -= pad;
+		size += pad;
+	}
 	if (!my_virt_addr_valid(addr)) {
 		ENTER_RUNTIME(irq_flags);
 		///kmsan_pr_err("not a valid virtual address: %p\n", addr);
