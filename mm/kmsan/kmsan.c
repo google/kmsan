@@ -491,6 +491,8 @@ void kmsan_memcpy_origins(u64 dst, u64 src, size_t n)
 	depot_stack_handle_t *h_src, *h_dst;
 	u64 old_dst = dst, old_src = src;
 	size_t old_n = n;
+	u32 shadow;
+	u32 *shadow_ptr;
 
 	if (!n)
 		return;
@@ -509,12 +511,25 @@ void kmsan_memcpy_origins(u64 dst, u64 src, size_t n)
 		h_src = kmsan_get_origin_address(src, to_copy, true);
 
 		for (int i = 0; i < to_copy/4; i++) {
-			if (*h_src && (*h_src != handle)) {
+			// Make sure we don't copy origins for zero shadow.
+			shadow = (u32)-1;
+			if (to_copy >= 4) {
+				shadow_ptr = kmsan_get_shadow_address(ALIGN(src, 4), 4, true);
+				if (shadow_ptr) {
+					shadow = *shadow_ptr;
+				}
+			}
+			// TODO(glider): need to check that current origin != previous origin.
+			if (*h_src && (*h_src != handle) && shadow) {
 				handle = *h_src;
 				new_handle = kmsan_internal_chain_origin(handle, /*full*/true);
 				if (new_handle) handle = new_handle;
 			}
-			*h_dst = handle;
+			if (!shadow) {
+				*h_dst = 0;
+			} else {
+				*h_dst = handle;
+			}
 			h_src++;
 			h_dst++;
 		}
