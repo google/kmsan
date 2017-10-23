@@ -523,6 +523,23 @@ void *__msan_memset(void *dst, int c, size_t n)
 }
 EXPORT_SYMBOL(__msan_memset);
 
+depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
+{
+	depot_stack_handle_t ret = 0;
+	unsigned long irq_flags;
+
+	if (IN_RUNTIME())
+		return ret;
+	if (!kmsan_ready)
+		return ret;
+
+	ENTER_RUNTIME(irq_flags);
+	ret = kmsan_internal_chain_origin(origin, /*full*/true);
+	LEAVE_RUNTIME(irq_flags);
+	return ret;
+}
+EXPORT_SYMBOL(__msan_chain_origin);
+
 void __msan_poison_alloca(void *a, u64 size, char *descr/*checked*/, u64 pc)
 {
 	depot_stack_handle_t handle;
