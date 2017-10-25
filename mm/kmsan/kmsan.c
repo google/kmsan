@@ -580,6 +580,56 @@ void kmsan_memmove_origins(u64 dst, u64 src, size_t n)
 	kmsan_memcpy_origins(dst, src, n);
 }
 
+static inline void kmsan_print_origin(depot_stack_handle_t origin)
+{
+	struct stack_trace trace, chained_trace;
+	char *descr = NULL;
+	void *pc1 = NULL, *pc2 = NULL;
+	depot_stack_handle_t head;
+
+	if (!origin)
+		return;
+
+	while (true) {
+		depot_fetch_stack(origin, &trace);
+		if ((trace.nr_entries == 4) &&
+		    ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_ALLOCA_MAGIC_ORIGIN)) {
+			descr = (char*)trace.entries[1];
+			pc1 = (void*)trace.entries[2];
+			pc2 = (void*)trace.entries[3];
+			kmsan_pr_err("origin description: %s\n", descr);
+			kmsan_pr_err("local variable created at:\n");
+			kmsan_pr_err(" %pS\n", pc1);
+			kmsan_pr_err(" %pS\n", pc2);
+			break;
+		}
+		if (trace.nr_entries == 3) {
+			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
+				head = trace.entries[1];
+				origin = trace.entries[2];
+				kmsan_pr_err("chained origin:\n");
+				depot_fetch_stack(head, &chained_trace);
+				print_stack_trace(&chained_trace, 0);
+				continue;
+			} else
+			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FRAME) {
+				origin = trace.entries[2];
+				kmsan_pr_err("chained origin:\n");
+				kmsan_pr_err("%p - %pSR\n", trace.entries[1], trace.entries[1]);
+				continue;
+			}
+		}
+		kmsan_pr_err("origin:\n");
+		if (trace.entries)
+			print_stack_trace(&trace, 0);
+		else
+			kmsan_pr_err("No entries\n");
+		break;
+	}
+}
+
+
+
 #define MAX_CHAIN_DEPTH 7
 depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id, bool full)
 {
@@ -617,8 +667,11 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 	}
 	if (depth >= MAX_CHAIN_DEPTH) {
 		skipped++;
-		if (skipped % 10000 == 0)
-		kmsan_pr_err("not chained %d origins\n", skipped);
+		if (skipped % 10000 == 0) {
+			kmsan_pr_err("not chained %d origins\n", skipped);
+			dump_stack();
+			kmsan_print_origin(id);
+		}
 		return id;
 	}
 	depth++;
@@ -917,54 +970,6 @@ void save_reporter(void *caller, void **table, int *index)
 	if (*index >= MAX_REPORTS)
 		return;
 	table[(*index)++] = caller;
-}
-
-static inline void kmsan_print_origin(depot_stack_handle_t origin)
-{
-	struct stack_trace trace, chained_trace;
-	char *descr = NULL;
-	void *pc1 = NULL, *pc2 = NULL;
-	depot_stack_handle_t head;
-
-	if (!origin)
-		return;
-
-	while (true) {
-		depot_fetch_stack(origin, &trace);
-		if ((trace.nr_entries == 4) &&
-		    ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_ALLOCA_MAGIC_ORIGIN)) {
-			descr = (char*)trace.entries[1];
-			pc1 = (void*)trace.entries[2];
-			pc2 = (void*)trace.entries[3];
-			kmsan_pr_err("origin description: %s\n", descr);
-			kmsan_pr_err("local variable created at:\n");
-			kmsan_pr_err(" %pS\n", pc1);
-			kmsan_pr_err(" %pS\n", pc2);
-			break;
-		}
-		if (trace.nr_entries == 3) {
-			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
-				head = trace.entries[1];
-				origin = trace.entries[2];
-				kmsan_pr_err("chained origin:\n");
-				depot_fetch_stack(head, &chained_trace);
-				print_stack_trace(&chained_trace, 0);
-				continue;
-			} else
-			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FRAME) {
-				origin = trace.entries[2];
-				kmsan_pr_err("chained origin:\n");
-				kmsan_pr_err("%p - %pSR\n", trace.entries[1], trace.entries[1]);
-				continue;
-			}
-		}
-		kmsan_pr_err("origin:\n");
-		if (trace.entries)
-			print_stack_trace(&trace, 0);
-		else
-			kmsan_pr_err("No entries\n");
-		break;
-	}
 }
 
 // |deep| is a dirty hack to skip an additional frame when calling
