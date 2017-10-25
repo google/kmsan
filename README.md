@@ -103,6 +103,15 @@ Also consider running a KMSAN-instrumented kernel under [syzkaller](https://gith
     *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/6c85501f2fabcfc4fc6ed976543d252c4eaf4be9) by Al Viro
 *   [local infoleak via an `SG_GET_REQUEST_TABLE` ioctl call for `/dev/sg0`](http://www.openwall.com/lists/oss-security/2017/10/09/6) ([CVE-2017-14991](https://cve.mitre.org/cgi-bin/cvename.cgi?name=2017-14991))
     *   Status: [fixed upstream](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3e0097499839e0fe3af380410eababe5a47c4cf9)
+*   Uninitialized TCP request hash used in `cookie_v[46]_check()`
+    *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/18bcf2907df935981266532e1e0d052aff2e6fae)
+*   `_sctp_walk_params() and _sctp_walk_errors() dereference uninitialized pointers`
+    *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/b1f5bfc27a19f214006b9b4db7b9126df2dfdf5a)
+*   `sctp_v6_to_addr()` compared addresses to uninit data
+    *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/15339e441ec46fbc3bf3486bb1ae4845b0f1bb8d#diff-525010da1ffa389226076f14b694d47d)
+*   `tun_get_user()` accesses uninitialized data if `skb->len` is `0`
+    *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/2580c4c17aee3ad58e9751012bad278dd074ccae#diff-c5903446ad04d2f699bca63f6f11e5bf)
+
 
 ### Confirmed bug reports by others:
 *   [`deprecated_sysctl_warning()` reads uninit memory](https://lkml.org/lkml/2017/5/24/498)
