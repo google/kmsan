@@ -1491,6 +1491,7 @@ good_area:
 NOKPROBE_SYMBOL(__do_page_fault);
 
 dotraplinkage void notrace
+__attribute__((no_sanitize("kernel-memory")))
 do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
 	unsigned long address = read_cr2(); /* Get the faulting address */
