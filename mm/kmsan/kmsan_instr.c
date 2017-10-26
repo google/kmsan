@@ -251,7 +251,9 @@ void __msan_store_shadow_origin_##size(u64 addr, u64 s, u64 o)	\
 		if (new_origin)						\
 			o = new_origin;					\
 	}								\
-	kmsan_set_origin(addr, size, o);				\
+	if (o || (size == 4) || ((size < 4) && (!(u32*)ALIGN_DOWN((u64)shadow, 4))))	{	\
+		kmsan_set_origin(addr, size, o);				\
+	}								\
 	LEAVE_RUNTIME(irq_flags);					\
 leave:									\
 	return;								\
