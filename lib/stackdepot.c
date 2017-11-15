@@ -163,6 +163,17 @@ static inline u32 hash_stack(unsigned long *entries, unsigned int size)
 			       STACK_HASH_SEED);
 }
 
+static inline
+int stackdepot_memcmp(const void *s1, const void *s2, unsigned int n) {
+	unsigned long *u1 = (unsigned long *)s1;
+	unsigned long *u2 = (unsigned long *)s2;
+	for ( ; n-- ; u1++, u2++) {
+		if ( *u1 != *u2)
+			return (*u1-*u2);
+	}
+	return 0;
+}
+
 /* Find a stack that is equal to the one stored in entries in the hash */
 static inline struct stack_record *find_stack(struct stack_record *bucket,
 					     unsigned long *entries, int size,
@@ -173,8 +184,8 @@ static inline struct stack_record *find_stack(struct stack_record *bucket,
 	for (found = bucket; found; found = found->next) {
 		if (found->hash == hash &&
 		    found->size == size &&
-		    !memcmp(entries, found->entries,
-			    size * sizeof(unsigned long))) {
+		    !stackdepot_memcmp(entries, found->entries,
+			    size)) {
 			return found;
 		}
 	}
