@@ -23,6 +23,8 @@ bool is_logbuf_locked(void);
 			pr_err(__VA_ARGS__); \
 	} while (0)
 
+#define min_num(x,y) ((x) < (y) ? x : y)
+
 
 /*
  * When a compiler hook is invoked, it may make a call to instrumented code
@@ -97,5 +99,7 @@ void __msan_init(void);
 
 int task_tls_index(void);
 kmsan_context_state *task_kmsan_context_state(void);
+
+bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin);
 
 #endif

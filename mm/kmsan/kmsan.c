@@ -163,7 +163,6 @@ bool unused_msan_check_range(void *addr, size_t size, int from)
 }
 EXPORT_SYMBOL(unused_msan_check_range);
 
-#define min_num(x,y) ((x) < (y) ? x : y)
 inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size)
 {
 	void *shadow_start;
@@ -700,6 +699,8 @@ void kmsan_write_aligned_origin(const void *var, size_t size, u32 origin)
 		var_cast[i] = origin;
 }
 
+// TODO(glider): writing an initialized byte shouldn't zero out the origin, if
+// the remaining three bytes are uninitialized.
 void kmsan_set_origin(u64 address, int size, u32 origin)
 {
 	void *origin_start;
@@ -1052,7 +1053,7 @@ static inline int my_phys_addr_valid(resource_size_t addr)
 
 // Taken from arch/x86/mm/physaddr.c
 // TODO(glider): do we need it?
-bool my_virt_addr_valid(unsigned long x)
+static bool my_virt_addr_valid(unsigned long x)
 {
 	unsigned long y = x - __START_KERNEL_map;
 
@@ -1171,7 +1172,7 @@ EXPORT_SYMBOL(kmsan_csum_partial_copy_generic);
 
 // TODO(glider): this check shouldn't be performed for origin pages, because
 // they're always accessed after the shadow pages.
-inline bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
+bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 	u64 cur_addr, next_addr, cur_meta_addr, next_meta_addr;
 	struct page *cur_page, *next_page;
 	depot_stack_handle_t origin;
