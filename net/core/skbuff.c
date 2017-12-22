@@ -41,6 +41,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/mm.h>
 #include <linux/interrupt.h>
 #include <linux/in.h>
@@ -1693,6 +1694,10 @@ void *skb_put(struct sk_buff *skb, unsigned int len)
 	skb->len  += len;
 	if (unlikely(skb->tail > skb->end))
 		skb_over_panic(skb, len, __builtin_return_address(0));
+	// TODO(glider): many callers of skb_put() overwrite the unpoisoned
+	// memory. However the call below prevents some false positives.
+	// We assume that the data copied to skb from devices is initialized.
+	kmsan_unpoison_shadow(tmp, len);
 	return tmp;
 }
 EXPORT_SYMBOL(skb_put);
