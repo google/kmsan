@@ -4,6 +4,7 @@
 
 /* Keep includes the same across arches.  */
 #include <linux/mm.h>
+#include <linux/kmsan-checks.h>
 
 /*
  * The cache doesn't need to be flushed when TLB entries change when
@@ -26,10 +27,11 @@
 
 #define copy_to_user_page(vma, page, vaddr, dst, src, len) \
 	do { \
+		kmsan_check_memory(src, len); \
 		memcpy(dst, src, len); \
 		flush_icache_user_range(vma, page, vaddr, len); \
 	} while (0)
 #define copy_from_user_page(vma, page, vaddr, dst, src, len) \
-	memcpy(dst, src, len)
+	do { memcpy(dst, src, len); kmsan_unpoison_shadow(dst, len); } while (0)
 
 #endif /* __ASM_CACHEFLUSH_H */
