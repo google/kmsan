@@ -1,0 +1,100 @@
+KMSAN reports the following error in packet_bind_spkt():
+
+==================================================================
+BUG: KMSAN: use of unitialized memory
+CPU: 0 PID: 1074 Comm: packet Not tainted 4.8.0-rc6+ #1891
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 0000000000000000 ffff88006b6dfc08 ffffffff82559ae8 ffff88006b6dfb48
+ ffffffff818a7c91 ffffffff85b9c870 0000000000000092 ffffffff85b9c550
+ 0000000000000000 0000000000000092 00000000ec400911 0000000000000002
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff82559ae8>] dump_stack+0x238/0x290 lib/dump_stack.c:51
+ [<ffffffff818a6626>] kmsan_report+0x276/0x2e0 mm/kmsan/kmsan.c:1003
+ [<ffffffff818a783b>] __msan_warning+0x5b/0xb0 mm/kmsan/kmsan_instr.c:424
+ [<     inline     >] strlen lib/string.c:484
+ [<ffffffff8259b58d>] strlcpy+0x9d/0x200 lib/string.c:144
+ [<ffffffff84b2eca4>] packet_bind_spkt+0x144/0x230 net/packet/af_packet.c:3132
+ [<ffffffff84242e4d>] SYSC_bind+0x40d/0x5f0 net/socket.c:1370
+ [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
+ [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
+chained origin: 00000000eba00911
+ [<ffffffff810bb787>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
+ [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
+ [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:334
+ [<ffffffff818a59f8>] kmsan_internal_chain_origin+0x118/0x1e0 mm/kmsan/kmsan.c:527
+ [<ffffffff818a7773>] __msan_set_alloca_origin4+0xc3/0x130 mm/kmsan/kmsan_instr.c:380
+ [<ffffffff84242b69>] SYSC_bind+0x129/0x5f0 net/socket.c:1356
+ [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
+ [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
+origin description: ----address@SYSC_bind (origin=00000000eb400911)
+==================================================================
+
+, upon running the following program as root:
+
+=====================================
+#include <string.h>
+#include <sys/socket.h>
+#include <netpacket/packet.h>
+#include <net/ethernet.h>
+
+int main() {
+  struct sockaddr addr;
+  memset(&addr, 0xff, sizeof(addr));
+  addr.sa_family = AF_PACKET;
+  int fd = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ALL));
+  bind(fd, &addr, sizeof(addr));
+  return 0;
+}
+=====================================
+
+What happens here is as follows.
+
+First, the contents of |addr| (16 bytes) in the user program are copied into the |struct sockaddr_storage address| (128 bytes) by the bind() syscall implementation:
+
+1356 SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
+1357 {
+1358         struct socket *sock;
+1359         struct sockaddr_storage address;
+1360         int err, fput_needed;
+1361 
+1362         sock = sockfd_lookup_light(fd, &err, &fput_needed);
+1363         if (sock) {
+1364                 err = move_addr_to_kernel(umyaddr, addrlen, &address);
+1365                 if (err >= 0) {
+1366                         err = security_socket_bind(sock,
+1367                                                    (struct sockaddr *)&address,
+1368                                                    addrlen);
+1369                         if (!err)
+1370                                 err = sock->ops->bind(sock,
+1371                                                       (struct sockaddr *)
+1372                                                       &address, addrlen);
+1373                 }
+1374                 fput_light(sock->file, fput_needed);
+1375         }
+1376         return err;
+1377 }
+
+Then security_socket_bind() is called, which doesn't modify the contents of |address|, after which |address| is passed to sock->ops->bind(), in our case packet_bind_spkt():
+
+tatic int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
+3121                             int addr_len)
+3122 {
+3123         struct sock *sk = sock->sk;
+3124         char name[15];
+3125 
+3126         /*
+3127          *      Check legality
+3128          */
+3129 
+3130         if (addr_len != sizeof(struct sockaddr))
+3131                 return -EINVAL;
+3132         strlcpy(name, uaddr->sa_data, sizeof(name));
+3133 
+3134         return packet_do_bind(sk, name, 0, pkt_sk(sk)->num);
+3135 }
+
+Here the string in uaddr->sa_data isn't guaranteed to be null-terminated (in our case it is not),
+yet strlcpy() is called on it.
+Then strlcpy() calls strlen(uaddr->sa_data), which starts reading uninitialized memory till it
+finds a zero or hits an unmapped page.
