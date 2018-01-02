@@ -7,6 +7,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/kmsan.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/bitops.h>
@@ -1477,6 +1478,7 @@ static void * __init memblock_alloc_internal(
 
 	if (!alloc)
 		return NULL;
+	kmsan_record_future_shadow_range((u64)ptr, ((u64)ptr)+size);
 
 	return phys_to_virt(alloc);
 }
