@@ -22,6 +22,7 @@
 #include <linux/notifier.h>
 #include <linux/seq_file.h>
 #include <linux/kasan.h>
+#include <linux/kmsan-checks.h>
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
 #include <linux/mempolicy.h>
@@ -1362,12 +1363,14 @@ static inline void kmalloc_large_node_hook(void *ptr, size_t size, gfp_t flags)
 {
 	kmemleak_alloc(ptr, size, 1, flags);
 	kasan_kmalloc_large(ptr, size, flags);
+	kmsan_kmalloc_large(ptr, size, flags);
 }
 
 static __always_inline void kfree_hook(void *x)
 {
 	kmemleak_free(x);
 	kasan_kfree_large(x, _RET_IP_);
+	kmsan_kfree_large(x);
 }
 
 static __always_inline void *slab_free_hook(struct kmem_cache *s, void *x)
@@ -1399,6 +1402,7 @@ static __always_inline void *slab_free_hook(struct kmem_cache *s, void *x)
 	 * reuse. In this case the object's freelist pointer is changed.
 	 */
 	kasan_slab_free(s, x, _RET_IP_);
+	kmsan_slab_free(s, x);
 	return freeptr;
 }
 
@@ -2748,6 +2752,9 @@ void *kmem_cache_alloc(struct kmem_cache *s, gfp_t gfpflags)
 	trace_kmem_cache_alloc(_RET_IP_, ret, s->object_size,
 				s->size, gfpflags);
 
+	// If there's a ctor, we've poisoned that memory before calling it.
+	kmsan_kmalloc(s, ret, s->object_size, gfpflags);
+
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc);
@@ -2758,6 +2765,9 @@ void *kmem_cache_alloc_trace(struct kmem_cache *s, gfp_t gfpflags, size_t size)
 	void *ret = slab_alloc(s, gfpflags, _RET_IP_);
 	trace_kmalloc(_RET_IP_, ret, size, s->size, gfpflags);
 	kasan_kmalloc(s, ret, size, gfpflags);
+	// If there's a ctor, we've poisoned that memory before calling it.
+	kmsan_kmalloc(s, ret, size, gfpflags);
+
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_trace);
@@ -2770,7 +2780,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *s, gfp_t gfpflags, int node)
 
 	trace_kmem_cache_alloc_node(_RET_IP_, ret,
 				    s->object_size, s->size, gfpflags, node);
-
+	// TODO(glider): do we want to tell KMSAN about this allocation?
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_node);
@@ -2786,6 +2796,9 @@ void *kmem_cache_alloc_node_trace(struct kmem_cache *s,
 			   size, s->size, gfpflags, node);
 
 	kasan_kmalloc(s, ret, size, gfpflags);
+	// If there's a ctor, we've poisoned that memory before calling it.
+	kmsan_kmalloc(s, ret, size, gfpflags);
+
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_node_trace);
@@ -3303,6 +3316,8 @@ init_kmem_cache_node(struct kmem_cache_node *n)
 	atomic_long_set(&n->total_objects, 0);
 	INIT_LIST_HEAD(&n->full);
 #endif
+	// TODO(glider): need finer granularity. Or just instrument init_kmem_cache_node
+	///kmsan_unpoison_shadow(n, sizeof(struct kmem_cache_node));
 }
 
 static inline int alloc_kmem_cache_cpus(struct kmem_cache *s)
@@ -3362,6 +3377,9 @@ static void early_kmem_cache_node_alloc(int node)
 	init_tracking(kmem_cache_node, n);
 #endif
 	kasan_kmalloc(kmem_cache_node, n, sizeof(struct kmem_cache_node),
+		      GFP_KERNEL);
+	// TODO(glider): get rid of kmsan_kmalloc here?
+	kmsan_kmalloc(kmem_cache_node, n, sizeof(struct kmem_cache_node),
 		      GFP_KERNEL);
 	init_kmem_cache_node(n);
 	inc_slabs_node(kmem_cache_node, node, page->objects);
@@ -3750,6 +3768,7 @@ static int __init setup_slub_min_objects(char *str)
 
 __setup("slub_min_objects=", setup_slub_min_objects);
 
+__attribute__((no_sanitize("kernel-memory")))
 void *__kmalloc(size_t size, gfp_t flags)
 {
 	struct kmem_cache *s;
@@ -3768,6 +3787,8 @@ void *__kmalloc(size_t size, gfp_t flags)
 	trace_kmalloc(_RET_IP_, ret, size, s->size, flags);
 
 	kasan_kmalloc(s, ret, size, flags);
+	// If there's a ctor, we've poisoned that memory before calling it.
+	kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
 }
@@ -3813,6 +3834,8 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 	trace_kmalloc_node(_RET_IP_, ret, size, s->size, flags, node);
 
 	kasan_kmalloc(s, ret, size, flags);
+	// If there's a ctor, we've poisoned that memory before calling it.
+	kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
 }
@@ -5674,6 +5697,7 @@ static char *create_unique_id(struct kmem_cache *s)
 	p += sprintf(p, "%07d", s->size);
 
 	BUG_ON(p > name + ID_STR_LENGTH - 1);
+	kmsan_unpoison_shadow(name, p - name);
 	return name;
 }
 
@@ -5818,6 +5842,7 @@ static int sysfs_slab_alias(struct kmem_cache *s, const char *name)
 	al->name = name;
 	al->next = alias_list;
 	alias_list = al;
+	kmsan_unpoison_shadow(al, sizeof(struct saved_alias));
 	return 0;
 }
 
