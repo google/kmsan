@@ -1,0 +1,68 @@
+KMSAN reports the following error:
+
+==================================================================
+BUG: KMSAN: use of unitialized memory
+CPU: 0 PID: 1123 Comm: udevd Tainted: G    B           4.8.0-rc6+ #1435
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ ffff88003e35fc88 ffff88003e35fca8 ffffffff82486c57 000000003e35fca8
+ ffffffff81a2c4cf 0000000000000082 ffffffff81a2c4cf 00000000d3c0017b
+ 0000000000000093 ffff88003e35fcf8 ffffffff8183ec8d 0000000000000001
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff82486c57>] dump_stack+0x157/0x1d0 lib/dump_stack.c:51
+ [<ffffffff8183ec8d>] kmsan_report+0x20d/0x280 mm/kmsan/kmsan.c:777
+ [<ffffffff818402ab>] __msan_warning+0x5b/0xb0 mm/kmsan/kmsan_instr.c:343
+ [<ffffffff81a2c4cf>] SYSC_epoll_ctl+0x137f/0x4c60 fs/eventpoll.c:1898
+ [<ffffffff81a2b129>] SyS_epoll_ctl+0x89/0xb0 fs/eventpoll.c:1849
+ [<ffffffff84ec685b>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
+origin description: ----epds@SYSC_epoll_ctl
+==================================================================
+
+SYSC_epoll_ctl() is defined as follows:
+
+1849 SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,
+1850                 struct epoll_event __user *, event)
+1851 {
+...
+1857         struct epoll_event epds;
+1858         struct eventpoll *tep = NULL;
+1859
+1860         error = -EFAULT;
+1861         if (ep_op_has_event(op) &&
+1862             copy_from_user(&epds, event, sizeof(struct epoll_event)))
+1863                 goto error_return;
+...
+1898         if (epds.events & EPOLLEXCLUSIVE) {
+1899                 if (op == EPOLL_CTL_MOD)
+1900                         goto error_tgt_fput;
+1901                 if (op == EPOLL_CTL_ADD && (is_file_epoll(tf.file) ||
+1902                                 (epds.events & ~EPOLLEXCLUSIVE_OK_BITS)))
+1903                         goto error_tgt_fput;
+1904         }
+
+The |op| parameter takes one of the following values: EPOLL_CTL_ADD, EPOLL_CTL_DEL, EPOLL_CTL_MOD.
+In the case op == EPOLL_CTL_DEL, ep_op_has_event() returns false:
+
+ 362 static inline int ep_op_has_event(int op)
+ 363 {
+ 364         return op != EPOLL_CTL_DEL;
+ 365 }
+
+, as a result, |epds| is not copied from the user memory and remains uninitialized.
+Therefore, the access at line 1898 results in undefined behavior.
+
+Normally the code in that block is not executed, because op is not equal to EPOLL_CTL_MOD or EPOLL_CTL_ADD.
+However Dmitry Vyukov suggests a transformation based on the fact there's UB in the above code:
+ - at line 1898 the compiler may assume that op != EPOLL_CTL_DEL, because otherwise there's UB;
+ - at line 1901 it may assume op == EPOLL_CTL_ADD (because it is not equal to EPOLL_CTL_DEL or EPOLL_CTL_MOD);
+ - so it's safe to drop the "op == EPOLL_CTL_ADD" check:
+
+	1898         if (epds.events & EPOLLEXCLUSIVE) {
+	1899                 if (op == EPOLL_CTL_MOD)
+	1900                         goto error_tgt_fput;
+	1901                 if (is_file_epoll(tf.file) ||
+	1902                                 (epds.events & ~EPOLLEXCLUSIVE_OK_BITS))
+	1903                         goto error_tgt_fput;
+	1904         }
+
+ - as a result, if during execution |op| is EPOLL_CTL_DEL, the syscall may still fail.
