@@ -379,6 +379,10 @@ __packed __aligned(4)
  */
 DEFINE_RAW_SPINLOCK(logbuf_lock);
 
+// TODO(glider): need to make sure we need logbuf_lock_is_locked at all.
+// Maybe things have changed in new Linux versions.
+bool logbuf_lock_is_locked = false;
+
 /*
  * Helper macros to lock/unlock logbuf_lock and switch between
  * printk-safe/unsafe modes.
@@ -387,10 +391,12 @@ DEFINE_RAW_SPINLOCK(logbuf_lock);
 	do {						\
 		printk_safe_enter_irq();		\
 		raw_spin_lock(&logbuf_lock);		\
+		logbuf_lock_is_locked = true;		\
 	} while (0)
 
 #define logbuf_unlock_irq()				\
 	do {						\
+		logbuf_lock_is_locked = false;		\
 		raw_spin_unlock(&logbuf_lock);		\
 		printk_safe_exit_irq();			\
 	} while (0)
@@ -399,10 +405,12 @@ DEFINE_RAW_SPINLOCK(logbuf_lock);
 	do {						\
 		printk_safe_enter_irqsave(flags);	\
 		raw_spin_lock(&logbuf_lock);		\
+		logbuf_lock_is_locked = true;		\
 	} while (0)
 
 #define logbuf_unlock_irqrestore(flags)		\
 	do {						\
+		logbuf_lock_is_locked = false;		\
 		raw_spin_unlock(&logbuf_lock);		\
 		printk_safe_exit_irqrestore(flags);	\
 	} while (0)
@@ -1992,12 +2000,15 @@ EXPORT_SYMBOL_GPL(vprintk_default);
  *
  * See the vsnprintf() documentation for format string extensions over C99.
  */
+// TODO(glider): move to header.
+extern void kmsan_vprintk_func(const char *fmt, va_list args);
 asmlinkage __visible int printk(const char *fmt, ...)
 {
 	va_list args;
 	int r;
 
 	va_start(args, fmt);
+	kmsan_vprintk_func(fmt, args);
 	r = vprintk_func(fmt, args);
 	va_end(args);
 
@@ -2354,6 +2365,8 @@ again:
 
 		printk_safe_enter_irqsave(flags);
 		raw_spin_lock(&logbuf_lock);
+		logbuf_lock_is_locked = true;
+
 		if (console_seq < log_first_seq) {
 			len = sprintf(text, "** %u printk messages dropped **\n",
 				      (unsigned)(log_first_seq - console_seq));
@@ -2394,6 +2407,7 @@ skip:
 		}
 		console_idx = log_next(console_idx);
 		console_seq++;
+		logbuf_lock_is_locked = false;
 		raw_spin_unlock(&logbuf_lock);
 
 		/*
@@ -2425,6 +2439,7 @@ skip:
 	if (unlikely(exclusive_console))
 		exclusive_console = NULL;
 
+	logbuf_lock_is_locked = false;
 	raw_spin_unlock(&logbuf_lock);
 
 	up_console_sem();
@@ -2436,7 +2451,9 @@ skip:
 	 * flush, no worries.
 	 */
 	raw_spin_lock(&logbuf_lock);
+	logbuf_lock_is_locked = true;
 	retry = console_seq != log_next_seq;
+	logbuf_lock_is_locked = false;
 	raw_spin_unlock(&logbuf_lock);
 	printk_safe_exit_irqrestore(flags);
 
