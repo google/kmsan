@@ -33,7 +33,10 @@ extern void *memcpy(void *to, const void *from, size_t len);
 extern void *__memcpy(void *to, const void *from, size_t len);
 
 #ifndef CONFIG_FORTIFY_SOURCE
-#if (__GNUC__ == 4 && __GNUC_MINOR__ < 3) || __GNUC__ < 4
+#ifdef CONFIG_KMSAN
+extern void *__msan_memcpy(void *dst, const void *src, u64 n);
+#define memcpy(dst, src, len) __msan_memcpy(dst, src, len)
+#elif (__GNUC__ == 4 && __GNUC_MINOR__ < 3) || __GNUC__ < 4
 #define memcpy(dst, src, len)					\
 ({								\
 	size_t __len = (len);					\
