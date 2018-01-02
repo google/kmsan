@@ -1,0 +1,140 @@
+KMSAN reports the following bug in the kernel code:
+
+==================================================================
+BUG: KMSAN: use of unitialized memory
+CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.8.0-rc6+ #1102
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ ffffffff85003d28 ffffffff85003d48 ffffffff82057047 0000003000000008
+ ffffffff85003d58 0000000000000082 ffffffff820788f7 0000000000000002
+ 000000009d200000 ffffffff85003dd8 ffffffff81415f15 0000000000000000
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff82057047>] dump_stack+0x157/0x1d0 lib/dump_stack.c:51
+ [<ffffffff81415f15>] kmsan_report+0x205/0x360 ??:? 
+ [<ffffffff81416f6b>] __msan_warning+0x5b/0xb0 ??:? 
+ [<ffffffff820788f7>] __radix_tree_insert+0x2f7/0x6f0 lib/radix-tree.c:666
+ [<     inline     >] radix_tree_insert ./include/linux/radix-tree.h:273
+ [<     inline     >] irq_insert_desc kernel/irq/irqdesc.c:130
+ [<ffffffff85237da2>] early_irq_init+0x392/0x540 kernel/irq/irqdesc.c:309
+ [<ffffffff851ebf4e>] start_kernel+0x2fe/0x700 init/main.c:579
+ [<     inline     >] x86_64_start_reservations arch/x86/kernel/head64.c:196
+ [<ffffffff851eb7e6>] x86_64_start_kernel+0x3d6/0x3f0 arch/x86/kernel/head64.c:177
+origin:
+ [<ffffffff8103ab37>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
+ [<ffffffff8141489b>] kmsan_poison_shadow+0xbb/0x160 ??:? 
+ [<ffffffff81414d9b>] kmsan_kmalloc+0x6b/0xd0 ??:? 
+ [<ffffffff8140bc84>] kmem_cache_alloc+0x174/0x1d0 mm/slub.c:2726
+ [<     inline     >] radix_tree_node_alloc lib/radix-tree.c:313
+ [<     inline     >] radix_tree_extend lib/radix-tree.c:515
+ [<ffffffff820779af>] __radix_tree_create+0xa9f/0x1610 lib/radix-tree.c:573
+ [<ffffffff8207881a>] __radix_tree_insert+0x21a/0x6f0 lib/radix-tree.c:663
+ [<     inline     >] radix_tree_insert ./include/linux/radix-tree.h:273
+ [<     inline     >] irq_insert_desc kernel/irq/irqdesc.c:130
+ [<ffffffff85237da2>] early_irq_init+0x392/0x540 kernel/irq/irqdesc.c:309
+ [<ffffffff851ebf4e>] start_kernel+0x2fe/0x700 init/main.c:579
+ [<     inline     >] x86_64_start_reservations arch/x86/kernel/head64.c:196
+ [<ffffffff851eb7e6>] x86_64_start_kernel+0x3d6/0x3f0 arch/x86/kernel/head64.c:177
+==================================================================
+
+The uninitialized memory comes from a kmem_cache_alloc() call in radix_tree_node_alloc():
+
+ 270 static struct radix_tree_node *
+ 271 radix_tree_node_alloc(struct radix_tree_root *root)
+ 272 {
+ 273         struct radix_tree_node *ret = NULL;
+ 274         gfp_t gfp_mask = root_gfp_mask(root);
+ ...
+ 281         if (!gfpflags_allow_blocking(gfp_mask) && !in_interrupt()) {
+ ...
+ 312         }
+ 313         ret = kmem_cache_alloc(radix_tree_node_cachep, gfp_mask);
+ 314 out:
+ 315         BUG_ON(radix_tree_is_internal_node(ret));
+ 316         return ret;
+ 317 }
+
+The allocated struct radix_tree_node is then returned to radix_tree_extend():
+
+ 514         do {
+ 515                 struct radix_tree_node *node = radix_tree_node_alloc(root);
+ 516
+ 517                 if (!node)
+ 518                         return -ENOMEM;
+ 519
+ 520                 /* Propagate the aggregated tag info into the new root */
+ 521                 for (tag = 0; tag < RADIX_TREE_MAX_TAGS; tag++) {
+ 522                         if (root_tag_get(root, tag))
+ 523                                 tag_set(node, tag, 0);
+ 524                 }
+ 525
+ 526                 BUG_ON(shift > BITS_PER_LONG);
+ 527                 node->shift = shift;
+ 528                 node->offset = 0;
+ 529                 node->count = 1;
+ 530                 node->parent = NULL;
+ 531                 if (radix_tree_is_internal_node(slot))
+ 532                         entry_to_node(slot)->parent = node;
+ 533                 node->slots[0] = slot;
+ 534                 slot = node_to_entry(node);
+ 535                 rcu_assign_pointer(root->rnode, slot);
+ 536                 shift += RADIX_TREE_MAP_SHIFT;
+ 537         } while (shift <= maxshift);
+
+The code above initializes node->slots[0], but there're RADIX_TREE_MAP_SIZE elements in node->slots according to include/linux/radix-tree.h.
+The remaining elements are never initialized.
+However __radix_tree_create() returns a pointer to different node->slots[] in its |slotp| argument (e.g. I've seen offset=1):
+
+ 559 int __radix_tree_create(struct radix_tree_root *root, unsigned long index,
+ 560                         unsigned order, struct radix_tree_node **nodep,
+ 561                         void ***slotp)
+ 562 {
+ 563         struct radix_tree_node *node = NULL, *child;
+ 564         void **slot = (void **)&root->rnode;
+ ...
+ 582         while (shift > order) {
+ 583                 shift -= RADIX_TREE_MAP_SHIFT;
+ 584                 if (child == NULL) {
+ 585                         /* Have to add a child node.  */
+ 586                         child = radix_tree_node_alloc(root);
+ 587                         if (!child)
+ 588                                 return -ENOMEM;
+ 589                         child->shift = shift;
+ 590                         child->offset = offset;
+ 591                         child->parent = node;
+ 592                         rcu_assign_pointer(*slot, node_to_entry(child));
+ 593                         if (node)
+ 594                                 node->count++;
+ 595                 } else if (!radix_tree_is_internal_node(child))
+ 596                         break;
+ 597
+ 598                 /* Go a level down */
+ 599                 node = entry_to_node(child);
+ 600                 offset = radix_tree_descend(node, &child, index);
+ 601                 slot = &node->slots[offset];
+ 602         }
+ ...
+ 623         if (nodep)
+ 624                 *nodep = node;
+ 625         if (slotp)
+ 626                 *slotp = slot;
+ 627         return 0;
+ 628 }
+
+After that slotp is used in __radix_tree_insert(), assuming that the slot value is NULL:
+
+ 654 int __radix_tree_insert(struct radix_tree_root *root, unsigned long index,
+ 655                         unsigned order, void *item)
+ 656 {
+ 657         struct radix_tree_node *node;
+ 658         void **slot;
+ 659         int error;
+ 660
+ 661         BUG_ON(radix_tree_is_internal_node(item));
+ 662
+ 663         error = __radix_tree_create(root, index, order, &node, &slot);
+ 664         if (error)
+ 665                 return error;
+ 666         if (*slot != NULL)
+ 667                 return -EEXIST;
+
+, although it has never been properly initialized.
