@@ -25,6 +25,8 @@
 #include <linux/compiler.h>
 #include <linux/kernel.h>
 #include <linux/kasan.h>
+#include <linux/kmsan.h>
+#include <linux/kmsan-checks.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
 #include <linux/pagevec.h>
@@ -72,6 +74,9 @@
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
 #include "internal.h"
+
+#undef memset
+#define memset __memset
 
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
@@ -1030,6 +1035,7 @@ static __always_inline bool free_pages_prepare(struct page *page,
 	VM_BUG_ON_PAGE(PageTail(page), page);
 
 	trace_mm_page_free(page, order);
+	kmsan_free_page(page, order);
 
 	/*
 	 * Check tail pages before head page information is cleared to
@@ -2938,6 +2944,7 @@ void split_page(struct page *page, unsigned int order)
 	VM_BUG_ON_PAGE(PageCompound(page), page);
 	VM_BUG_ON_PAGE(!page_count(page), page);
 
+	kmsan_split_page(page, order);
 	for (i = 1; i < (1 << order); i++)
 		set_page_refcounted(page + i);
 	split_page_owner(page, order);
@@ -4574,7 +4581,11 @@ out:
 	}
 
 	trace_mm_page_alloc(page, order, alloc_mask, ac.migratetype);
-
+	if (page)
+		if (kmsan_alloc_page(page, order, gfp_mask) == -ENOMEM) {
+			__free_pages(page, order);
+			page = NULL;
+		}
 	return page;
 }
 EXPORT_SYMBOL(__alloc_pages_nodemask);
@@ -7912,10 +7923,14 @@ void *__init alloc_large_system_hash(const char *tablename,
 	pr_info("%s hash table entries: %ld (order: %d, %lu bytes)\n",
 		tablename, 1UL << log2qty, ilog2(size) - PAGE_SHIFT, size);
 
-	if (_hash_shift)
+	if (_hash_shift) {
 		*_hash_shift = log2qty;
-	if (_hash_mask)
+		kmsan_unpoison_shadow(_hash_shift, sizeof(*_hash_shift));
+	}
+	if (_hash_mask) {
 		*_hash_mask = (1 << log2qty) - 1;
+		kmsan_unpoison_shadow(_hash_mask, sizeof(*_hash_mask));
+	}
 
 	return table;
 }
@@ -8402,3 +8417,5 @@ bool set_hwpoison_free_buddy_page(struct page *page)
 	return hwpoisoned;
 }
 #endif
+
+#undef memset

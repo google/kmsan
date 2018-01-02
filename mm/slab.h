@@ -441,6 +441,8 @@ static inline void slab_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 		/* As p[i] might get tagged, call kmemleak hook after KASAN. */
 		kmemleak_alloc_recursive(p[i], s->object_size, 1,
 					 s->flags, flags);
+		// TODO(glider): need to call kmsan_poison_shadow() at most once.
+		kmsan_slab_alloc(s, object, flags);
 	}
 
 	if (memcg_kmem_enabled())
