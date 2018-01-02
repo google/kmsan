@@ -142,7 +142,7 @@ static __always_inline void __clear_bit(long nr, volatile unsigned long *addr)
 
 static __always_inline bool clear_bit_unlock_is_negative_byte(long nr, volatile unsigned long *addr)
 {
-	bool negative;
+	bool negative = false; // TODO(glider): false positive
 	asm volatile(LOCK_PREFIX "andb %2,%1"
 		CC_SET(s)
 		: CC_OUT(s) (negative), ADDR
@@ -244,7 +244,8 @@ test_and_set_bit_lock(long nr, volatile unsigned long *addr)
  */
 static __always_inline bool __test_and_set_bit(long nr, volatile unsigned long *addr)
 {
-	bool oldbit;
+	// TODO(glider): false positive
+	bool oldbit = false;
 
 	asm("bts %2,%1"
 	    CC_SET(c)
@@ -284,7 +285,8 @@ static __always_inline bool test_and_clear_bit(long nr, volatile unsigned long *
  */
 static __always_inline bool __test_and_clear_bit(long nr, volatile unsigned long *addr)
 {
-	bool oldbit;
+	// TODO(glider): false positive
+	bool oldbit = false;
 
 	asm volatile("btr %2,%1"
 		     CC_SET(c)
@@ -296,7 +298,8 @@ static __always_inline bool __test_and_clear_bit(long nr, volatile unsigned long
 /* WARNING: non atomic and it can be reordered! */
 static __always_inline bool __test_and_change_bit(long nr, volatile unsigned long *addr)
 {
-	bool oldbit;
+	// TODO(glider): false positive
+	bool oldbit = false;
 
 	asm volatile("btc %2,%1"
 		     CC_SET(c)
@@ -327,7 +330,9 @@ static __always_inline bool constant_test_bit(long nr, const volatile unsigned l
 
 static __always_inline bool variable_test_bit(long nr, volatile const unsigned long *addr)
 {
-	bool oldbit;
+	/// TODO(glider): instrument the assembly below.
+	///bool oldbit;
+	bool oldbit = false;
 
 	asm volatile("bt %2,%1"
 		     CC_SET(c)
