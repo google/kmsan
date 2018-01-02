@@ -29,7 +29,8 @@
 
 static inline bool rdrand_long(unsigned long *v)
 {
-	bool ok;
+	// TODO(glider): false positive?
+	bool ok = false;
 	unsigned int retry = RDRAND_RETRY_LOOPS;
 	do {
 		asm volatile(RDRAND_LONG
@@ -43,7 +44,8 @@ static inline bool rdrand_long(unsigned long *v)
 
 static inline bool rdrand_int(unsigned int *v)
 {
-	bool ok;
+	// TODO(glider): false positive?
+	bool ok = false;
 	unsigned int retry = RDRAND_RETRY_LOOPS;
 	do {
 		asm volatile(RDRAND_INT
@@ -57,7 +59,8 @@ static inline bool rdrand_int(unsigned int *v)
 
 static inline bool rdseed_long(unsigned long *v)
 {
-	bool ok;
+	// TODO(glider): false positive?
+	bool ok = false;
 	asm volatile(RDSEED_LONG
 		     CC_SET(c)
 		     : CC_OUT(c) (ok), "=a" (*v));
@@ -66,7 +69,8 @@ static inline bool rdseed_long(unsigned long *v)
 
 static inline bool rdseed_int(unsigned int *v)
 {
-	bool ok;
+	// TODO(glider): false positive?
+	bool ok = false;
 	asm volatile(RDSEED_INT
 		     CC_SET(c)
 		     : CC_OUT(c) (ok), "=a" (*v));
