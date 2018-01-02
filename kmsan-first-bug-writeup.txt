@@ -1,0 +1,183 @@
+KMSAN reported the following bug in the kernel code:
+
+==================================================================
+BUG: KMSAN: use of unitialized memory
+CPU: 3 PID: 1 Comm: swapper/0 Tainted: G    B           4.8.0-rc6+ #597
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+ 0000000000000282 ffff88003cc96f68 ffffffff81f30856 0000003000000008
+ ffff88003cc96f78 0000000000000096 ffffffff8169742a ffff88003cc96ff8
+ ffffffff812fc1fc 0000000000000008 ffff88003a1980e8 0000000100000000
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff81f30856>] dump_stack+0xa6/0xc0 lib/dump_stack.c:51
+ [<ffffffff812fc1fc>] kmsan_report+0x1ec/0x300 mm/kmsan/kmsan.c:?
+ [<ffffffff812fc33b>] __msan_warning+0x2b/0x40 ??:?
+ [<     inline     >] ext4_update_bh_state fs/ext4/inode.c:727
+ [<ffffffff8169742a>] _ext4_get_block+0x6ca/0x8a0 fs/ext4/inode.c:759
+ [<ffffffff81696d4c>] ext4_get_block+0x8c/0xa0 fs/ext4/inode.c:769
+ [<ffffffff814a2d36>] generic_block_bmap+0x246/0x2b0 fs/buffer.c:2991
+ [<ffffffff816ca30e>] ext4_bmap+0x5ee/0x660 fs/ext4/inode.c:3177
+ [<ffffffff813dab6d>] bmap+0x11d/0x190 fs/inode.c:1533
+ [<ffffffff818fabee>] jbd2_journal_bmap+0x10e/0x900 fs/jbd2/journal.c:784
+ [<ffffffff818f0a03>] jbd2_journal_init_inode+0x6f3/0xcf0 fs/jbd2/journal.c:1252
+ [<     inline     >] ext4_get_journal fs/ext4/super.c:4243
+ [<     inline     >] ext4_load_journal fs/ext4/super.c:4397
+ [<ffffffff8178e9ce>] ext4_fill_super+0xd4ee/0x153e0 fs/ext4/super.c:3830
+ [<ffffffff8132e70d>] mount_bdev+0x6cd/0x970 fs/super.c:1074
+ [<ffffffff817814cc>] ext4_mount+0x6c/0x80 fs/ext4/super.c:5412
+ [<ffffffff8132fa74>] mount_fs+0x2b4/0x810 fs/super.c:1177
+ [<ffffffff813f3265>] vfs_kern_mount+0x1d5/0x910 fs/namespace.c:948
+ [<     inline     >] do_new_mount fs/namespace.c:2393
+ [<ffffffff81403636>] do_mount+0x18b6/0x5aa0 fs/namespace.c:2715
+ [<     inline     >] SYSC_mount fs/namespace.c:2906
+ [<ffffffff8140a568>] SyS_mount+0x398/0x450 fs/namespace.c:2883
+ [<     inline     >] do_mount_root init/do_mounts.c:366
+ [<ffffffff84fe880e>] mount_block_root+0x72e/0x1020 init/do_mounts.c:396
+ [<ffffffff84fe9446>] mount_root+0x346/0x8e0 init/do_mounts.c:541
+ [<ffffffff84fe9ec8>] prepare_namespace+0x4e8/0x690 init/do_mounts.c:600
+ [<ffffffff84fe7a41>] kernel_init_freeable+0x221/0x240 init/main.c:1077
+ [<ffffffff84880fd9>] kernel_init+0x9/0x250 init/main.c:985
+ [<ffffffff848958cf>] ret_from_fork+0x1f/0x40 ??:?
+origin description: ----tmp@generic_block_bmap
+==================================================================
+
+According to the origin description, the uninitialized memory comes from the |tmp|
+variable allocated on the stack of generic_block_bmap() in fs/buffer.c:
+
+2983 sector_t generic_block_bmap(struct address_space *mapping, sector_t block,
+2984                             get_block_t *get_block)
+2985 {
+2986         struct buffer_head tmp;
+2987         struct inode *inode = mapping->host;
+2988         tmp.b_state = 0;
+2989         tmp.b_blocknr = 0;
+2990         tmp.b_size = 1 << inode->i_blkbits;
+2991         get_block(inode, block, &tmp, 0);
+2992         return tmp.b_blocknr;
+2993 }
+
+struct buffer_head is declared in include/linux/buffer_head.h:
+
+ 62 struct buffer_head {
+ 63         unsigned long b_state;          /* buffer state bitmap (see above) */
+ 64         struct buffer_head *b_this_page;/* circular list of page's buffers */
+ 65         struct page *b_page;            /* the page this bh is mapped to */
+ 66
+ 67         sector_t b_blocknr;             /* start block number */
+ 68         size_t b_size;                  /* size of mapping */
+ 69         char *b_data;                   /* pointer to data within the page */
+ 70
+ 71         struct block_device *b_bdev;
+ 72         bh_end_io_t *b_end_io;          /* I/O completion */
+ 73         void *b_private;                /* reserved for b_end_io */
+ 74         struct list_head b_assoc_buffers; /* associated with another mapping */
+ 75         struct address_space *b_assoc_map;      /* mapping this buffer is
+ 76                                                    associated with */
+ 77         atomic_t b_count;               /* users using this buffer_head */
+ 78 };
+
+But note that generic_block_bmap() initializes only a handful of |tmp| fields, excluding tmp.b_page.
+
+Let's now follow |tmp| along the stack.
+After being partially initialized in generic_block_bmap(), it's being passed by reference into
+get_block(), which is effectively ext4_get_block() according to ext4_bmap() in fs/ext4/inode.c:
+
+3125 static sector_t ext4_bmap(struct address_space *mapping, sector_t block)
+3126 {
+...
+3177         return generic_block_bmap(mapping, block, ext4_get_block);
+3178 }
+
+Now into ext4_get_block() in fs/ext4/inode.c:
+
+ 766 int ext4_get_block(struct inode *inode, sector_t iblock,
+ 767                    struct buffer_head *bh, int create)
+ 768 {
+ 769         return _ext4_get_block(inode, iblock, bh,
+ 770                                create ? EXT4_GET_BLOCKS_CREATE : 0);
+ 771 }
+
+And deeper:
+
+ 743 static int _ext4_get_block(struct inode *inode, sector_t iblock,
+ 744                            struct buffer_head *bh, int flags)
+ 745 {
+ 746         struct ext4_map_blocks map;
+ 747         int ret = 0;
+ 748
+ 749         if (ext4_has_inline_data(inode))
+ 750                 return -ERANGE;
+ 751
+ 752         map.m_lblk = iblock;
+ 753         map.m_len = bh->b_size >> inode->i_blkbits;
+ 754
+ 755         ret = ext4_map_blocks(ext4_journal_current_handle(), inode, &map,
+ 756                               flags);
+ 757         if (ret > 0) {
+ 758                 map_bh(bh, inode->i_sb, map.m_pblk);
+ 759                 ext4_update_bh_state(bh, map.m_flags);
+ 760                 bh->b_size = inode->i_sb->s_blocksize * map.m_len;
+ 761                 ret = 0;
+ 762         }
+ 763         return ret;
+ 764 }
+
+Note that |bh| is untouched up to line 758 (line 753 only reads bh->b_size, but doesn't write to other fields).
+Then it's passed into map_bh() in include/linux/buffer_head.h:
+
+335 static inline void
+336 map_bh(struct buffer_head *bh, struct super_block *sb, sector_t block)
+337 {
+338         set_buffer_mapped(bh);
+339         bh->b_bdev = sb->s_bdev;
+340         bh->b_blocknr = block;
+341         bh->b_size = sb->s_blocksize;
+342 }
+
+, where set_buffer_mapped() just sets the BH_Mapped bit in bh->b_state (see include/linux/buffer_head.h):
+
+ 84 #define BUFFER_FNS(bit, name)                                           \
+ 85 static __always_inline void set_buffer_##name(struct buffer_head *bh)   \
+ 86 {                                                                       \
+ 87         set_bit(BH_##bit, &(bh)->b_state);                              \
+ 88 }
+...
+122 BUFFER_FNS(Mapped, mapped)
+
+Consequently, map_bh(bh, inode->i_sb, map.m_pblk) doesn't initialize bh->b_page.
+
+Now let's see what happens in ext4_update_bh_state() in fs/ext4/inode.c:
+
+ 715 /*
+ 716  * Update EXT4_MAP_FLAGS in bh->b_state. For buffer heads attached to pages
+ 717  * we have to be careful as someone else may be manipulating b_state as well.
+ 718  */
+ 719 static void ext4_update_bh_state(struct buffer_head *bh, unsigned long flags)
+ 720 {
+ 721         unsigned long old_state;
+ 722         unsigned long new_state;
+ 723
+ 724         flags &= EXT4_MAP_FLAGS;
+ 725
+ 726         /* Dummy buffer_head? Set non-atomically. */
+ 727         if (!bh->b_page) {
+ 728                 bh->b_state = (bh->b_state & ~EXT4_MAP_FLAGS) | flags;
+ 729                 return;
+ 730         }
+ 731         /*
+ 732          * Someone else may be modifying b_state. Be careful! This is ugly but
+ 733          * once we get rid of using bh as a container for mapping information
+ 734          * to pass to / from get_block functions, this can go away.
+ 735          */
+ 736         do {
+ 737                 old_state = READ_ONCE(bh->b_state);
+ 738                 new_state = (old_state & ~EXT4_MAP_FLAGS) | flags;
+ 739         } while (unlikely(
+ 740                  cmpxchg(&bh->b_state, old_state, new_state) != old_state));
+ 741 }
+
+At line 727 we are accessing bh->b_page, which is still uninitialized.
+
+The bug doesn't seem to be harmful (in the case we've read garbage from bh->b_page
+we'll just use a cmpxchg loop to initialize it properly).
+Nevertheless, it's the first bug found by KMSAN.
