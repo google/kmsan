@@ -157,7 +157,8 @@ extern void __add_wrong_size(void)
 
 #define __raw_try_cmpxchg(_ptr, _pold, _new, size, lock)		\
 ({									\
-	bool success;							\
+	/* TODO(glider): false positive */				\
+	bool success = false;						\
 	__typeof__(_ptr) _old = (__typeof__(_ptr))(_pold);		\
 	__typeof__(*(_ptr)) __old = *_old;				\
 	__typeof__(*(_ptr)) __new = (_new);				\
