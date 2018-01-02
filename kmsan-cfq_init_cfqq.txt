@@ -1,0 +1,123 @@
+KMSAN reports the following error:
+
+==================================================================
+BUG: KMSAN: use of unitialized memory
+CPU: 2 PID: 944 Comm: kworker/2:2 Tainted: G    B   W       4.8.0-rc6+ #1140
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Workqueue: events_freezable_power_ disk_events_workfn
+ ffff8800420db078 ffff8800420db098 ffffffff8202ac97 0000003000000008
+ ffff8800420db0a8 0000000000000086 ffffffff8201e110 0000000000000006
+ 00000000eae0005a ffff8800420db128 ffffffff813e9b65 0000000000000000
+Call Trace:
+ [<     inline     >] __dump_stack lib/dump_stack.c:15
+ [<ffffffff8202ac97>] dump_stack+0x157/0x1d0 lib/dump_stack.c:51
+ [<ffffffff813e9b65>] kmsan_report+0x205/0x360 ??:?
+ [<ffffffff813eabbb>] __msan_warning+0x5b/0xb0 ??:?
+ [<     inline     >] cfq_init_cfqq block/cfq-iosched.c:3754
+ [<ffffffff8201e110>] cfq_get_queue+0xc80/0x14d0 block/cfq-iosched.c:3857
+ [<ffffffff8200e67a>] cfq_set_request+0xcca/0x1980 block/cfq-iosched.c:4447
+ [<ffffffff81f14a8a>] elv_set_request+0x17a/0x1f0 block/elevator.c:707
+ [<     inline     >] __get_request block/blk-core.c:1168
+ [<ffffffff81f4e463>] get_request+0x3bd3/0x4070 block/blk-core.c:1256
+ [<     inline     >] blk_old_get_request block/blk-core.c:1298
+ [<ffffffff81f2f992>] blk_get_request+0x352/0x630 block/blk-core.c:1318
+ [<ffffffff82f2d91c>] scsi_execute+0x1ac/0x9c0 drivers/scsi/scsi_lib.c:191
+ [<     inline     >] scsi_execute_req_flags drivers/scsi/scsi_lib.c:245
+ [<     inline     >] scsi_execute_req ./include/scsi/scsi_device.h:423
+ [<ffffffff82f3c79a>] scsi_test_unit_ready+0x45a/0x850 drivers/scsi/scsi_lib.c:2418
+ [<ffffffff82fa8cfa>] sd_check_events+0x38a/0xfa0 drivers/scsi/sd.c:1442
+ [<ffffffff81fb9bf9>] disk_check_events+0x1b9/0x8e0 block/genhd.c:1659
+ [<ffffffff81fbef7f>] disk_events_workfn+0x4f/0x60 block/genhd.c:1645
+ [<ffffffff81114013>] process_one_work+0x18a3/0x2470 kernel/workqueue.c:2096
+ [<ffffffff81116b52>] worker_thread+0x1f72/0x2a80 kernel/workqueue.c:2230
+ [<ffffffff811305a9>] kthread+0x3f9/0x430 kernel/kthread.c:210
+ [<ffffffff84a206cf>] ret_from_fork+0x1f/0x40 ??:?
+origin:
+ [<ffffffff8103ab37>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
+ [<ffffffff813e836b>] kmsan_internal_poison_shadow+0xab/0x150 ??:?
+ [<ffffffff813e88ab>] kmsan_poison_slab+0xbb/0x120 ??:?
+ [<     inline     >] allocate_slab mm/slub.c:1627
+ [<ffffffff813e533f>] new_slab+0x3af/0x4b0 mm/slub.c:1641
+ [<     inline     >] new_slab_objects mm/slub.c:2407
+ [<ffffffff813e0ef3>] ___slab_alloc+0x323/0x4a0 mm/slub.c:2564
+ [<     inline     >] __slab_alloc mm/slub.c:2606
+ [<     inline     >] slab_alloc_node mm/slub.c:2669
+ [<ffffffff813dfb42>] kmem_cache_alloc_node+0x1d2/0x1f0 mm/slub.c:2746
+ [<ffffffff8201d90d>] cfq_get_queue+0x47d/0x14d0 block/cfq-iosched.c:3850
+ [<ffffffff8200e67a>] cfq_set_request+0xcca/0x1980 block/cfq-iosched.c:4447
+ [<ffffffff81f14a8a>] elv_set_request+0x17a/0x1f0 block/elevator.c:707
+ [<     inline     >] __get_request block/blk-core.c:1168
+ [<ffffffff81f4e463>] get_request+0x3bd3/0x4070 block/blk-core.c:1256
+ [<     inline     >] blk_old_get_request block/blk-core.c:1298
+ [<ffffffff81f2f992>] blk_get_request+0x352/0x630 block/blk-core.c:1318
+ [<ffffffff82f2d91c>] scsi_execute+0x1ac/0x9c0 drivers/scsi/scsi_lib.c:191
+ [<     inline     >] scsi_execute_req_flags drivers/scsi/scsi_lib.c:245
+ [<     inline     >] scsi_execute_req ./include/scsi/scsi_device.h:423
+ [<ffffffff82f3c79a>] scsi_test_unit_ready+0x45a/0x850 drivers/scsi/scsi_lib.c:2418
+ [<ffffffff82fa8cfa>] sd_check_events+0x38a/0xfa0 drivers/scsi/sd.c:1442
+ [<ffffffff81fb9bf9>] disk_check_events+0x1b9/0x8e0 block/genhd.c:1659
+ [<ffffffff81fbef7f>] disk_events_workfn+0x4f/0x60 block/genhd.c:1645
+ [<ffffffff81114013>] process_one_work+0x18a3/0x2470 kernel/workqueue.c:2096
+ [<ffffffff81116b52>] worker_thread+0x1f72/0x2a80 kernel/workqueue.c:2230
+ [<ffffffff811305a9>] kthread+0x3f9/0x430 kernel/kthread.c:210
+ [<ffffffff84a206cf>] ret_from_fork+0x1f/0x40 ??:?
+==================================================================
+
+The uninitialized memory is allocated at line 3850 of block/cfq-iosched.c in cfq_get_queue():
+
+3821 static struct cfq_queue *
+3822 cfq_get_queue(struct cfq_data *cfqd, bool is_sync, struct cfq_io_cq *cic,
+3823               struct bio *bio)
+3824 {
+3825         int ioprio_class = IOPRIO_PRIO_CLASS(cic->ioprio);
+3826         int ioprio = IOPRIO_PRIO_DATA(cic->ioprio);
+3827         struct cfq_queue **async_cfqq = NULL;
+3828         struct cfq_queue *cfqq;
+...
+3850         cfqq = kmem_cache_alloc_node(cfq_pool, GFP_NOWAIT | __GFP_ZERO,
+3851                                      cfqd->queue->node);
+
+Then |cfqq| is passed into cfq_init_cfqq():
+
+3852         if (!cfqq) {
+3853                 cfqq = &cfqd->oom_cfqq;
+3854                 goto out;
+3855         }
+3856
+3857         cfq_init_cfqq(cfqd, cfqq, current->pid, is_sync);
+3858         cfq_init_prio_data(cfqq, cic);
+
+, and cfq_class_idle():
+
+3741 static void cfq_init_cfqq(struct cfq_data *cfqd, struct cfq_queue *cfqq,
+3742                           pid_t pid, bool is_sync)
+3743 {
+3744         RB_CLEAR_NODE(&cfqq->rb_node);
+3745         RB_CLEAR_NODE(&cfqq->p_node);
+3746         INIT_LIST_HEAD(&cfqq->fifo);
+3747
+3748         cfqq->ref = 0;
+3749         cfqq->cfqd = cfqd;
+3750
+3751         cfq_mark_cfqq_prio_changed(cfqq);
+3752
+3753         if (is_sync) {
+3754                 if (!cfq_class_idle(cfqq))
+3755                         cfq_mark_cfqq_idle_window(cfqq);
+
+cfq_class_idle() is defined as follows:
+
+  64 #define cfq_class_idle(cfqq)    ((cfqq)->ioprio_class == IOPRIO_CLASS_IDLE)
+
+, and cfq_mark_cfqq_prio_changed() doesn't initialize ioprio_class either:
+
+ 427 #define CFQ_CFQQ_FNS(name)                                              \
+ 428 static inline void cfq_mark_cfqq_##name(struct cfq_queue *cfqq)         \
+ 429 {                                                                       \
+ 430         (cfqq)->flags |= (1 << CFQ_CFQQ_FLAG_##name);                   \
+ 431 }   
+...
+ 447 CFQ_CFQQ_FNS(prio_changed);
+
+
+I.e. cfq_init_cfqq() attempts to access cfqq->ioprio_class before it has been initialized.
