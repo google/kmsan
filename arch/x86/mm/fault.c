@@ -9,6 +9,7 @@
 #include <linux/kdebug.h>		/* oops_begin/end, ...		*/
 #include <linux/extable.h>		/* search_exception_tables	*/
 #include <linux/bootmem.h>		/* max_low_pfn			*/
+#include <linux/kmsan-checks.h>		/* kmsan_unpoison_shadow()	*/
 #include <linux/kprobes.h>		/* NOKPROBE_SYMBOL, ...		*/
 #include <linux/mmiotrace.h>		/* kmmio_handler, ...		*/
 #include <linux/perf_event.h>		/* perf_sw_event		*/
@@ -1485,11 +1486,13 @@ trace_page_fault_entries(unsigned long address, struct pt_regs *regs,
  * exception_{enter,exit}() contains all sorts of tracepoints.
  */
 dotraplinkage void notrace
+__attribute__((no_sanitize("kernel-memory")))
 do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
 	unsigned long address = read_cr2(); /* Get the faulting address */
 	enum ctx_state prev_state;
 
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	prev_state = exception_enter();
 	if (trace_pagefault_enabled())
 		trace_page_fault_entries(address, regs, error_code);
