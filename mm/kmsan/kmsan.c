@@ -1025,6 +1025,30 @@ void save_reporter(void *caller, void **table, int *index)
 	table[(*index)++] = caller;
 }
 
+// Dummy replacement for __builtin_return_address() which may crash without
+// frame pointers.
+inline void *return_address(int arg)
+{
+#ifdef CONFIG_UNWINDER_FRAME_POINTER
+	switch (arg) {
+		case 1:
+			return __builtin_return_address(1);
+		case 2:
+			return __builtin_return_address(2);
+	}
+#else
+	unsigned long entries[1];
+	struct stack_trace trace = {
+		.nr_entries = 0,
+		.entries = entries,
+		.max_entries = 1,
+		.skip = arg
+	};
+	save_stack_trace(&trace);
+	return entries[0];
+#endif
+}
+
 // |deep| is a dirty hack to skip an additional frame when calling
 // kmsan_report() from kmsan_copy_to_user().
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
@@ -1061,8 +1085,7 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	save_reporter(caller, reporters_tbl, &reporters_index);
 	kmsan_pr_err("==================================================================\n");
 	// TODO(glider): inline this properly, avoid __builtin_return_address(1).
-	kmsan_pr_err("BUG: KMSAN: use of uninitialized memory in %pS\n",
-		deep ? __builtin_return_address(2) : __builtin_return_address(1));
+	kmsan_pr_err("BUG: KMSAN: use of uninitialized memory in %pS\n", deep ? return_address(1) : return_address(2));
 	dump_stack();
 	kmsan_print_origin(origin);
 	if (size)
