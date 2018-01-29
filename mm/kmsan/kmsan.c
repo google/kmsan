@@ -1085,7 +1085,7 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	save_reporter(caller, reporters_tbl, &reporters_index);
 	kmsan_pr_err("==================================================================\n");
 	// TODO(glider): inline this properly, avoid __builtin_return_address(1).
-	kmsan_pr_err("BUG: KMSAN: use of uninitialized memory in %pS\n", deep ? return_address(1) : return_address(2));
+	kmsan_pr_err("BUG: KMSAN: use of uninitialized memory in %pS\n", deep ? return_address(2) : return_address(1));
 	dump_stack();
 	kmsan_print_origin(origin);
 	if (size)
