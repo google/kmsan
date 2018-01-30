@@ -85,9 +85,9 @@ void kmsan_initialize_shadow_for_text()
 	// for the addresses.
 	// Problem: need to allocate contiguous shadow range to avoid reports
 
-	kmsan_pr_err("__START_KERNEL_map: %p, end (__bss_stop): %p\n", __START_KERNEL_map, __bss_stop);
-	kmsan_pr_err("__bss: %p-%p, __data: %p-%p\n", __bss_start, __bss_stop, _sdata, _edata);
-	kmsan_pr_err("upper start: %p, end: %p\n", __PAGE_OFFSET, size + __PAGE_OFFSET);
+	kmsan_pr_err("__START_KERNEL_map: %px, end (__bss_stop): %px\n", __START_KERNEL_map, __bss_stop);
+	kmsan_pr_err("__bss: %px-%px, __data: %px-%px\n", __bss_start, __bss_stop, _sdata, _edata);
+	kmsan_pr_err("upper start: %px, end: %px\n", __PAGE_OFFSET, size + __PAGE_OFFSET);
 
 	// Allocate PAGE_SIZE<<order to decrease the number of stitches.
 	// Ideally, every single section should have consequent shadow memory range.
