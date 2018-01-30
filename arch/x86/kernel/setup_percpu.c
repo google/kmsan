@@ -132,7 +132,7 @@ static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size, size_t align)
 {
 	void *ret = pcpu_alloc_bootmem(cpu, size, align);
 #ifdef CONFIG_KMSAN
-	pr_err("pcpu_fc_alloc(%d, %p, %p)=%p\n", cpu, size, align, ret);
+	pr_err("pcpu_fc_alloc(%d, %px, %px)=%px\n", cpu, size, align, ret);
 	kmsan_record_future_shadow_range(ret, (u64)ret + size);
 #endif
 	return ret;
