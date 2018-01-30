@@ -1052,7 +1052,7 @@ inline void *return_address(int arg)
 // |deep| is a dirty hack to skip an additional frame when calling
 // kmsan_report() from kmsan_copy_to_user().
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
-			int size, int off, bool deep)
+			int size, int off_first, int off_last, bool deep)
 {
 	unsigned long flags;
 	struct stack_trace trace;
@@ -1088,8 +1088,12 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	kmsan_pr_err("BUG: KMSAN: use of uninitialized memory in %pS\n", deep ? return_address(2) : return_address(1));
 	dump_stack();
 	kmsan_print_origin(origin);
-	if (size)
-		kmsan_pr_err("byte %d of %d is uninitialized\n", off, size);
+	if (size) {
+		if (off_first == off_last)
+			kmsan_pr_err("byte %d of %d is uninitialized\n", off_first, size);
+		else
+			kmsan_pr_err("bytes %d-%d of %d are uninitialized\n", off_first, off_last, size);
+	}
 	kmsan_pr_err("==================================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irqrestore(&report_lock, flags);
@@ -1151,8 +1155,8 @@ void kmsan_internal_check_memory(const void *addr, size_t size)
 {
 	unsigned long irq_flags;
 	char *shadow;
-	depot_stack_handle_t *origin;
-	size_t i;
+	depot_stack_handle_t origin = 0, prev_origin = 0;
+	size_t i, prev_start = -1;
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
@@ -1164,10 +1168,28 @@ void kmsan_internal_check_memory(const void *addr, size_t size)
 		return;
 	}
 	for (i = 0; i < size; i++) {
-		if (!shadow[i]) continue;
+		if (!shadow[i]) {
+			if (prev_start != -1)
+				kmsan_report(_THIS_IP_, prev_origin, size, prev_start, i - 1, /*deep*/true);
+			prev_origin = 0;
+			prev_start = -1;
+			continue;
+		}
 		// Not checking for the second time.
-		origin = kmsan_get_origin_address(addr, size, /*checked*/false, /*is_store*/false);
-		kmsan_report(_THIS_IP_, *origin, size, i, /*deep*/true);
+		origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr, size, /*checked*/false, /*is_store*/false);
+		if (prev_start == -1) {
+			prev_start = i;
+			prev_origin = origin;
+			continue;
+		}
+		if (origin != prev_origin) {
+			kmsan_report(_THIS_IP_, prev_origin, size, prev_start, i - 1, /*deep*/true);
+			prev_origin = origin;
+			prev_start = i;
+		}
+	}
+	if (prev_origin) {
+		kmsan_report(_THIS_IP_, prev_origin, size, prev_start, size - 1, /*deep*/true);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
