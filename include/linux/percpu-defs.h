@@ -317,7 +317,7 @@ static inline void __this_cpu_preempt_check(const char *op) { }
 
 #define __pcpu_size_call_return(stem, variable)				\
 ({									\
-	typeof(variable) pscr_ret__;					\
+	typeof(variable) pscr_ret__ = 0;					\
 	__verify_pcpu_ptr(&(variable));					\
 	switch(sizeof(variable)) {					\
 	case 1: pscr_ret__ = stem##1(variable); break;			\
@@ -332,7 +332,7 @@ static inline void __this_cpu_preempt_check(const char *op) { }
 
 #define __pcpu_size_call_return2(stem, variable, ...)			\
 ({									\
-	typeof(variable) pscr2_ret__;					\
+	typeof(variable) pscr2_ret__ = 0;					\
 	__verify_pcpu_ptr(&(variable));					\
 	switch(sizeof(variable)) {					\
 	case 1: pscr2_ret__ = stem##1(variable, __VA_ARGS__); break;	\
@@ -355,7 +355,7 @@ static inline void __this_cpu_preempt_check(const char *op) { }
  */
 #define __pcpu_double_call_return_bool(stem, pcp1, pcp2, ...)		\
 ({									\
-	bool pdcrb_ret__;						\
+	bool pdcrb_ret__ = false;						\
 	__verify_pcpu_ptr(&(pcp1));					\
 	BUILD_BUG_ON(sizeof(pcp1) != sizeof(pcp2));			\
 	VM_BUG_ON((unsigned long)(&(pcp1)) % (2 * sizeof(pcp1)));	\
