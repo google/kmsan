@@ -84,7 +84,7 @@ extern void __add_wrong_size(void)
  */
 #define __raw_cmpxchg(ptr, old, new, size, lock)			\
 ({									\
-	__typeof__(*(ptr)) __ret;					\
+	__typeof__(*(ptr)) __ret = 0;					\
 	__typeof__(*(ptr)) __old = (old);				\
 	__typeof__(*(ptr)) __new = (new);				\
 	switch (size) {							\
