@@ -1067,6 +1067,10 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	if (is_console_locked() || is_logbuf_locked())
 		return;
 
+	// TODO(glider): temporarily disabling reports without origins.
+	if (!origin)
+		return;
+
 	depot_fetch_stack(origin, &trace);
 	if ((trace.nr_entries == 4) && trace.entries[0] == KMSAN_ALLOCA_MAGIC_ORIGIN) {
 		// TODO(glider): this is just to skip uniniteresting reports at the prototype stage.
