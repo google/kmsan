@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <linux/slab.h>
+#include <linux/kmsan-checks.h>
 
 #define CHECK(x)					\
 	do {						\
@@ -95,7 +96,6 @@ void noinline uninit_stack_var_test(void)
 	pr_info("uninitialized stack variable (UMR report)\n");
 	CHECK(cond);
 }
-#if 1
 
 void noinline init_stack_var_test(void)
 {
@@ -105,7 +105,6 @@ void noinline init_stack_var_test(void)
 	pr_info("initialized stack variable (no reports)\n");
 	CHECK(cond);
 }
-#endif
 
 void noinline two_param_fn_2(int arg1, int arg2)
 {
@@ -133,17 +132,34 @@ void params_test(void)
 	two_param_fn(uninit, init);
 }
 
+void noinline do_uninit_local_array(char *array, int start, int stop)
+{
+	int i;
+	volatile char uninit;
+	for (i = start; i < stop; i++)
+		array[i] = uninit;
+}
+
+void noinline uninit_kmsan_check_memory_test(void)
+{
+	volatile char local_array[8];
+
+	pr_info("-----------------------------\n");
+	pr_info("uninitialized stack local checked with kmsan_check_memory()\n");
+	do_uninit_local_array((char*)local_array, 5, 7);
+
+	kmsan_check_memory((char*)local_array, 8);
+}
 
 static noinline int __init kmsan_tests_init(void)
 {
-#if 1
 	uninit_kmalloc_test();
 	init_kmalloc_test();
 	init_kzalloc_test();
 	uninit_multiple_args_test();
-#endif
 	uninit_stack_var_test();
 	init_stack_var_test();
+	uninit_kmsan_check_memory_test();
 	return -EAGAIN;
 }
 module_init(kmsan_tests_init);
