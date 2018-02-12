@@ -10,7 +10,6 @@ Contact: ramosian-glider@
 *   The kernel branch with KMSAN patches is available at https://github.com/google/kmsan
 *   Patches for LLVM: [LLVM patch](https://github.com/google/kmsan/blob/master/kmsan-llvm.patch),
     [Clang patch](https://github.com/google/kmsan/blob/master/kmsan-clang.patch)
-*   Clang wrapper: https://github.com/google/kmsan/blob/master/clang_wrapper.py
 
 ## How to build
 
