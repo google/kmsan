@@ -1167,12 +1167,14 @@ static int virtnet_receive(struct receive_queue *rq, int budget, bool *xdp_xmit)
 
 		while (received < budget &&
 		       (buf = virtqueue_get_buf_ctx(rq->vq, &len, &ctx))) {
+			kmsan_unpoison_shadow(buf, len);
 			bytes += receive_buf(vi, rq, buf, len, ctx, xdp_xmit);
 			received++;
 		}
 	} else {
 		while (received < budget &&
 		       (buf = virtqueue_get_buf(rq->vq, &len)) != NULL) {
+			kmsan_unpoison_shadow(buf, len);
 			bytes += receive_buf(vi, rq, buf, len, NULL, xdp_xmit);
 			received++;
 		}
