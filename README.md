@@ -111,7 +111,7 @@ Also consider running a KMSAN-instrumented kernel under [syzkaller](https://gith
 *   `sctp_v6_to_addr()` compared addresses to uninit data
     *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/15339e441ec46fbc3bf3486bb1ae4845b0f1bb8d#diff-525010da1ffa389226076f14b694d47d)
 *   `tun_get_user()` accesses uninitialized data if `skb->len` is `0`
-    *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/2580c4c17aee3ad58e9751012bad278dd074ccae#diff-c5903446ad04d2f699bca63f6f11e5bf)
+    *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/2580c4c17aee3ad58e9751012bad278dd074ccae)
 *   `sctp_inet6_skb_msgname()` leaks 4 bytes to the userspace
     *   Status: [fixed upstream](https://github.com/torvalds/linux/commit/7c8a61d9ee1df0fb4747879fa67a99614eb62fec) by Eric W. Biederman
 *   Use of uninitialized memory in `inet_ehash_insert()`
