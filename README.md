@@ -123,3 +123,4 @@ Also consider running a KMSAN-instrumented kernel under [syzkaller](https://gith
 ### Confirmed bug reports by others:
 *   [`deprecated_sysctl_warning()` reads uninit memory](https://lkml.org/lkml/2017/5/24/498)
 *   [`struct sockaddr` length not checked in `llcp_sock_connect()`](https://github.com/torvalds/linux/commit/608c4adfcabab220142ee335a2a003ccd1c0b25b)
+*   [uninitialized default host->id in `nvmf_host_default()`](https://github.com/torvalds/linux/commit/6b018235b4daabae96d855219fae59c3fb8be417)
