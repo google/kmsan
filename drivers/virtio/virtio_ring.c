@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/hrtimer.h>
+#include <linux/kmsan-checks.h>
 #include <linux/dma-mapping.h>
 #include <xen/xen.h>
 
@@ -388,6 +389,11 @@ static void vring_unmap_one_split(const struct vring_virtqueue *vq,
 			       virtio32_to_cpu(vq->vq.vdev, desc->len),
 			       (flags & VRING_DESC_F_WRITE) ?
 			       DMA_FROM_DEVICE : DMA_TO_DEVICE);
+	}
+	// Unmapping DMA memory after a transfer from device requires this
+	// memory to be unpoisoned.
+	if (flags & VRING_DESC_F_WRITE) {
+		kmsan_unpoison_shadow(desc->addr, desc->len);
 	}
 }
 
