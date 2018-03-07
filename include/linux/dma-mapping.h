@@ -8,6 +8,7 @@
 #include <linux/err.h>
 #include <linux/dma-debug.h>
 #include <linux/dma-direction.h>
+#include <linux/kmsan-checks.h>
 #include <linux/scatterlist.h>
 #include <linux/bug.h>
 #include <linux/mem_encrypt.h>
@@ -280,6 +281,7 @@ static inline dma_addr_t dma_map_page_attrs(struct device *dev,
 	const struct dma_map_ops *ops = get_dma_ops(dev);
 	dma_addr_t addr;
 
+	kmsan_unpoison_shadow(ptr, size);
 	BUG_ON(!valid_dma_direction(dir));
 	if (dma_is_direct(ops))
 		addr = dma_direct_map_page(dev, page, offset, size, dir, attrs);
@@ -312,8 +314,11 @@ static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
 				   unsigned long attrs)
 {
 	const struct dma_map_ops *ops = get_dma_ops(dev);
-	int ents;
+	int i, ents;
+	struct scatterlist *s;
 
+	for_each_sg(sg, s, nents, i)
+		kmsan_unpoison_shadow(sg_virt(s), s->length);
 	BUG_ON(!valid_dma_direction(dir));
 	if (dma_is_direct(ops))
 		ents = dma_direct_map_sg(dev, sg, nents, dir, attrs);
