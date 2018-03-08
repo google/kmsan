@@ -758,6 +758,8 @@ void *virtqueue_get_buf_ctx(struct virtqueue *_vq, unsigned int *len,
 #endif
 
 	END_USE(vq);
+	// We're passing initialized buffer to the virtio driver.
+	kmsan_unpoison_shadow(ret, *len);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(virtqueue_get_buf_ctx);
