@@ -508,6 +508,10 @@ static inline int virtqueue_add_split(struct virtqueue *_vq,
 			desc[i].flags = cpu_to_virtio16(_vq->vdev, VRING_DESC_F_NEXT | VRING_DESC_F_WRITE);
 			desc[i].addr = cpu_to_virtio64(_vq->vdev, addr);
 			desc[i].len = cpu_to_virtio32(_vq->vdev, sg->length);
+			// It's hard to figure out the buffer's address upon receive.
+			// Instead we unpoison it once, when exposing it to the device, and hope nobody
+			// else will write to it.
+			kmsan_unpoison_shadow(sg_virt(sg), sg->length);
 			prev = i;
 			i = virtio16_to_cpu(_vq->vdev, desc[i].next);
 		}
