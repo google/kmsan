@@ -1813,6 +1813,15 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 	if (gup_fast_permitted(start, nr_pages, write)) {
 		local_irq_disable();
 		gup_pgd_range(addr, end, write, pages, &nr);
+		// TODO(glider): there might be other places where user memory is pinned
+		// to kernel memory.
+		// gup_pgd_range() has just created a bunch of new pages that KMSAN
+		// treats as uninitialized.
+		// In the case the [addr, end) range belongs to the userspace memory,
+		// unpoison the corresponding kernel pages.
+		if ((addr < TASK_SIZE) && (end < TASK_SIZE)) {
+			kmsan_unpoison_shadow(page_address(pages[0]), len);
+		}
 		local_irq_enable();
 		ret = nr;
 	}
