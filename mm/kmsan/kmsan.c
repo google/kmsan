@@ -30,6 +30,13 @@
 #include "../slab.h"
 #include "kmsan.h"
 
+/* Some kernel asm() calls mention the non-existing |__force_order| variable
+ * in the asm constraints to preserve the order of accesses to control
+ * registers. KMSAN turns those mentions into actual memory accesses, therefore
+ * the variable is now required to link the kernel.
+ */
+unsigned long __force_order;
+
 // shadow page stats
 atomic_t alloc_calls = ATOMIC_INIT(0), free_calls = ATOMIC_INIT(0);
 atomic_t meta_alloc_calls = ATOMIC_INIT(0), meta_free_calls = ATOMIC_INIT(0);
