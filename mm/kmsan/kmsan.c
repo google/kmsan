@@ -632,8 +632,8 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 			descr = (char*)trace.entries[1];
 			pc1 = (void*)trace.entries[2];
 			pc2 = (void*)trace.entries[3];
-			kmsan_pr_err("origin description: %s\n", descr);
-			kmsan_pr_err("local variable created at:\n");
+			kmsan_pr_err("Local variable description: %s\n", descr);
+			kmsan_pr_err("Variable was created at:\n");
 			kmsan_pr_err(" %pS\n", pc1);
 			kmsan_pr_err(" %pS\n", pc2);
 			break;
@@ -642,23 +642,23 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
 				head = trace.entries[1];
 				origin = trace.entries[2];
-				kmsan_pr_err("chained origin:\n");
+				kmsan_pr_err("Uninit was stored to memory at:\n");
 				depot_fetch_stack(head, &chained_trace);
 				print_stack_trace(&chained_trace, 0);
 				continue;
 			} else
 			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FRAME) {
 				origin = trace.entries[2];
-				kmsan_pr_err("chained origin:\n");
+				kmsan_pr_err("Uninit was stored to memory at:\n");
 				kmsan_pr_err("%p - %pSR\n", trace.entries[1], trace.entries[1]);
 				continue;
 			}
 		}
-		kmsan_pr_err("origin:\n");
+		kmsan_pr_err("Uninit was created at:\n");
 		if (trace.entries)
 			print_stack_trace(&trace, 0);
 		else
-			kmsan_pr_err("No entries\n");
+			kmsan_pr_err("No stack\n");
 		break;
 	}
 }
@@ -1096,14 +1096,18 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	save_reporter(caller, reporters_tbl, &reporters_index);
 	kmsan_pr_err("==================================================================\n");
 	// TODO(glider): inline this properly, avoid __builtin_return_address(1).
-	kmsan_pr_err("BUG: KMSAN: use of uninitialized memory in %pS\n", deep ? return_address(2) : return_address(1));
+	kmsan_pr_err("BUG: KMSAN: uninit-value in %pS\n", deep ? return_address(2) : return_address(1));
 	dump_stack();
+	kmsan_pr_err("\n");
+
 	kmsan_print_origin(origin);
+
 	if (size) {
+		kmsan_pr_err("\n");
 		if (off_first == off_last)
-			kmsan_pr_err("byte %d of %d is uninitialized\n", off_first, size);
+			kmsan_pr_err("Byte %d of %d is uninitialized\n", off_first, size);
 		else
-			kmsan_pr_err("bytes %d-%d of %d are uninitialized\n", off_first, off_last, size);
+			kmsan_pr_err("Bytes %d-%d of %d are uninitialized\n", off_first, off_last, size);
 	}
 	kmsan_pr_err("==================================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
@@ -1298,11 +1302,13 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 				current->kmsan.is_reporting = true;
 				kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
 				dump_stack();
+
+				kmsan_pr_err("\n");
 				kmsan_pr_err("Access of size %d at %p.\n", size, addr);
 				kmsan_pr_err("Addresses belonging to different ranges are: %p and %p\n", cur_addr, next_addr);
 				kmsan_pr_err("page[0].%s: %p, page[1].%s: %p\n", fname, cur_meta_addr, fname, next_meta_addr);
 				origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr, 1, /*checked*/false, /*is_store*/false);
-				kmsan_pr_err("origin: %p\n", origin);
+				kmsan_pr_err("Origin: %p\n", origin);
 				kmsan_print_origin(origin);
 				current->kmsan.is_reporting = false;
 				return false;
@@ -1340,7 +1346,7 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
  	page = virt_to_page(addr);
 	if (!page) {
 		current->kmsan.is_reporting = true;
-		kmsan_pr_err("no page for address %p\n", addr);
+		kmsan_pr_err("No page for address %p\n", addr);
 		current->kmsan.is_reporting = false;
 		return kmsan_dummy_shadow(is_store);
 	}
@@ -1348,8 +1354,8 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
 		return kmsan_dummy_shadow(is_store);
 	if (!page->shadow) {
 		oops_in_progress = 1;
-		kmsan_pr_err("not allocated shadow for addr %p (page %p)\n", addr, page);
-		kmsan_pr_err("attempted to access %d bytes\n", size);
+		kmsan_pr_err("Not allocated shadow for addr %p (page %p)\n", addr, page);
+		kmsan_pr_err("Attempted to access %d bytes\n", size);
 		BUG();
 	}
 	page_offset = addr % PAGE_SIZE;
@@ -1405,7 +1411,7 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 		return NULL;
 		ENTER_RUNTIME(irq_flags);
 		current->kmsan.is_reporting = true;
-		kmsan_pr_err("no page for address %p\n", addr);
+		kmsan_pr_err("No page for address %p\n", addr);
 		current->kmsan.is_reporting = false;
 		LEAVE_RUNTIME(irq_flags);
 		return NULL;
@@ -1413,7 +1419,7 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 	if (!(page->shadow)) {
 		ENTER_RUNTIME(irq_flags);
 		oops_in_progress = 1;
-		kmsan_pr_err("not allocated shadow for addr %p (page %p)\n", addr, page);
+		kmsan_pr_err("Not allocated shadow for addr %p (page %p)\n", addr, page);
 		BUG();
 		LEAVE_RUNTIME(irq_flags);
 	}
@@ -1469,7 +1475,7 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 		return NULL;
 		ENTER_RUNTIME(irq_flags);
 		current->kmsan.is_reporting = true;
-		kmsan_pr_err("no page for address %p\n", addr);
+		kmsan_pr_err("No page for address %p\n", addr);
 		current->kmsan.is_reporting = false;
 		LEAVE_RUNTIME(irq_flags);
 		return NULL;
@@ -1477,7 +1483,7 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 	if (!(page->origin)) {
 		ENTER_RUNTIME(irq_flags);
 		oops_in_progress = 1;
-		kmsan_pr_err("not allocated origin for addr %p (page %p)\n", addr, page);
+		kmsan_pr_err("Not allocated origin for addr %p (page %p)\n", addr, page);
 		BUG();
 		LEAVE_RUNTIME(irq_flags);
 	}
@@ -1512,7 +1518,7 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
  	page = virt_to_page(addr);
 	if (!page) {
 		current->kmsan.is_reporting = true;
-		kmsan_pr_err("no page for address %p\n", addr);
+		kmsan_pr_err("No page for address %p\n", addr);
 		current->kmsan.is_reporting = false;
 	}
 	if (page->is_kmsan_untracked_page)
