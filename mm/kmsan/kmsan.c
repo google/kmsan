@@ -1108,6 +1108,8 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	kmsan_pr_err("==================================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irqrestore(&report_lock, flags);
+	if (panic_on_warn)
+		panic("panic_on_warn set ...\n");
 	current->kmsan.is_reporting = false;
 	current->kmsan.allow_reporting = true;
 }
