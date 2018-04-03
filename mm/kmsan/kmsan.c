@@ -156,36 +156,6 @@ void __msan_init(void) {
 }
 EXPORT_SYMBOL(__msan_init);
 
-bool unused_msan_check_range(void *addr, size_t size, int from)
-{
-	int i;
-	char *shadow;
-	unsigned long irq_flags;
-	bool ret = false;
-
-	if (!addr || !kmsan_ready || IN_RUNTIME())
-		return ret;
-	ENTER_RUNTIME(irq_flags);
-	shadow = (char*)kmsan_get_shadow_address((u64)addr, size, /*checked*/true, /*is_store*/false); // TODO(glider)
-	current->kmsan.is_reporting = true;
-
-	for (i = 0; i < size; i++) {
-		if (shadow[i]) {
-			kmsan_pr_err("msan_check_range(%p, %d) starting from %p @ %d\n", addr, size, shadow, from);
-			ret = true;
-			break;
-		}
-	}
-	for (i = 0; i < size; i++) {
-		if (shadow[i])
-			kmsan_pr_err("shadow of %p = %d @ %d\n", ((char*)addr) + i, shadow[i], from);
-	}
-	current->kmsan.is_reporting = false;
-	LEAVE_RUNTIME(irq_flags);
-	return ret;
-}
-EXPORT_SYMBOL(unused_msan_check_range);
-
 inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size)
 {
 	void *shadow_start;
@@ -1213,6 +1183,7 @@ void kmsan_internal_check_memory(const void *addr, size_t size)
 
 void kmsan_check_memory(const void *addr, size_t size)
 {
+	pr_err("checking %px %d\n", addr, size);
 	return kmsan_internal_check_memory(addr, size);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
