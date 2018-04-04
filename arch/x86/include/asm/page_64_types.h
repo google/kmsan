@@ -10,6 +10,7 @@
 #define EXTRA_STACK_ORDER 1
 #elif defined(CONFIG_KMSAN)
 #define EXTRA_STACK_ORDER 2
+#else
 #define EXTRA_STACK_ORDER 0
 #endif
 
