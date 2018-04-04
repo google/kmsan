@@ -1183,7 +1183,6 @@ void kmsan_internal_check_memory(const void *addr, size_t size)
 
 void kmsan_check_memory(const void *addr, size_t size)
 {
-	pr_err("checking %px %d\n", addr, size);
 	return kmsan_internal_check_memory(addr, size);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
