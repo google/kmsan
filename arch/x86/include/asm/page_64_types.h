@@ -6,9 +6,10 @@
 #include <asm/kaslr.h>
 #endif
 
-#if defined(CONFIG_KASAN) || defined(CONFIG_KMSAN)
+#if defined(CONFIG_KASAN)
 #define EXTRA_STACK_ORDER 1
-#else
+#elif defined(CONFIG_KMSAN)
+#define EXTRA_STACK_ORDER 2
 #define EXTRA_STACK_ORDER 0
 #endif
 
