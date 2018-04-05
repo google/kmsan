@@ -50,10 +50,10 @@ extern char __softirqentry_text_start[];
 // unavailable.
 // There are separate pages for loads and stores, so that every load returns a
 // zero, and every store doesn't affect other stores.
-char dummy_shadow_load_page[PAGE_SIZE];
-char dummy_origin_load_page[PAGE_SIZE];
-char dummy_shadow_store_page[PAGE_SIZE];
-char dummy_origin_store_page[PAGE_SIZE];
+char dummy_shadow_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+char dummy_origin_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+char dummy_shadow_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+char dummy_origin_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
 bool kmsan_ready = false;
 bool kmsan_threads_ready = false;
