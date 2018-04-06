@@ -56,15 +56,6 @@ extern char __bss_stop[];
 extern char _sdata[];
 extern char _edata[];
 
-size_t log2_next(u64 size) {
-	size_t res = 0;
-	u64 bound;
-	for (bound = 1; bound < size; bound <<= 1, res++) {
-		pr_err("log2_next: size=%p, bound=%p, res=%d\n", size, bound, res);
-	}
-	return res;
-}
-
 void kmsan_initialize_shadow_for_text()
 {
 	u64 addr;
