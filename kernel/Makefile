@@ -31,6 +31,8 @@ KCOV_INSTRUMENT_extable.o := n
 KCOV_INSTRUMENT_kcov.o := n
 KASAN_SANITIZE_kcov.o := n
 KMSAN_SANITIZE_kcov.o := n
+# Don't instrument functions that work with arbitrary addresses.
+KMSAN_SANITIZE_module.o := n
 
 # cond_syscall is currently not LTO compatible
 CFLAGS_sys_ni.o = $(DISABLE_LTO)
