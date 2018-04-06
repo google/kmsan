@@ -1,6 +1,6 @@
 Index: include/llvm/Transforms/Instrumentation.h
 ===================================================================
---- include/llvm/Transforms/Instrumentation.h	(revision 329054)
+--- include/llvm/Transforms/Instrumentation.h	(revision 329391)
 +++ include/llvm/Transforms/Instrumentation.h	(working copy)
 @@ -131,7 +131,8 @@
  
@@ -14,7 +14,7 @@ Index: include/llvm/Transforms/Instrumentation.h
  
 Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
 ===================================================================
---- lib/Transforms/Instrumentation/MemorySanitizer.cpp	(revision 329054)
+--- lib/Transforms/Instrumentation/MemorySanitizer.cpp	(revision 329391)
 +++ lib/Transforms/Instrumentation/MemorySanitizer.cpp	(working copy)
 @@ -89,12 +89,40 @@
  /// implementation ignores the load aspect of CAS/RMW, always returning a clean
@@ -704,7 +704,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
    void visitSelectInst(SelectInst& I) {
      IRBuilder<> IRB(&I);
      // a = select b, c, d
-@@ -3121,6 +3382,22 @@
+@@ -3121,6 +3382,25 @@
        Type *ElType = OpType->getPointerElementType();
        if (!ElType->isSized())
          continue;
@@ -714,8 +714,11 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
 +      // See https://bugs.llvm.org/show_bug.cgi?id=37000
 +      if (AccessSize > 32768)
 +        continue;
-+      // TODO(glider): if the size is > 4K it doesn't fit into the fake shadow page.
-+      if (AccessSize > 4096)
++      // TODO(glider): if the size is > 4K it doesn't fit into the fake shadow
++      // page.
++      // To stay on the safe side, let's say we don't want to unpoison more
++      // than 16 bytes.
++      if (AccessSize > 16)
 +        continue;
 +#if 0
 +      if (AccessSize >= 1024) {
@@ -727,7 +730,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        Value *ShadowPtr, *OriginPtr;
        std::tie(ShadowPtr, OriginPtr) = getShadowOriginPtr(
            Operand, IRB, ElType, /*Alignment*/ 1, /*isStore*/ true);
-@@ -3157,6 +3434,7 @@
+@@ -3157,6 +3437,7 @@
    MemorySanitizer &MS;
    MemorySanitizerVisitor &MSV;
    Value *VAArgTLSCopy = nullptr;
@@ -735,7 +738,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
    Value *VAArgOverflowSize = nullptr;
  
    SmallVector<CallInst*, 16> VAStartInstrumentationList;
-@@ -3208,6 +3486,10 @@
+@@ -3208,6 +3489,10 @@
          uint64_t ArgSize = DL.getTypeAllocSize(RealTy);
          Value *ShadowBase =
              getShadowPtrForVAArgument(RealTy, IRB, OverflowOffset);
@@ -746,7 +749,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
          OverflowOffset += alignTo(ArgSize, 8);
          Value *ShadowPtr, *OriginPtr;
          std::tie(ShadowPtr, OriginPtr) =
-@@ -3216,6 +3498,9 @@
+@@ -3216,6 +3501,9 @@
  
          IRB.CreateMemCpy(ShadowBase, kShadowTLSAlignment, ShadowPtr,
                           kShadowTLSAlignment, ArgSize);
@@ -756,7 +759,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        } else {
          ArgKind AK = classifyArgument(A);
          if (AK == AK_GeneralPurpose && GpOffset >= AMD64GpEndOffset)
-@@ -3222,14 +3507,20 @@
+@@ -3222,14 +3510,20 @@
            AK = AK_Memory;
          if (AK == AK_FloatingPoint && FpOffset >= AMD64FpEndOffset)
            AK = AK_Memory;
@@ -778,7 +781,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
              FpOffset += 16;
              break;
            case AK_Memory:
-@@ -3238,6 +3529,9 @@
+@@ -3238,6 +3532,9 @@
              uint64_t ArgSize = DL.getTypeAllocSize(A->getType());
              ShadowBase =
                  getShadowPtrForVAArgument(A->getType(), IRB, OverflowOffset);
@@ -788,7 +791,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
              OverflowOffset += alignTo(ArgSize, 8);
          }
          // Take fixed arguments into account for GpOffset and FpOffset,
-@@ -3244,8 +3538,16 @@
+@@ -3244,8 +3541,16 @@
          // but don't actually store shadows for them.
          if (IsFixed)
            continue;
@@ -807,7 +810,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        }
      }
      Constant *OverflowSize =
-@@ -3262,6 +3564,14 @@
+@@ -3262,6 +3567,14 @@
                                "_msarg");
    }
  
@@ -822,7 +825,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
    void unpoisonVAListTagForInst(IntrinsicInst &I) {
      IRBuilder<> IRB(&I);
      Value *VAListTag = I.getArgOperand(0);
-@@ -3304,6 +3614,10 @@
+@@ -3304,6 +3617,10 @@
                        VAArgOverflowSize);
        VAArgTLSCopy = IRB.CreateAlloca(Type::getInt8Ty(*MS.C), CopySize);
        IRB.CreateMemCpy(VAArgTLSCopy, 8, MS.VAArgTLS, 8, CopySize);
@@ -833,7 +836,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
      }
  
      // Instrument va_start.
-@@ -3325,6 +3639,10 @@
+@@ -3325,6 +3642,10 @@
                                   Alignment, /*isStore*/ true);
        IRB.CreateMemCpy(RegSaveAreaShadowPtr, Alignment, VAArgTLSCopy, Alignment,
                         AMD64FpEndOffset);
@@ -844,7 +847,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        Value *OverflowArgAreaPtrPtr = IRB.CreateIntToPtr(
            IRB.CreateAdd(IRB.CreatePtrToInt(VAListTag, MS.IntptrTy),
                          ConstantInt::get(MS.IntptrTy, 8)),
-@@ -3338,6 +3656,11 @@
+@@ -3338,6 +3659,11 @@
                                               AMD64FpEndOffset);
        IRB.CreateMemCpy(OverflowArgAreaShadowPtr, Alignment, SrcPtr, Alignment,
                         VAArgOverflowSize);
