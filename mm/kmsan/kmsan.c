@@ -117,7 +117,6 @@ void inline do_kmsan_thread_create(struct task_struct *task)
 	struct page *page;
 	kmsan_thread_state *state = &task->kmsan;
 
-	///kmsan_pr_err("in do_kmsan_thread_create(%p), pid=%d, current: %p, pid=%d task.stack: %p\n", task, task->pid, current, current->pid, task->stack);
 #ifdef CONFIG_VMAP_STACK
 	// TODO(glider): KMSAN isn't currently compatible with CONFIG_VMAP_STACK.
 	// BUG_ON(!virt_addr_valid(task->stack));
@@ -135,7 +134,6 @@ void kmsan_task_exit(struct task_struct *task)
 	unsigned long irq_flags;
 	int i;
 	kmsan_thread_state *state = &task->kmsan;
-	///kmsan_pr_err("in kmsan_task_exit(%p), pid=%d, current: %p, pid=%d\n", task, task->pid, current, current->pid);
 	if (!kmsan_threads_ready)
 		return;
 	if (IN_RUNTIME())
@@ -173,7 +171,7 @@ inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size)
 		shadow_start = kmsan_get_shadow_address(address, to_fill, /*checked*/true, /*is_store*/true);
 		if (!shadow_start) {
 			current->kmsan.is_reporting = true;
-			kmsan_pr_err("WARNING: not poisoning %d bytes starting at %p, because the shadow is NULL\n", to_fill, address);
+			kmsan_pr_err("WARNING: not poisoning %d bytes starting at %px, because the shadow is NULL\n", to_fill, address);
 			current->kmsan.is_reporting = false;
 			BUG();
 		}
@@ -620,7 +618,7 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FRAME) {
 				origin = trace.entries[2];
 				kmsan_pr_err("Uninit was stored to memory at:\n");
-				kmsan_pr_err("%p - %pSR\n", trace.entries[1], trace.entries[1]);
+				kmsan_pr_err("%px - %pSR\n", trace.entries[1], trace.entries[1]);
 				continue;
 			}
 		}
@@ -731,7 +729,7 @@ void kmsan_set_origin(u64 address, int size, u32 origin)
 		origin_start = kmsan_get_origin_address(address, to_fill, /*checked*/true, /*is_store*/true);
 		if (!origin_start) {
 			current->kmsan.is_reporting = true;
-			kmsan_pr_err("WARNING: not setting origing for %d bytes starting at %p, because the origin is NULL\n", to_fill, address);
+			kmsan_pr_err("WARNING: not setting origing for %d bytes starting at %px, because the origin is NULL\n", to_fill, address);
 			current->kmsan.is_reporting = false;
 			BUG();
 		}
@@ -824,7 +822,7 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 	for (i = 0; i < pages; i++) {
 		// TODO(glider): sometimes page[i].shadow is initialized. Let's skip the check for now.
 		if (page[i].shadow && 0) {
-			kmsan_pr_err("page[%d].shadow=%p (should be 0), page[%d] points to %p\n", i, page[i].shadow, i, page_address(&page[i]));
+			kmsan_pr_err("page[%d].shadow=%px (should be 0), page[%d] points to %px\n", i, page[i].shadow, i, page_address(&page[i]));
 			BUG();
 		}
 		///if (page[i].shadow) continue;
@@ -918,7 +916,7 @@ void kmsan_free_page(struct page *page, unsigned int order)
 			if (page[i].shadow) {
 				current->kmsan.is_reporting = true;
 				for (i = 0; i < pages; i++)
-					kmsan_pr_err("page[%d].shadow=%p\n", i, page[i].shadow);
+					kmsan_pr_err("page[%d].shadow=%px\n", i, page[i].shadow);
 				current->kmsan.is_reporting = false;
 				break;
 			}
@@ -967,7 +965,6 @@ void kmsan_split_page(struct page *page, unsigned int order)
 		return;
 	}
 	shadow = page[0].shadow;
-	///kmsan_pr_err("kmsan_split_page(%p, %d), shadow is %p\n", page, order, shadow);
 	split_page(shadow, order);
 
 	origin = page[0].origin;
@@ -1274,11 +1271,11 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 				dump_stack();
 
 				kmsan_pr_err("\n");
-				kmsan_pr_err("Access of size %d at %p.\n", size, addr);
-				kmsan_pr_err("Addresses belonging to different ranges are: %p and %p\n", cur_addr, next_addr);
-				kmsan_pr_err("page[0].%s: %p, page[1].%s: %p\n", fname, cur_meta_addr, fname, next_meta_addr);
+				kmsan_pr_err("Access of size %d at %px.\n", size, addr);
+				kmsan_pr_err("Addresses belonging to different ranges are: %px and %px\n", cur_addr, next_addr);
+				kmsan_pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta_addr, fname, next_meta_addr);
 				origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr, 1, /*checked*/false, /*is_store*/false);
-				kmsan_pr_err("Origin: %p\n", origin);
+				kmsan_pr_err("Origin: %px\n", origin);
 				kmsan_print_origin(origin);
 				current->kmsan.is_reporting = false;
 				return false;
@@ -1299,11 +1296,11 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
 
 	// TODO(glider): For some reason vmalloc'ed addresses aren't considered valid.
 	if (!my_virt_addr_valid(addr)) {
-		///kmsan_pr_err("not a valid virtual address: %p\n", addr);
+		///kmsan_pr_err("not a valid virtual address: %px\n", addr);
 		// TODO(glider): Trinity is able to trigger the check below with size=14240.
 		// No point in increasing the dummy shadow size further.
 		if (size > PAGE_SIZE) {
-			WARN("kmsan_get_shadow_address(%p, %d, %d)\n", addr, size, checked);
+			WARN("kmsan_get_shadow_address(%px, %d, %d)\n", addr, size, checked);
 			///BUG();
 			if (checked)
 				BUG();
@@ -1316,7 +1313,7 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
  	page = virt_to_page(addr);
 	if (!page) {
 		current->kmsan.is_reporting = true;
-		kmsan_pr_err("No page for address %p\n", addr);
+		kmsan_pr_err("No page for address %px\n", addr);
 		current->kmsan.is_reporting = false;
 		return kmsan_dummy_shadow(is_store);
 	}
@@ -1324,7 +1321,7 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
 		return kmsan_dummy_shadow(is_store);
 	if (!page->shadow) {
 		oops_in_progress = 1;
-		kmsan_pr_err("Not allocated shadow for addr %p (page %p)\n", addr, page);
+		kmsan_pr_err("Not allocated shadow for addr %px (page %px)\n", addr, page);
 		kmsan_pr_err("Attempted to access %d bytes\n", size);
 		BUG();
 	}
@@ -1362,11 +1359,11 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 	// TODO(glider): For some reason vmalloc'ed addresses aren't considered valid.
 	if (!my_virt_addr_valid(addr)) {
 		ENTER_RUNTIME(irq_flags);
-		///kmsan_pr_err("not a valid virtual address: %p\n", addr);
+		///kmsan_pr_err("not a valid virtual address: %px\n", addr);
 		// TODO(glider): Trinity is able to trigger the check below with size=14240.
 		// No point in increasing the dummy shadow size further.
 		if (size > PAGE_SIZE) {
-			WARN("kmsan_get_shadow_address_noruntime(%p, %d, %d)\n", addr, size, checked);
+			WARN("kmsan_get_shadow_address_noruntime(%px, %d, %d)\n", addr, size, checked);
 			if (checked)
 				BUG();
 			else
@@ -1381,7 +1378,7 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 		return NULL;
 		ENTER_RUNTIME(irq_flags);
 		current->kmsan.is_reporting = true;
-		kmsan_pr_err("No page for address %p\n", addr);
+		kmsan_pr_err("No page for address %px\n", addr);
 		current->kmsan.is_reporting = false;
 		LEAVE_RUNTIME(irq_flags);
 		return NULL;
@@ -1389,7 +1386,7 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 	if (!(page->shadow)) {
 		ENTER_RUNTIME(irq_flags);
 		oops_in_progress = 1;
-		kmsan_pr_err("Not allocated shadow for addr %p (page %p)\n", addr, page);
+		kmsan_pr_err("Not allocated shadow for addr %px (page %px)\n", addr, page);
 		BUG();
 		LEAVE_RUNTIME(irq_flags);
 	}
@@ -1426,11 +1423,11 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 	}
 	if (!my_virt_addr_valid(addr)) {
 		ENTER_RUNTIME(irq_flags);
-		///kmsan_pr_err("not a valid virtual address: %p\n", addr);
+		///kmsan_pr_err("not a valid virtual address: %px\n", addr);
 		// TODO(glider): Trinity is able to trigger the check below with size=14240.
 		// No point in increasing the dummy origin size further.
 		if (size > PAGE_SIZE) {
-			WARN("kmsan_get_origin_address_noruntime(%p, %d, %d)\n", addr, size, checked);
+			WARN("kmsan_get_origin_address_noruntime(%px, %d, %d)\n", addr, size, checked);
 			if (checked)
 				BUG();
 			else
@@ -1445,7 +1442,7 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 		return NULL;
 		ENTER_RUNTIME(irq_flags);
 		current->kmsan.is_reporting = true;
-		kmsan_pr_err("No page for address %p\n", addr);
+		kmsan_pr_err("No page for address %px\n", addr);
 		current->kmsan.is_reporting = false;
 		LEAVE_RUNTIME(irq_flags);
 		return NULL;
@@ -1453,7 +1450,7 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 	if (!(page->origin)) {
 		ENTER_RUNTIME(irq_flags);
 		oops_in_progress = 1;
-		kmsan_pr_err("Not allocated origin for addr %p (page %p)\n", addr, page);
+		kmsan_pr_err("Not allocated origin for addr %px (page %px)\n", addr, page);
 		BUG();
 		LEAVE_RUNTIME(irq_flags);
 	}
@@ -1488,7 +1485,7 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
  	page = virt_to_page(addr);
 	if (!page) {
 		current->kmsan.is_reporting = true;
-		kmsan_pr_err("No page for address %p\n", addr);
+		kmsan_pr_err("No page for address %px\n", addr);
 		current->kmsan.is_reporting = false;
 	}
 	if (page->is_kmsan_untracked_page)
@@ -1500,13 +1497,13 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
 	}
 	page_offset = (addr % PAGE_SIZE);
 	if (!page->origin) {
-		kmsan_pr_err("No origin for address %p (page %p), size=%d\n", addr, page, size);
+		kmsan_pr_err("No origin for address %px (page %px), size=%d\n", addr, page, size);
 		BUG_ON(page->shadow);
 		BUG_ON(!page->origin);
 	}
 	if (!page->origin) {
 		oops_in_progress = 1;
-		kmsan_pr_err("No origin for address %p (page %p)\n", addr, page);
+		kmsan_pr_err("No origin for address %px (page %px)\n", addr, page);
 		BUG_ON(!page->origin);
 	}
 	/* TODO(glider): this is conservative. */
