@@ -23,7 +23,7 @@ export WORLD=`pwd`
 ```
 # I sometimes forget to update this revision.
 # Please refer to the contents of kmsan-llvm.patch in that case.
-R=329054
+R=329391
 svn co -r $R http://llvm.org/svn/llvm-project/llvm/trunk llvm
 cd llvm
 (cd tools && svn co -r $R http://llvm.org/svn/llvm-project/cfe/trunk clang)
