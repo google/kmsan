@@ -602,6 +602,15 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
              if (Overflow) {
                // ParamTLS overflow.
                EntryIRB.CreateMemSet(
+@@ -2770,7 +3009,7 @@
+       // outputs as clean. Note that any side effects of the inline asm that are
+       // not immediately visible in its constraints are not handled.
+       if (Call->isInlineAsm()) {
+-        if (ClHandleAsmConservative)
++        if (ClHandleAsmConservative && 0)
+           visitAsmInstruction(I);
+         else
+           visitInstruction(I);
 @@ -2829,6 +3068,7 @@
  
          Store = IRB.CreateMemCpy(ArgShadowBase, Alignment, AShadowPtr,
@@ -704,7 +713,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
    void visitSelectInst(SelectInst& I) {
      IRBuilder<> IRB(&I);
      // a = select b, c, d
-@@ -3121,6 +3382,25 @@
+@@ -3121,10 +3382,48 @@
        Type *ElType = OpType->getPointerElementType();
        if (!ElType->isSized())
          continue;
@@ -720,17 +729,40 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
 +      // than 16 bytes.
 +      if (AccessSize > 16)
 +        continue;
-+#if 0
-+      if (AccessSize >= 1024) {
-+        errs() << "Size: " << AccessSize << "\n";
-+        errs() << I << "\n";
-+        errs() << I.getParent()->getParent()->getName() << "\n";
-+      }
-+#endif
++
        Value *ShadowPtr, *OriginPtr;
        std::tie(ShadowPtr, OriginPtr) = getShadowOriginPtr(
            Operand, IRB, ElType, /*Alignment*/ 1, /*isStore*/ true);
-@@ -3157,6 +3437,7 @@
+       Value *CShadow = getCleanShadow(ElType);
++      int BitWidth = VectorOrPrimitiveTypeSizeInBits(CShadow->getType());
++      int PSize = BitWidth / 8;
++      // Make sure Size is at least 1 if the operand is i1.
++      if (PSize * 8 < BitWidth)
++        PSize++;
++      if (PSize != AccessSize) {
++        continue;
++        errs() << "PSize: " << PSize << " AccessSize: " << AccessSize << "\n";
++	errs() << "BitWidth: " << BitWidth << "\n";
++	errs() << I << "\n";
++        assert(PSize == AccessSize);
++      }
++      std::string AsmStr = dyn_cast<InlineAsm>(CI->getCalledValue())->getAsmString();
++      if (AsmStr == "")
++        continue;
++      if (AsmStr.find("%gs") != std::string::npos)
++        continue;
++#if 1
++      if (AccessSize >= 0) {
++///        errs() << "Size: " << AccessSize << "\n";
++///        errs() << I << "\n";
++///       errs() << I.getParent()->getParent()->getName() << "\n";
++      }
++#endif
++
+       IRB.CreateStore(
+           CShadow,
+           IRB.CreatePointerCast(ShadowPtr, CShadow->getType()->getPointerTo()));
+@@ -3157,6 +3456,7 @@
    MemorySanitizer &MS;
    MemorySanitizerVisitor &MSV;
    Value *VAArgTLSCopy = nullptr;
@@ -738,7 +770,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
    Value *VAArgOverflowSize = nullptr;
  
    SmallVector<CallInst*, 16> VAStartInstrumentationList;
-@@ -3208,6 +3489,10 @@
+@@ -3208,6 +3508,10 @@
          uint64_t ArgSize = DL.getTypeAllocSize(RealTy);
          Value *ShadowBase =
              getShadowPtrForVAArgument(RealTy, IRB, OverflowOffset);
@@ -749,7 +781,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
          OverflowOffset += alignTo(ArgSize, 8);
          Value *ShadowPtr, *OriginPtr;
          std::tie(ShadowPtr, OriginPtr) =
-@@ -3216,6 +3501,9 @@
+@@ -3216,6 +3520,9 @@
  
          IRB.CreateMemCpy(ShadowBase, kShadowTLSAlignment, ShadowPtr,
                           kShadowTLSAlignment, ArgSize);
@@ -759,7 +791,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        } else {
          ArgKind AK = classifyArgument(A);
          if (AK == AK_GeneralPurpose && GpOffset >= AMD64GpEndOffset)
-@@ -3222,14 +3510,20 @@
+@@ -3222,14 +3529,20 @@
            AK = AK_Memory;
          if (AK == AK_FloatingPoint && FpOffset >= AMD64FpEndOffset)
            AK = AK_Memory;
@@ -781,7 +813,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
              FpOffset += 16;
              break;
            case AK_Memory:
-@@ -3238,6 +3532,9 @@
+@@ -3238,6 +3551,9 @@
              uint64_t ArgSize = DL.getTypeAllocSize(A->getType());
              ShadowBase =
                  getShadowPtrForVAArgument(A->getType(), IRB, OverflowOffset);
@@ -791,7 +823,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
              OverflowOffset += alignTo(ArgSize, 8);
          }
          // Take fixed arguments into account for GpOffset and FpOffset,
-@@ -3244,8 +3541,16 @@
+@@ -3244,8 +3560,16 @@
          // but don't actually store shadows for them.
          if (IsFixed)
            continue;
@@ -810,7 +842,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        }
      }
      Constant *OverflowSize =
-@@ -3262,6 +3567,14 @@
+@@ -3262,6 +3586,14 @@
                                "_msarg");
    }
  
@@ -825,7 +857,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
    void unpoisonVAListTagForInst(IntrinsicInst &I) {
      IRBuilder<> IRB(&I);
      Value *VAListTag = I.getArgOperand(0);
-@@ -3304,6 +3617,10 @@
+@@ -3304,6 +3636,10 @@
                        VAArgOverflowSize);
        VAArgTLSCopy = IRB.CreateAlloca(Type::getInt8Ty(*MS.C), CopySize);
        IRB.CreateMemCpy(VAArgTLSCopy, 8, MS.VAArgTLS, 8, CopySize);
@@ -836,7 +868,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
      }
  
      // Instrument va_start.
-@@ -3325,6 +3642,10 @@
+@@ -3325,6 +3661,10 @@
                                   Alignment, /*isStore*/ true);
        IRB.CreateMemCpy(RegSaveAreaShadowPtr, Alignment, VAArgTLSCopy, Alignment,
                         AMD64FpEndOffset);
@@ -847,7 +879,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        Value *OverflowArgAreaPtrPtr = IRB.CreateIntToPtr(
            IRB.CreateAdd(IRB.CreatePtrToInt(VAListTag, MS.IntptrTy),
                          ConstantInt::get(MS.IntptrTy, 8)),
-@@ -3338,6 +3659,11 @@
+@@ -3338,6 +3678,11 @@
                                               AMD64FpEndOffset);
        IRB.CreateMemCpy(OverflowArgAreaShadowPtr, Alignment, SrcPtr, Alignment,
                         VAArgOverflowSize);
