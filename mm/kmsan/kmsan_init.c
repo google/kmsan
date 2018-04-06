@@ -35,7 +35,6 @@ void kmsan_init_percpu_metadata(void *mem, void *shadow, void *origin, size_t si
 		page = virt_to_page((void*)addr);
 		page->shadow = virt_to_page(shadow) + i;
 		page->origin = virt_to_page(origin) + i;
-		///pr_err("page(%p)=%p, shadow=%p, origin=%p\n", addr, page, page->shadow, page->origin);
 	}
 }
 
@@ -46,7 +45,6 @@ void __initdata kmsan_record_future_shadow_range(u64 start, u64 end)
 		return;
 	start_end_pairs[future_index].start = start;
 	start_end_pairs[future_index].end = end;
-	///kmsan_pr_err("[cur=%p] kmsan_record_future_shadow_range(%p, %p) @ %d\n", current, start, end, future_index);
 	future_index++;
 	///pr_err("future_index: %d\n", future_index);
 	///dump_stack();
@@ -113,17 +111,15 @@ void __initdata kmsan_initialize_shadow_range(u64 start, u64 end)
 {
 	u64 addr;
 	struct page *page;
-	///kmsan_pr_err("range %p-%p\n", start, end);
 	for (addr = start; addr < end; addr += PAGE_SIZE) {
 		page = virt_to_page((void*)addr);
 		if (page->shadow) {
-			///kmsan_pr_err("skipping %p (page %p)\n", addr, page);
+			///kmsan_pr_err("skipping %px (page %px)\n", addr, page);
 		} else {
 			BUG_ON(kmsan_alloc_meta_for_pages(page, 0, GFP_ATOMIC | __GFP_ZERO,
 							NUMA_NO_NODE));
 		}
 	}
-	///kmsan_pr_err("allocated metadata for addresses %p-%p\n", start, end);
 }
 
 void __initdata kmsan_initialize_shadow(void)
@@ -137,7 +133,6 @@ void __initdata kmsan_initialize_shadow(void)
 	kmsan_initialize_shadow_for_text();
 	// Allocate shadow for init stack.
 	///kmsan_initialize_shadow_range(init_task.stack, init_task.stack + THREAD_SIZE);
-	///kmsan_pr_err("NODE_DATA(0): %p-%p\n", NODE_DATA(0), (u64)NODE_DATA(0) + sizeof(struct pglist_data) * num_online_cpus());
 	////kmsan_record_future_shadow_range((u64)NODE_DATA(0), (u64)NODE_DATA(0) + roundup(sizeof(struct pglist_data), PAGE_SIZE) * num_online_cpus());
 	//
 	// TODO(glider): alloc_node_data() in arch/x86/mm/numa.c uses sizeof(pg_data_t).
@@ -145,7 +140,6 @@ void __initdata kmsan_initialize_shadow(void)
 		kmsan_record_future_shadow_range((u64)NODE_DATA(nid), (u64)NODE_DATA(nid) + nd_size);
 	///kmsan_pr_err("future_index: %d\n", future_index);
 	for (i = 0; i < future_index; i++) {
-		///kmsan_pr_err("initializing shadow range # %d/%d: %p-%p\n", i, future_index, start_end_pairs[i].start, start_end_pairs[i].end);
 		kmsan_initialize_shadow_range(start_end_pairs[i].start, start_end_pairs[i].end);
 	}
 	// TODO(glider): should be init_task.
