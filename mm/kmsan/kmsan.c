@@ -1160,7 +1160,7 @@ void kmsan_internal_check_memory(const void *addr, size_t size)
 			continue;
 		}
 		// Not checking for the second time.
-		origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr, size, /*checked*/false, /*is_store*/false);
+		origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr + i, size, /*checked*/false, /*is_store*/false);
 		if (prev_start == -1) {
 			prev_start = i;
 			prev_origin = origin;
