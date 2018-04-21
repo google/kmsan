@@ -165,6 +165,7 @@ obj-$(CONFIG_LRU_CACHE) += lru_cache.o
 obj-$(CONFIG_DMA_API_DEBUG) += dma-debug.o
 
 obj-$(CONFIG_GENERIC_CSUM) += checksum.o
+obj-$(CONFIG_KMSAN) += checksum.o
 
 obj-$(CONFIG_GENERIC_ATOMIC64) += atomic64.o
 
