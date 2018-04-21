@@ -21,12 +21,18 @@ void arch_stack_walk(stack_trace_consume_fn consume_entry, void *cookie,
 	if (regs && !consume_entry(cookie, regs->ip, false))
 		return;
 
+	/* PCs read off the stacks are frequently considered uninit. */
+	bool allow_reporting = current->kmsan.allow_reporting;
+	current->kmsan.allow_reporting = false;
+
 	for (unwind_start(&state, task, regs, NULL); !unwind_done(&state);
 	     unwind_next_frame(&state)) {
 		addr = unwind_get_return_address(&state);
 		if (!addr || !consume_entry(cookie, addr, false))
 			break;
 	}
+
+	current->kmsan.allow_reporting = allow_reporting;
 }
 
 /*
