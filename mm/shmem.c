@@ -1865,6 +1865,17 @@ clear:
 			for (i = 0; i < (1 << compound_order(head)); i++) {
 				clear_highpage(head + i);
 				flush_dcache_page(head + i);
+/*
+ * TODO: Perhaps we need to instrument clear_highpage/clear_page instead.
+ * That's what is used in page_alloc with GFP_ZERO.
+ */
+#ifdef CONFIG_KMSAN
+				{
+					void *kaddr = kmap_atomic(head + i);
+					kmsan_unpoison_shadow(kaddr, PAGE_SIZE);
+					kunmap_atomic(kaddr);
+				}
+#endif
 			}
 			SetPageUptodate(head);
 		}
