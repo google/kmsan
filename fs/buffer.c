@@ -1337,7 +1337,8 @@ __getblk_gfp(struct block_device *bdev, sector_t block,
 	might_sleep();
 	if (bh == NULL)
 		bh = __getblk_slow(bdev, block, size, gfp);
-	kmsan_unpoison_shadow(bh->b_data, bh->b_size);
+	if (bh)
+		kmsan_unpoison_shadow(bh->b_data, bh->b_size);
 	return bh;
 }
 EXPORT_SYMBOL(__getblk_gfp);
