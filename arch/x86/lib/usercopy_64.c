@@ -135,6 +135,9 @@ long __copy_user_flushcache(void *dst, const void __user *src, unsigned size)
 
 void memcpy_flushcache(void *_dst, const void *_src, size_t size)
 {
+#ifdef CONFIG_KMSAN
+	memcpy(_dst, _src, size);
+#else
 	unsigned long dest = (unsigned long) _dst;
 	unsigned long source = (unsigned long) _src;
 
@@ -195,6 +198,7 @@ void memcpy_flushcache(void *_dst, const void *_src, size_t size)
 		memcpy((void *) dest, (void *) source, size);
 		clean_cache_range((void *) dest, size);
 	}
+#endif
 }
 EXPORT_SYMBOL_GPL(memcpy_flushcache);
 

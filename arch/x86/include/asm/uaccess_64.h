@@ -8,6 +8,7 @@
 #include <linux/compiler.h>
 #include <linux/lockdep.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 #include <asm/alternative.h>
 #include <asm/cpufeatures.h>
 #include <asm/page.h>
@@ -180,15 +181,23 @@ static inline int
 __copy_from_user_inatomic_nocache(void *dst, const void __user *src,
 				  unsigned size)
 {
+	int n;
+
 	kasan_check_write(dst, size);
-	return __copy_user_nocache(dst, src, size, 0);
+	n = __copy_user_nocache(dst, src, size, 0);
+	kmsan_unpoison_shadow(dst, size - n);
+	return n;
 }
 
 static inline int
 __copy_from_user_flushcache(void *dst, const void __user *src, unsigned size)
 {
+	int n;
+
 	kasan_check_write(dst, size);
-	return __copy_user_flushcache(dst, src, size);
+	n = __copy_user_flushcache(dst, src, size);
+	kmsan_unpoison_shadow(dst, size - n);
+	return n;
 }
 
 unsigned long
