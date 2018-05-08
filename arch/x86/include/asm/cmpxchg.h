@@ -145,13 +145,13 @@ extern void __add_wrong_size(void)
 # include <asm/cmpxchg_64.h>
 #endif
 
-#define arch_cmpxchg(ptr, old, new)					\
+#define cmpxchg(ptr, old, new)						\
 	__cmpxchg(ptr, old, new, sizeof(*(ptr)))
 
-#define arch_sync_cmpxchg(ptr, old, new)				\
+#define sync_cmpxchg(ptr, old, new)					\
 	__sync_cmpxchg(ptr, old, new, sizeof(*(ptr)))
 
-#define arch_cmpxchg_local(ptr, old, new)				\
+#define cmpxchg_local(ptr, old, new)					\
 	__cmpxchg_local(ptr, old, new, sizeof(*(ptr)))
 
 
@@ -222,7 +222,7 @@ extern void __add_wrong_size(void)
 #define __try_cmpxchg(ptr, pold, new, size)				\
 	__raw_try_cmpxchg((ptr), (pold), (new), (size), LOCK_PREFIX)
 
-#define try_cmpxchg(ptr, pold, new) 					\
+#define try_cmpxchg(ptr, pold, new)					\
 	__try_cmpxchg((ptr), (pold), (new), sizeof(*(ptr)))
 
 /*
@@ -251,10 +251,10 @@ extern void __add_wrong_size(void)
 	__ret;								\
 })
 
-#define arch_cmpxchg_double(p1, p2, o1, o2, n1, n2) \
+#define cmpxchg_double(p1, p2, o1, o2, n1, n2) \
 	__cmpxchg_double(LOCK_PREFIX, p1, p2, o1, o2, n1, n2)
 
-#define arch_cmpxchg_double_local(p1, p2, o1, o2, n1, n2) \
+#define cmpxchg_double_local(p1, p2, o1, o2, n1, n2) \
 	__cmpxchg_double(, p1, p2, o1, o2, n1, n2)
 
 #endif	/* ASM_X86_CMPXCHG_H */
