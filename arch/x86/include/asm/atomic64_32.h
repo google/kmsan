@@ -62,7 +62,7 @@ ATOMIC64_DECL(add_unless);
 #undef ATOMIC64_EXPORT
 
 /**
- * arch_atomic64_cmpxchg - cmpxchg atomic64 variable
+ * atomic64_cmpxchg - cmpxchg atomic64 variable
  * @v: pointer to type atomic64_t
  * @o: expected value
  * @n: new value
@@ -71,21 +71,20 @@ ATOMIC64_DECL(add_unless);
  * the old value.
  */
 
-static inline long long arch_atomic64_cmpxchg(atomic64_t *v, long long o,
-					      long long n)
+static inline long long atomic64_cmpxchg(atomic64_t *v, long long o, long long n)
 {
-	return arch_cmpxchg64(&v->counter, o, n);
+	return cmpxchg64(&v->counter, o, n);
 }
 
 /**
- * arch_atomic64_xchg - xchg atomic64 variable
+ * atomic64_xchg - xchg atomic64 variable
  * @v: pointer to type atomic64_t
  * @n: value to assign
  *
  * Atomically xchgs the value of @v to @n and returns
  * the old value.
  */
-static inline long long arch_atomic64_xchg(atomic64_t *v, long long n)
+static inline long long atomic64_xchg(atomic64_t *v, long long n)
 {
 	long long o;
 	unsigned high = (unsigned)(n >> 32);
@@ -97,13 +96,13 @@ static inline long long arch_atomic64_xchg(atomic64_t *v, long long n)
 }
 
 /**
- * arch_atomic64_set - set atomic64 variable
+ * atomic64_set - set atomic64 variable
  * @v: pointer to type atomic64_t
  * @i: value to assign
  *
  * Atomically sets the value of @v to @n.
  */
-static inline void arch_atomic64_set(atomic64_t *v, long long i)
+static inline void atomic64_set(atomic64_t *v, long long i)
 {
 	unsigned high = (unsigned)(i >> 32);
 	unsigned low = (unsigned)i;
@@ -113,12 +112,12 @@ static inline void arch_atomic64_set(atomic64_t *v, long long i)
 }
 
 /**
- * arch_atomic64_read - read atomic64 variable
+ * atomic64_read - read atomic64 variable
  * @v: pointer to type atomic64_t
  *
  * Atomically reads the value of @v and returns it.
  */
-static inline long long arch_atomic64_read(const atomic64_t *v)
+static inline long long atomic64_read(const atomic64_t *v)
 {
 	long long r;
 	alternative_atomic64(read, "=&A" (r), "c" (v) : "memory");
@@ -126,13 +125,13 @@ static inline long long arch_atomic64_read(const atomic64_t *v)
 }
 
 /**
- * arch_atomic64_add_return - add and return
+ * atomic64_add_return - add and return
  * @i: integer value to add
  * @v: pointer to type atomic64_t
  *
  * Atomically adds @i to @v and returns @i + *@v
  */
-static inline long long arch_atomic64_add_return(long long i, atomic64_t *v)
+static inline long long atomic64_add_return(long long i, atomic64_t *v)
 {
 	alternative_atomic64(add_return,
 			     ASM_OUTPUT2("+A" (i), "+c" (v)),
@@ -143,7 +142,7 @@ static inline long long arch_atomic64_add_return(long long i, atomic64_t *v)
 /*
  * Other variants with different arithmetic operators:
  */
-static inline long long arch_atomic64_sub_return(long long i, atomic64_t *v)
+static inline long long atomic64_sub_return(long long i, atomic64_t *v)
 {
 	alternative_atomic64(sub_return,
 			     ASM_OUTPUT2("+A" (i), "+c" (v)),
@@ -151,7 +150,7 @@ static inline long long arch_atomic64_sub_return(long long i, atomic64_t *v)
 	return i;
 }
 
-static inline long long arch_atomic64_inc_return(atomic64_t *v)
+static inline long long atomic64_inc_return(atomic64_t *v)
 {
 	long long a;
 	alternative_atomic64(inc_return, "=&A" (a),
@@ -159,7 +158,7 @@ static inline long long arch_atomic64_inc_return(atomic64_t *v)
 	return a;
 }
 
-static inline long long arch_atomic64_dec_return(atomic64_t *v)
+static inline long long atomic64_dec_return(atomic64_t *v)
 {
 	long long a;
 	alternative_atomic64(dec_return, "=&A" (a),
@@ -168,13 +167,13 @@ static inline long long arch_atomic64_dec_return(atomic64_t *v)
 }
 
 /**
- * arch_atomic64_add - add integer to atomic64 variable
+ * atomic64_add - add integer to atomic64 variable
  * @i: integer value to add
  * @v: pointer to type atomic64_t
  *
  * Atomically adds @i to @v.
  */
-static inline long long arch_atomic64_add(long long i, atomic64_t *v)
+static inline long long atomic64_add(long long i, atomic64_t *v)
 {
 	__alternative_atomic64(add, add_return,
 			       ASM_OUTPUT2("+A" (i), "+c" (v)),
@@ -183,13 +182,13 @@ static inline long long arch_atomic64_add(long long i, atomic64_t *v)
 }
 
 /**
- * arch_atomic64_sub - subtract the atomic64 variable
+ * atomic64_sub - subtract the atomic64 variable
  * @i: integer value to subtract
  * @v: pointer to type atomic64_t
  *
  * Atomically subtracts @i from @v.
  */
-static inline long long arch_atomic64_sub(long long i, atomic64_t *v)
+static inline long long atomic64_sub(long long i, atomic64_t *v)
 {
 	__alternative_atomic64(sub, sub_return,
 			       ASM_OUTPUT2("+A" (i), "+c" (v)),
@@ -198,7 +197,7 @@ static inline long long arch_atomic64_sub(long long i, atomic64_t *v)
 }
 
 /**
- * arch_atomic64_sub_and_test - subtract value from variable and test result
+ * atomic64_sub_and_test - subtract value from variable and test result
  * @i: integer value to subtract
  * @v: pointer to type atomic64_t
  *
@@ -206,46 +205,46 @@ static inline long long arch_atomic64_sub(long long i, atomic64_t *v)
  * true if the result is zero, or false for all
  * other cases.
  */
-static inline int arch_atomic64_sub_and_test(long long i, atomic64_t *v)
+static inline int atomic64_sub_and_test(long long i, atomic64_t *v)
 {
-	return arch_atomic64_sub_return(i, v) == 0;
+	return atomic64_sub_return(i, v) == 0;
 }
 
 /**
- * arch_atomic64_inc - increment atomic64 variable
+ * atomic64_inc - increment atomic64 variable
  * @v: pointer to type atomic64_t
  *
  * Atomically increments @v by 1.
  */
-static inline void arch_atomic64_inc(atomic64_t *v)
+static inline void atomic64_inc(atomic64_t *v)
 {
 	__alternative_atomic64(inc, inc_return, /* no output */,
 			       "S" (v) : "memory", "eax", "ecx", "edx");
 }
 
 /**
- * arch_atomic64_dec - decrement atomic64 variable
+ * atomic64_dec - decrement atomic64 variable
  * @v: pointer to type atomic64_t
  *
  * Atomically decrements @v by 1.
  */
-static inline void arch_atomic64_dec(atomic64_t *v)
+static inline void atomic64_dec(atomic64_t *v)
 {
 	__alternative_atomic64(dec, dec_return, /* no output */,
 			       "S" (v) : "memory", "eax", "ecx", "edx");
 }
 
 /**
- * arch_atomic64_dec_and_test - decrement and test
+ * atomic64_dec_and_test - decrement and test
  * @v: pointer to type atomic64_t
  *
  * Atomically decrements @v by 1 and
  * returns true if the result is 0, or false for all other
  * cases.
  */
-static inline int arch_atomic64_dec_and_test(atomic64_t *v)
+static inline int atomic64_dec_and_test(atomic64_t *v)
 {
-	return arch_atomic64_dec_return(v) == 0;
+	return atomic64_dec_return(v) == 0;
 }
 
 /**
@@ -256,13 +255,13 @@ static inline int arch_atomic64_dec_and_test(atomic64_t *v)
  * and returns true if the result is zero, or false for all
  * other cases.
  */
-static inline int arch_atomic64_inc_and_test(atomic64_t *v)
+static inline int atomic64_inc_and_test(atomic64_t *v)
 {
-	return arch_atomic64_inc_return(v) == 0;
+	return atomic64_inc_return(v) == 0;
 }
 
 /**
- * arch_atomic64_add_negative - add and test if negative
+ * atomic64_add_negative - add and test if negative
  * @i: integer value to add
  * @v: pointer to type atomic64_t
  *
@@ -270,13 +269,13 @@ static inline int arch_atomic64_inc_and_test(atomic64_t *v)
  * if the result is negative, or false when
  * result is greater than or equal to zero.
  */
-static inline int arch_atomic64_add_negative(long long i, atomic64_t *v)
+static inline int atomic64_add_negative(long long i, atomic64_t *v)
 {
-	return arch_atomic64_add_return(i, v) < 0;
+	return atomic64_add_return(i, v) < 0;
 }
 
 /**
- * arch_atomic64_add_unless - add unless the number is a given value
+ * atomic64_add_unless - add unless the number is a given value
  * @v: pointer of type atomic64_t
  * @a: the amount to add to v...
  * @u: ...unless v is equal to u.
@@ -284,8 +283,7 @@ static inline int arch_atomic64_add_negative(long long i, atomic64_t *v)
  * Atomically adds @a to @v, so long as it was not @u.
  * Returns non-zero if the add was done, zero otherwise.
  */
-static inline int arch_atomic64_add_unless(atomic64_t *v, long long a,
-					   long long u)
+static inline int atomic64_add_unless(atomic64_t *v, long long a, long long u)
 {
 	unsigned low = (unsigned)u;
 	unsigned high = (unsigned)(u >> 32);
@@ -296,7 +294,7 @@ static inline int arch_atomic64_add_unless(atomic64_t *v, long long a,
 }
 
 
-static inline int arch_atomic64_inc_not_zero(atomic64_t *v)
+static inline int atomic64_inc_not_zero(atomic64_t *v)
 {
 	int r;
 	alternative_atomic64(inc_not_zero, "=&a" (r),
@@ -304,7 +302,7 @@ static inline int arch_atomic64_inc_not_zero(atomic64_t *v)
 	return r;
 }
 
-static inline long long arch_atomic64_dec_if_positive(atomic64_t *v)
+static inline long long atomic64_dec_if_positive(atomic64_t *v)
 {
 	long long r;
 	alternative_atomic64(dec_if_positive, "=&A" (r),
@@ -315,70 +313,70 @@ static inline long long arch_atomic64_dec_if_positive(atomic64_t *v)
 #undef alternative_atomic64
 #undef __alternative_atomic64
 
-static inline void arch_atomic64_and(long long i, atomic64_t *v)
+static inline void atomic64_and(long long i, atomic64_t *v)
 {
 	long long old, c = 0;
 
-	while ((old = arch_atomic64_cmpxchg(v, c, c & i)) != c)
+	while ((old = atomic64_cmpxchg(v, c, c & i)) != c)
 		c = old;
 }
 
-static inline long long arch_atomic64_fetch_and(long long i, atomic64_t *v)
+static inline long long atomic64_fetch_and(long long i, atomic64_t *v)
 {
 	long long old, c = 0;
 
-	while ((old = arch_atomic64_cmpxchg(v, c, c & i)) != c)
-		c = old;
-
-	return old;
-}
-
-static inline void arch_atomic64_or(long long i, atomic64_t *v)
-{
-	long long old, c = 0;
-
-	while ((old = arch_atomic64_cmpxchg(v, c, c | i)) != c)
-		c = old;
-}
-
-static inline long long arch_atomic64_fetch_or(long long i, atomic64_t *v)
-{
-	long long old, c = 0;
-
-	while ((old = arch_atomic64_cmpxchg(v, c, c | i)) != c)
+	while ((old = atomic64_cmpxchg(v, c, c & i)) != c)
 		c = old;
 
 	return old;
 }
 
-static inline void arch_atomic64_xor(long long i, atomic64_t *v)
+static inline void atomic64_or(long long i, atomic64_t *v)
 {
 	long long old, c = 0;
 
-	while ((old = arch_atomic64_cmpxchg(v, c, c ^ i)) != c)
+	while ((old = atomic64_cmpxchg(v, c, c | i)) != c)
 		c = old;
 }
 
-static inline long long arch_atomic64_fetch_xor(long long i, atomic64_t *v)
+static inline long long atomic64_fetch_or(long long i, atomic64_t *v)
 {
 	long long old, c = 0;
 
-	while ((old = arch_atomic64_cmpxchg(v, c, c ^ i)) != c)
-		c = old;
-
-	return old;
-}
-
-static inline long long arch_atomic64_fetch_add(long long i, atomic64_t *v)
-{
-	long long old, c = 0;
-
-	while ((old = arch_atomic64_cmpxchg(v, c, c + i)) != c)
+	while ((old = atomic64_cmpxchg(v, c, c | i)) != c)
 		c = old;
 
 	return old;
 }
 
-#define arch_atomic64_fetch_sub(i, v)	arch_atomic64_fetch_add(-(i), (v))
+static inline void atomic64_xor(long long i, atomic64_t *v)
+{
+	long long old, c = 0;
+
+	while ((old = atomic64_cmpxchg(v, c, c ^ i)) != c)
+		c = old;
+}
+
+static inline long long atomic64_fetch_xor(long long i, atomic64_t *v)
+{
+	long long old, c = 0;
+
+	while ((old = atomic64_cmpxchg(v, c, c ^ i)) != c)
+		c = old;
+
+	return old;
+}
+
+static inline long long atomic64_fetch_add(long long i, atomic64_t *v)
+{
+	long long old, c = 0;
+
+	while ((old = atomic64_cmpxchg(v, c, c + i)) != c)
+		c = old;
+
+	return old;
+}
+
+#define atomic64_fetch_sub(i, v)	atomic64_fetch_add(-(i), (v))
 
 #endif /* _ASM_X86_ATOMIC64_32_H */
