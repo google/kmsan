@@ -29,6 +29,7 @@ KASAN_SANITIZE_stacktrace.o				:= n
 KASAN_SANITIZE_paravirt.o				:= n
 KMSAN_SANITIZE_head$(BITS).o				:= n
 KMSAN_SANITIZE_nmi.o					:= n
+KMSAN_SANITIZE_unwind_frame.o				:= n
 
 # TODO(glider): we're hitting an assertion in Clang if EXTRA_STACK_ORDER in
 # arch/x86/include/asm/page_64_types.h is 2.
