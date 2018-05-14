@@ -1202,9 +1202,7 @@ void kmsan_copy_to_user(const void *to, const void *from,
 	// Otherwise this is a kernel memory access. This happens when a compat
 	// syscall passes an argument allocated on the kernel stack to a real
 	// syscall.
-	// Don't check anything, just copy the corresponding shadow if the
-	// access succeeded.
-	BUG_ON(left);
+	// Don't check anything, just copy the shadow of the copied bytes.
 	shadow = kmsan_get_shadow_address(to, to_copy - left, /*checked*/true, /*is_store*/false);
 	if (shadow) {
 		kmsan_memcpy_shadow(to, from, to_copy - left);
