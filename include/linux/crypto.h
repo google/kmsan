@@ -1765,6 +1765,7 @@ static inline int crypto_cipher_setkey(struct crypto_cipher *tfm,
 static inline void crypto_cipher_encrypt_one(struct crypto_cipher *tfm,
 					     u8 *dst, const u8 *src)
 {
+	kmsan_check_memory(src, crypto_cipher_tfm(tfm)->__crt_alg->cra_blocksize);
 	crypto_cipher_crt(tfm)->cit_encrypt_one(crypto_cipher_tfm(tfm),
 						dst, src);
 	kmsan_unpoison_shadow(dst, crypto_cipher_tfm(tfm)->__crt_alg->cra_blocksize);
@@ -1786,6 +1787,7 @@ static inline void crypto_cipher_decrypt_one(struct crypto_cipher *tfm,
 	kmsan_check_memory(src, crypto_cipher_tfm(tfm)->__crt_alg->cra_blocksize);
 	crypto_cipher_crt(tfm)->cit_decrypt_one(crypto_cipher_tfm(tfm),
 						dst, src);
+	kmsan_unpoison_shadow(dst, crypto_cipher_tfm(tfm)->__crt_alg->cra_blocksize);
 }
 
 static inline struct crypto_comp *__crypto_comp_cast(struct crypto_tfm *tfm)
