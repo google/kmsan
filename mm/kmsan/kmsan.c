@@ -24,6 +24,7 @@
 #include <linux/stackdepot.h>
 #include <linux/stacktrace.h>
 #include <linux/types.h>
+#include <asm/page.h>	// for clear_page()
 
 #include <linux/mmzone.h>
 
@@ -842,6 +843,22 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 	return 0;
 }
 
+// Clear shadow and origin for a given |page| (actually a page_st
+void kmsan_clear_user_page(struct page *page)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+	if (page->is_kmsan_untracked_page)
+		return;
+
+	ENTER_RUNTIME(irq_flags);
+	// TODO(glider): clear_page() is x86-specific.
+	clear_page(page_address(page->shadow));
+	clear_page(page_address(page->origin));
+	LEAVE_RUNTIME(irq_flags);
+}
 
 void maybe_report_stats(void)
 {
