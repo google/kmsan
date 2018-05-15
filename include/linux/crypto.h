@@ -19,6 +19,7 @@
 
 #include <linux/atomic.h>
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/list.h>
 #include <linux/bug.h>
 #include <linux/slab.h>
@@ -1760,11 +1761,13 @@ static inline int crypto_cipher_setkey(struct crypto_cipher *tfm,
  * Invoke the encryption operation of one block. The caller must ensure that
  * the plaintext and ciphertext buffers are at least one block in size.
  */
+// TODO(glider): do we need to unpoison other *_encrypt_* functions?
 static inline void crypto_cipher_encrypt_one(struct crypto_cipher *tfm,
 					     u8 *dst, const u8 *src)
 {
 	crypto_cipher_crt(tfm)->cit_encrypt_one(crypto_cipher_tfm(tfm),
 						dst, src);
+	kmsan_unpoison_shadow(dst, crypto_cipher_tfm(tfm)->__crt_alg->cra_blocksize);
 }
 
 /**
@@ -1776,9 +1779,11 @@ static inline void crypto_cipher_encrypt_one(struct crypto_cipher *tfm,
  * Invoke the decryption operation of one block. The caller must ensure that
  * the plaintext and ciphertext buffers are at least one block in size.
  */
+// TODO(glider): do we need to check other *_decrypt_* functions?
 static inline void crypto_cipher_decrypt_one(struct crypto_cipher *tfm,
 					     u8 *dst, const u8 *src)
 {
+	kmsan_check_memory(src, crypto_cipher_tfm(tfm)->__crt_alg->cra_blocksize);
 	crypto_cipher_crt(tfm)->cit_decrypt_one(crypto_cipher_tfm(tfm),
 						dst, src);
 }
