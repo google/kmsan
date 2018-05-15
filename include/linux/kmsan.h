@@ -68,6 +68,7 @@ void kmsan_alloc_shadow_for_region(void *start, size_t size);
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
 void kmsan_free_page(struct page *page, unsigned int order);
 void kmsan_split_page(struct page *page, unsigned int order);
+void kmsan_clear_user_page(struct page *page);
 
 void kmsan_poison_slab(struct page *page, gfp_t flags);
 void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags);
@@ -97,6 +98,8 @@ static inline int kmsan_alloc_page(
 }
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
 static inline void kmsan_split_page(struct page *page, unsigned int order) {}
+void kmsan_clear_user_page(struct page *page) {}
+
 static inline void kmsan_poison_slab(struct page *page, gfp_t flags) {}
 static inline void kmsan_kmalloc_large(
 	const void *ptr, size_t size, gfp_t flags) {}
