@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/x86 4.17.0-rc3 Kernel Configuration
+# Linux/x86 4.17.0-rc5 Kernel Configuration
 #
 CONFIG_64BIT=y
 CONFIG_X86_64=y
@@ -3624,7 +3624,6 @@ CONFIG_X86_PLATFORM_DEVICES=y
 # CONFIG_ACERHDF is not set
 # CONFIG_ASUS_LAPTOP is not set
 # CONFIG_DELL_SMBIOS is not set
-# CONFIG_DELL_LAPTOP is not set
 # CONFIG_DELL_SMO8800 is not set
 # CONFIG_DELL_RBTN is not set
 # CONFIG_FUJITSU_LAPTOP is not set
