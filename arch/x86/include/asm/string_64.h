@@ -82,7 +82,8 @@ char *strcpy(char *dest, const char *src);
 char *strcat(char *dest, const char *src);
 int strcmp(const char *cs, const char *ct);
 
-#if defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)
+#if (defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)) || \
+    (defined(CONFIG_KMSAN) && !defined(__SANITIZE_MEMORY__))
 
 /*
  * For files that not instrumented (e.g. mm/slub.c) we
