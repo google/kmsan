@@ -21,6 +21,11 @@
 #define __SANITIZE_ADDRESS__
 #endif
 
+/* define __SANITIZE_MEMORY__ for KMSAN */
+#if __has_feature(memory_sanitizer)
+#define __SANITIZE_MEMORY__
+#endif
+
 /*
  * Not all versions of clang implement the the type-generic versions
  * of the builtin overflow checkers. Fortunately, clang implements
