@@ -11,6 +11,7 @@
 #undef CONFIG_PARAVIRT
 #undef CONFIG_PARAVIRT_SPINLOCKS
 #undef CONFIG_KASAN
+#undef CONFIG_KMSAN
 
 #ifdef CONFIG_X86_5LEVEL
 /* cpu_feature_enabled() cannot be used that early */
