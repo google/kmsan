@@ -1043,7 +1043,7 @@ inline void *return_address(int arg)
 // |deep| is a dirty hack to skip an additional frame when calling
 // kmsan_report() from kmsan_copy_to_user().
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
-			int size, int off_first, int off_last, bool deep)
+			u64 address, int size, int off_first, int off_last, bool deep)
 {
 	unsigned long flags;
 	struct stack_trace trace;
@@ -1092,6 +1092,9 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 			kmsan_pr_err("Byte %d of %d is uninitialized\n", off_first, size);
 		else
 			kmsan_pr_err("Bytes %d-%d of %d are uninitialized\n", off_first, off_last, size);
+	}
+	if (address) {
+		kmsan_pr_err("Memory access starts at %px\n", address);
 	}
 	kmsan_pr_err("==================================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
@@ -1171,7 +1174,7 @@ void kmsan_internal_check_memory(const void *addr, size_t size)
 	for (i = 0; i < size; i++) {
 		if (!shadow[i]) {
 			if (prev_start != -1)
-				kmsan_report(_THIS_IP_, prev_origin, size, prev_start, i - 1, /*deep*/true);
+				kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, /*deep*/true);
 			prev_origin = 0;
 			prev_start = -1;
 			continue;
@@ -1184,13 +1187,13 @@ void kmsan_internal_check_memory(const void *addr, size_t size)
 			continue;
 		}
 		if (origin != prev_origin) {
-			kmsan_report(_THIS_IP_, prev_origin, size, prev_start, i - 1, /*deep*/true);
+			kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, /*deep*/true);
 			prev_origin = origin;
 			prev_start = i;
 		}
 	}
 	if (prev_origin) {
-		kmsan_report(_THIS_IP_, prev_origin, size, prev_start, size - 1, /*deep*/true);
+		kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, size - 1, /*deep*/true);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
