@@ -28,6 +28,11 @@
 #undef __no_sanitize_address
 #define __no_sanitize_address __attribute__((no_sanitize("address")))
 
+/* define __SANITIZE_MEMORY__ for KMSAN */
+#if __has_feature(memory_sanitizer)
+#define __SANITIZE_MEMORY__
+#endif
+
 /* Clang doesn't have a way to turn it off per-function, yet. */
 #ifdef __noretpoline
 #undef __noretpoline
