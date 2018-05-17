@@ -140,7 +140,7 @@ static struct stack_record *depot_alloc_stack(unsigned long *entries, int size,
 	stack->handle.slabindex = depot_index;
 	stack->handle.offset = depot_offset >> STACK_ALLOC_ALIGN;
 	stack->handle.valid = 1;
-	__memcpy(stack->entries, entries, size * sizeof(unsigned long));
+	memcpy(stack->entries, entries, size * sizeof(unsigned long));
 	depot_offset += required_size;
 
 	return stack;
