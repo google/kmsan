@@ -1,8 +1,8 @@
-Index: tools/clang/include/clang/Basic/Sanitizers.def
+Index: include/clang/Basic/Sanitizers.def
 ===================================================================
---- tools/clang/include/clang/Basic/Sanitizers.def	(revision 329391)
-+++ tools/clang/include/clang/Basic/Sanitizers.def	(working copy)
-@@ -49,6 +49,9 @@
+--- include/clang/Basic/Sanitizers.def	(revision 332596)
++++ include/clang/Basic/Sanitizers.def	(working copy)
+@@ -53,6 +53,9 @@
  // MemorySanitizer
  SANITIZER("memory", Memory)
  
@@ -12,12 +12,12 @@ Index: tools/clang/include/clang/Basic/Sanitizers.def
  // libFuzzer
  SANITIZER("fuzzer", Fuzzer)
  
-Index: tools/clang/lib/CodeGen/BackendUtil.cpp
+Index: lib/CodeGen/BackendUtil.cpp
 ===================================================================
---- tools/clang/lib/CodeGen/BackendUtil.cpp	(revision 329391)
-+++ tools/clang/lib/CodeGen/BackendUtil.cpp	(working copy)
-@@ -248,14 +248,14 @@
-   PM.add(createHWAddressSanitizerPass(Recover));
+--- lib/CodeGen/BackendUtil.cpp	(revision 332596)
++++ lib/CodeGen/BackendUtil.cpp	(working copy)
+@@ -254,14 +254,14 @@
+       /*CompileKernel*/ true, /*Recover*/ true));
  }
  
 -static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
@@ -34,7 +34,7 @@ Index: tools/clang/lib/CodeGen/BackendUtil.cpp
  
    // MemorySanitizer inserts complex instrumentation that mostly follows
    // the logic of the original code, but operates on "shadow" values.
-@@ -270,6 +270,28 @@
+@@ -276,6 +276,28 @@
    }
  }
  
@@ -63,7 +63,7 @@ Index: tools/clang/lib/CodeGen/BackendUtil.cpp
  static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
                                     legacy::PassManagerBase &PM) {
    PM.add(createThreadSanitizerPass());
-@@ -588,6 +610,13 @@
+@@ -601,6 +623,13 @@
                             addMemorySanitizerPass);
    }
  
@@ -77,11 +77,11 @@ Index: tools/clang/lib/CodeGen/BackendUtil.cpp
    if (LangOpts.Sanitize.has(SanitizerKind::Thread)) {
      PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                             addThreadSanitizerPass);
-Index: tools/clang/lib/CodeGen/CGDeclCXX.cpp
+Index: lib/CodeGen/CGDeclCXX.cpp
 ===================================================================
---- tools/clang/lib/CodeGen/CGDeclCXX.cpp	(revision 329391)
-+++ tools/clang/lib/CodeGen/CGDeclCXX.cpp	(working copy)
-@@ -340,6 +340,10 @@
+--- lib/CodeGen/CGDeclCXX.cpp	(revision 332596)
++++ lib/CodeGen/CGDeclCXX.cpp	(working copy)
+@@ -347,6 +347,10 @@
        !isInSanitizerBlacklist(SanitizerKind::Memory, Fn, Loc))
      Fn->addFnAttr(llvm::Attribute::SanitizeMemory);
  
@@ -92,11 +92,11 @@ Index: tools/clang/lib/CodeGen/CGDeclCXX.cpp
    if (getLangOpts().Sanitize.has(SanitizerKind::SafeStack) &&
        !isInSanitizerBlacklist(SanitizerKind::SafeStack, Fn, Loc))
      Fn->addFnAttr(llvm::Attribute::SafeStack);
-Index: tools/clang/lib/CodeGen/CodeGenFunction.cpp
+Index: lib/CodeGen/CodeGenFunction.cpp
 ===================================================================
---- tools/clang/lib/CodeGen/CodeGenFunction.cpp	(revision 329391)
-+++ tools/clang/lib/CodeGen/CodeGenFunction.cpp	(working copy)
-@@ -857,7 +857,7 @@
+--- lib/CodeGen/CodeGenFunction.cpp	(revision 332596)
++++ lib/CodeGen/CodeGenFunction.cpp	(working copy)
+@@ -877,7 +877,7 @@
      Fn->addFnAttr(llvm::Attribute::SanitizeHWAddress);
    if (SanOpts.has(SanitizerKind::Thread))
      Fn->addFnAttr(llvm::Attribute::SanitizeThread);
@@ -105,10 +105,10 @@ Index: tools/clang/lib/CodeGen/CodeGenFunction.cpp
      Fn->addFnAttr(llvm::Attribute::SanitizeMemory);
    if (SanOpts.has(SanitizerKind::SafeStack))
      Fn->addFnAttr(llvm::Attribute::SafeStack);
-Index: tools/clang/lib/Driver/SanitizerArgs.cpp
+Index: lib/Driver/SanitizerArgs.cpp
 ===================================================================
---- tools/clang/lib/Driver/SanitizerArgs.cpp	(revision 327830)
-+++ tools/clang/lib/Driver/SanitizerArgs.cpp	(working copy)
+--- lib/Driver/SanitizerArgs.cpp	(revision 327830)
++++ lib/Driver/SanitizerArgs.cpp	(working copy)
 @@ -32,7 +32,7 @@
    NotAllowedWithMinimalRuntime = Vptr,
    RequiresPIE = DataFlow | Scudo,
@@ -149,11 +149,11 @@ Index: tools/clang/lib/Driver/SanitizerArgs.cpp
    // FIXME: Pass these parameters as function attributes, not as -llvm flags.
    if (!TsanMemoryAccess) {
      CmdArgs.push_back("-mllvm");
-Index: tools/clang/lib/Driver/ToolChains/Linux.cpp
+Index: lib/Driver/ToolChains/Linux.cpp
 ===================================================================
---- tools/clang/lib/Driver/ToolChains/Linux.cpp	(revision 329391)
-+++ tools/clang/lib/Driver/ToolChains/Linux.cpp	(working copy)
-@@ -893,6 +893,8 @@
+--- lib/Driver/ToolChains/Linux.cpp	(revision 332596)
++++ lib/Driver/ToolChains/Linux.cpp	(working copy)
+@@ -920,6 +920,8 @@
      Res |= SanitizerKind::Leak;
    if (IsX86_64 || IsMIPS64 || IsAArch64 || IsPowerPC64)
      Res |= SanitizerKind::Thread;
@@ -162,11 +162,11 @@ Index: tools/clang/lib/Driver/ToolChains/Linux.cpp
    if (IsX86_64 || IsMIPS64)
      Res |= SanitizerKind::Efficiency;
    if (IsX86 || IsX86_64)
-Index: tools/clang/lib/Frontend/CompilerInvocation.cpp
+Index: lib/Frontend/CompilerInvocation.cpp
 ===================================================================
---- tools/clang/lib/Frontend/CompilerInvocation.cpp	(revision 329391)
-+++ tools/clang/lib/Frontend/CompilerInvocation.cpp	(working copy)
-@@ -2933,7 +2933,9 @@
+--- lib/Frontend/CompilerInvocation.cpp	(revision 332596)
++++ lib/Frontend/CompilerInvocation.cpp	(working copy)
+@@ -3017,7 +3017,9 @@
    // names.
    Res.getCodeGenOpts().DiscardValueNames &=
        !LangOpts.Sanitize.has(SanitizerKind::Address) &&
@@ -177,10 +177,10 @@ Index: tools/clang/lib/Frontend/CompilerInvocation.cpp
  
    ParsePreprocessorArgs(Res.getPreprocessorOpts(), Args, Diags,
                          Res.getFrontendOpts().ProgramAction);
-Index: tools/clang/lib/Lex/PPMacroExpansion.cpp
+Index: lib/Lex/PPMacroExpansion.cpp
 ===================================================================
---- tools/clang/lib/Lex/PPMacroExpansion.cpp	(revision 329391)
-+++ tools/clang/lib/Lex/PPMacroExpansion.cpp	(working copy)
+--- lib/Lex/PPMacroExpansion.cpp	(revision 332596)
++++ lib/Lex/PPMacroExpansion.cpp	(working copy)
 @@ -1141,7 +1141,9 @@
        .Case("enumerator_attributes", true)
        .Case("nullability", true)
