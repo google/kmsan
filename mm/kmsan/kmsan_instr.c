@@ -321,6 +321,7 @@ DECLARE_METADATA_PTR_GETTER(4);
 DECLARE_METADATA_PTR_GETTER(8);
 
 
+#if 0 // unused
 // Essentially a memcpy(shadow(dst), src, size).
 // TODO(glider): do we need any checks here?
 // TODO(glider): maybe save origins as well?
@@ -370,7 +371,6 @@ void __msan_store_arg_shadow(u64 dst, u64 src, u64 size)
 }
 EXPORT_SYMBOL(__msan_store_arg_shadow);
 
-
 void __msan_store_arg_shadow_origin(u64 dst_shadow, u64 dst_origin, u64 src, u64 size)
 {
 	unsigned long irq_flags;
@@ -384,6 +384,7 @@ void __msan_store_arg_shadow_origin(u64 dst_shadow, u64 dst_origin, u64 src, u64
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_store_arg_shadow_origin);
+#endif
 
 void *__msan_memmove(void *dst, void *src, u64 n)
 {
@@ -655,6 +656,7 @@ void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 pc)
 }
 EXPORT_SYMBOL(__msan_poison_alloca);
 
+#if 0
 void __msan_unpoison(void *addr, u64 size)
 {
 	unsigned long irq_flags;
@@ -667,6 +669,7 @@ void __msan_unpoison(void *addr, u64 size)
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_unpoison);
+#endif
 
 // Compiler API
 void __msan_warning_32(u32 origin)
