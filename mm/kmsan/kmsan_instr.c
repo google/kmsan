@@ -656,20 +656,19 @@ void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 pc)
 }
 EXPORT_SYMBOL(__msan_poison_alloca);
 
-#if 0
-void __msan_unpoison(void *addr, u64 size)
+void __msan_unpoison_alloca(void *address, u64 size)
 {
 	unsigned long irq_flags;
 	if (!kmsan_ready)
 		return;
 	if (IN_RUNTIME())
 		return;
+
 	ENTER_RUNTIME(irq_flags);
-	kmsan_internal_unpoison_shadow(addr, size);
+	kmsan_internal_unpoison_shadow(address, size);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__msan_unpoison);
-#endif
+EXPORT_SYMBOL(__msan_unpoison_alloca);
 
 // Compiler API
 void __msan_warning_32(u32 origin)
