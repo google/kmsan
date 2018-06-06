@@ -33,8 +33,6 @@ KASAN_SANITIZE_kcov.o := n
 CFLAGS_kcov.o := $(call cc-option, -fno-conserve-stack -fno-stack-protector)
 
 KMSAN_SANITIZE_kcov.o := n
-# Don't instrument functions that work with arbitrary addresses.
-KMSAN_SANITIZE_module.o := n
 
 # cond_syscall is currently not LTO compatible
 CFLAGS_sys_ni.o = $(DISABLE_LTO)
