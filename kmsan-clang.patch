@@ -1,6 +1,21 @@
+Index: include/clang/Basic/Features.def
+===================================================================
+--- include/clang/Basic/Features.def	(revision 334104)
++++ include/clang/Basic/Features.def	(working copy)
+@@ -72,7 +72,9 @@
+ FEATURE(enumerator_attributes, true)
+ FEATURE(nullability, true)
+ FEATURE(nullability_on_arrays, true)
+-FEATURE(memory_sanitizer, LangOpts.Sanitize.has(SanitizerKind::Memory))
++FEATURE(memory_sanitizer,
++        LangOpts.Sanitize.hasOneOf(SanitizerKind::Memory |
++                                   SanitizerKind::KernelMemory))
+ FEATURE(thread_sanitizer, LangOpts.Sanitize.has(SanitizerKind::Thread))
+ FEATURE(dataflow_sanitizer, LangOpts.Sanitize.has(SanitizerKind::DataFlow))
+ FEATURE(efficiency_sanitizer,
 Index: include/clang/Basic/Sanitizers.def
 ===================================================================
---- include/clang/Basic/Sanitizers.def	(revision 332596)
+--- include/clang/Basic/Sanitizers.def	(revision 334104)
 +++ include/clang/Basic/Sanitizers.def	(working copy)
 @@ -53,6 +53,9 @@
  // MemorySanitizer
@@ -14,9 +29,9 @@ Index: include/clang/Basic/Sanitizers.def
  
 Index: lib/CodeGen/BackendUtil.cpp
 ===================================================================
---- lib/CodeGen/BackendUtil.cpp	(revision 332596)
+--- lib/CodeGen/BackendUtil.cpp	(revision 334104)
 +++ lib/CodeGen/BackendUtil.cpp	(working copy)
-@@ -254,14 +254,14 @@
+@@ -265,14 +265,14 @@
        /*CompileKernel*/ true, /*Recover*/ true));
  }
  
@@ -34,7 +49,7 @@ Index: lib/CodeGen/BackendUtil.cpp
  
    // MemorySanitizer inserts complex instrumentation that mostly follows
    // the logic of the original code, but operates on "shadow" values.
-@@ -276,6 +276,28 @@
+@@ -287,6 +287,28 @@
    }
  }
  
@@ -63,7 +78,7 @@ Index: lib/CodeGen/BackendUtil.cpp
  static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
                                     legacy::PassManagerBase &PM) {
    PM.add(createThreadSanitizerPass());
-@@ -601,6 +623,13 @@
+@@ -612,6 +634,13 @@
                             addMemorySanitizerPass);
    }
  
@@ -79,7 +94,7 @@ Index: lib/CodeGen/BackendUtil.cpp
                             addThreadSanitizerPass);
 Index: lib/CodeGen/CGDeclCXX.cpp
 ===================================================================
---- lib/CodeGen/CGDeclCXX.cpp	(revision 332596)
+--- lib/CodeGen/CGDeclCXX.cpp	(revision 334104)
 +++ lib/CodeGen/CGDeclCXX.cpp	(working copy)
 @@ -347,6 +347,10 @@
        !isInSanitizerBlacklist(SanitizerKind::Memory, Fn, Loc))
@@ -94,7 +109,7 @@ Index: lib/CodeGen/CGDeclCXX.cpp
      Fn->addFnAttr(llvm::Attribute::SafeStack);
 Index: lib/CodeGen/CodeGenFunction.cpp
 ===================================================================
---- lib/CodeGen/CodeGenFunction.cpp	(revision 332596)
+--- lib/CodeGen/CodeGenFunction.cpp	(revision 334104)
 +++ lib/CodeGen/CodeGenFunction.cpp	(working copy)
 @@ -877,7 +877,7 @@
      Fn->addFnAttr(llvm::Attribute::SanitizeHWAddress);
@@ -107,37 +122,30 @@ Index: lib/CodeGen/CodeGenFunction.cpp
      Fn->addFnAttr(llvm::Attribute::SafeStack);
 Index: lib/Driver/SanitizerArgs.cpp
 ===================================================================
---- lib/Driver/SanitizerArgs.cpp	(revision 327830)
+--- lib/Driver/SanitizerArgs.cpp	(revision 334104)
 +++ lib/Driver/SanitizerArgs.cpp	(working copy)
-@@ -32,7 +32,7 @@
-   NotAllowedWithMinimalRuntime = Vptr,
-   RequiresPIE = DataFlow | Scudo,
+@@ -34,7 +34,7 @@
+   RequiresPIE = DataFlow | HWAddress | Scudo,
    NeedsUnwindTables = Address | HWAddress | Thread | Memory | DataFlow,
--  SupportsCoverage = Address | HWAddress | KernelAddress | Memory | Leak |
-+  SupportsCoverage = Address | HWAddress | KernelAddress | Memory | KernelMemory | Leak |
-                      Undefined | Integer | Nullability | DataFlow | Fuzzer |
-                      FuzzerNoLink,
+   SupportsCoverage = Address | HWAddress | KernelAddress | KernelHWAddress |
+-                     Memory | Leak | Undefined | Integer | Nullability |
++                     Memory | KernelMemory | Leak | Undefined | Integer | Nullability |
+                      DataFlow | Fuzzer | FuzzerNoLink,
    RecoverableByDefault = Undefined | Integer | Nullability,
-@@ -343,7 +343,9 @@
-       std::make_pair(Scudo, Address | HWAddress | Leak | Thread | Memory |
-                                 KernelAddress | Efficiency),
-       std::make_pair(SafeStack, Address | HWAddress | Leak | Thread | Memory |
--                                    KernelAddress | Efficiency)};
-+                                    KernelAddress | Efficiency),
+   Unrecoverable = Unreachable | Return,
+@@ -354,8 +354,9 @@
+                                           SafeStack),
+       std::make_pair(KernelHWAddress, Address | HWAddress | Leak | Thread |
+                                           Memory | KernelAddress | Efficiency |
+-                                          SafeStack | ShadowCallStack)};
+-
++                                          SafeStack | ShadowCallStack),
 +      std::make_pair(KernelMemory, Address | HWAddress | Leak | Thread | Memory |
-+                                    KernelAddress | Efficiency | Scudo | SafeStack)};
- 
++          KernelAddress | Efficiency | Scudo | SafeStack)};
    // Enable toolchain specific default sanitizers if not explicitly disabled.
    SanitizerMask Default = TC.getDefaultSanitizers() & ~AllRemove;
-@@ -391,7 +393,6 @@
-     }
-   }
  
--  // Warn about incompatible groups of sanitizers.
-   for (auto G : IncompatibleGroups) {
-     SanitizerMask Group = G.first;
-     if (Kinds & Group) {
-@@ -805,6 +806,11 @@
+@@ -835,6 +836,11 @@
    if (MsanUseAfterDtor)
      CmdArgs.push_back("-fsanitize-memory-use-after-dtor");
  
@@ -151,7 +159,7 @@ Index: lib/Driver/SanitizerArgs.cpp
      CmdArgs.push_back("-mllvm");
 Index: lib/Driver/ToolChains/Linux.cpp
 ===================================================================
---- lib/Driver/ToolChains/Linux.cpp	(revision 332596)
+--- lib/Driver/ToolChains/Linux.cpp	(revision 334104)
 +++ lib/Driver/ToolChains/Linux.cpp	(working copy)
 @@ -920,6 +920,8 @@
      Res |= SanitizerKind::Leak;
@@ -164,9 +172,9 @@ Index: lib/Driver/ToolChains/Linux.cpp
    if (IsX86 || IsX86_64)
 Index: lib/Frontend/CompilerInvocation.cpp
 ===================================================================
---- lib/Frontend/CompilerInvocation.cpp	(revision 332596)
+--- lib/Frontend/CompilerInvocation.cpp	(revision 334104)
 +++ lib/Frontend/CompilerInvocation.cpp	(working copy)
-@@ -3017,7 +3017,9 @@
+@@ -3042,7 +3042,9 @@
    // names.
    Res.getCodeGenOpts().DiscardValueNames &=
        !LangOpts.Sanitize.has(SanitizerKind::Address) &&
@@ -177,18 +185,3 @@ Index: lib/Frontend/CompilerInvocation.cpp
  
    ParsePreprocessorArgs(Res.getPreprocessorOpts(), Args, Diags,
                          Res.getFrontendOpts().ProgramAction);
-Index: lib/Lex/PPMacroExpansion.cpp
-===================================================================
---- lib/Lex/PPMacroExpansion.cpp	(revision 332596)
-+++ lib/Lex/PPMacroExpansion.cpp	(working copy)
-@@ -1141,7 +1141,9 @@
-       .Case("enumerator_attributes", true)
-       .Case("nullability", true)
-       .Case("nullability_on_arrays", true)
--      .Case("memory_sanitizer", LangOpts.Sanitize.has(SanitizerKind::Memory))
-+      .Case("memory_sanitizer",
-+            LangOpts.Sanitize.hasOneOf(SanitizerKind::Memory |
-+                                       SanitizerKind::KernelMemory))
-       .Case("thread_sanitizer", LangOpts.Sanitize.has(SanitizerKind::Thread))
-       .Case("dataflow_sanitizer",
-             LangOpts.Sanitize.has(SanitizerKind::DataFlow))
