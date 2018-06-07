@@ -28,6 +28,7 @@
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
@@ -63,6 +64,7 @@ size_t pdu_read(struct p9_fcall *pdu, void *data, size_t size)
 	size_t len = min(pdu->size - pdu->offset, size);
 	memcpy(data, &pdu->sdata[pdu->offset], len);
 	pdu->offset += len;
+	kmsan_unpoison_shadow(data, len);
 	return size - len;
 }
 
