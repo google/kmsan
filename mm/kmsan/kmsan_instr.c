@@ -636,7 +636,6 @@ kmsan_context_state *__msan_get_context_state(void)
 	__msan_init();
 	if (IN_RUNTIME() || !current->kmsan.enabled) {
 		// We're in runtime, don't care about the shadow.
-		///__memset(&kmsan_dummy_state, 0, sizeof(kmsan_dummy_state)); // TODO(glider)
 		return &kmsan_dummy_state;
 	}
 	// No need to enter/leave runtime?
