@@ -23,6 +23,12 @@ bool is_logbuf_locked(void);
 			pr_err(__VA_ARGS__); \
 	} while (0)
 
+enum KMSAN_BUG_REASON
+{
+	REASON_ANY = 0,
+	REASON_COPY_TO_USER = 1,
+};
+
 #define min_num(x,y) ((x) < (y) ? x : y)
 
 
@@ -94,7 +100,7 @@ void do_kmsan_thread_create(struct task_struct *task);
 void kmsan_set_origin(u64 address, int size, u32 origin);
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 			u64 address, int size,
-			int off_first, int off_last, bool deep);
+			int off_first, int off_last, bool deep, int reason);
 
 int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 				gfp_t flags, int node);
