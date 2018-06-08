@@ -990,6 +990,32 @@ void kmsan_split_page(struct page *page, unsigned int order)
 }
 EXPORT_SYMBOL(kmsan_split_page);
 
+void kmsan_copy_page_meta(struct page *dst, struct page *src)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready)
+		return;
+	if (IN_RUNTIME())
+		return;
+	if (src->is_kmsan_untracked_page) {
+		dst->is_kmsan_untracked_page = true;
+		dst->shadow = 0;
+		dst->origin = 0;
+		return;
+	}
+	if (dst->is_kmsan_untracked_page)
+		return;
+
+	ENTER_RUNTIME(irq_flags);
+	BUG_ON(!src->shadow || !dst->shadow);
+	__memcpy(page_address(dst->shadow), page_address(src->shadow), PAGE_SIZE);
+	BUG_ON(!src->origin || !dst->origin);
+	__memcpy(page_address(dst->origin), page_address(src->origin), PAGE_SIZE);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(kmsan_copy_page_meta);
+
 DEFINE_SPINLOCK(report_lock);
 #define MAX_REPORTS 12800
 static void *reporters_tbl[MAX_REPORTS];
