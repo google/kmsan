@@ -1241,7 +1241,7 @@ static int virtnet_receive(struct receive_queue *rq, int budget,
 			   unsigned int *xdp_xmit)
 {
 	struct virtnet_info *vi = rq->vq->vdev->priv;
-	unsigned int len, received = 0, bytes = 0;
+	unsigned int len, received = 0, bytes = 0, r_bytes = 0;
 	void *buf;
 
 	if (!vi->big_packets || vi->mergeable_rx_bufs) {
@@ -1249,15 +1249,17 @@ static int virtnet_receive(struct receive_queue *rq, int budget,
 
 		while (received < budget &&
 		       (buf = virtqueue_get_buf_ctx(rq->vq, &len, &ctx))) {
-			kmsan_unpoison_shadow(buf, len);
-			bytes += receive_buf(vi, rq, buf, len, ctx, xdp_xmit);
+			r_bytes = receive_buf(vi, rq, buf, len, ctx, xdp_xmit);
+			kmsan_unpoison_shadow(buf, r_bytes);
+			bytes += r_bytes;
 			received++;
 		}
 	} else {
 		while (received < budget &&
 		       (buf = virtqueue_get_buf(rq->vq, &len)) != NULL) {
-			kmsan_unpoison_shadow(buf, len);
-			bytes += receive_buf(vi, rq, buf, len, NULL, xdp_xmit);
+			r_bytes = receive_buf(vi, rq, buf, len, NULL, xdp_xmit);
+			kmsan_unpoison_shadow(buf, r_bytes);
+			bytes += r_bytes;
 			received++;
 		}
 	}
