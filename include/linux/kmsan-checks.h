@@ -36,7 +36,7 @@ static inline void *__msan_memcpy(void *dst, const void *src, u64 n)
 
 static inline void kmsan_enter_runtime(unsigned long *flags) {}
 static inline void kmsan_leave_runtime(unsigned long *flags) {}
-static void kmsan_csum_partial_copy_generic(const void *src, const void *dst,
+static inline void kmsan_csum_partial_copy_generic(const void *src, const void *dst,
 						size_t len) {}
 
 #endif

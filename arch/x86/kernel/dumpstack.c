@@ -169,8 +169,10 @@ void show_trace_log_lvl(struct task_struct *task, struct pt_regs *regs,
 	bool partial = false;
 
 	/* PCs read off the stacks are frequently considered uninit. */
+#ifdef CONFIG_KMSAN
 	bool allow_reporting = current->kmsan.allow_reporting;
 	current->kmsan.allow_reporting = false;
+#endif
 
 	printk("%sCall Trace:\n", log_lvl);
 
@@ -281,7 +283,9 @@ next:
 		if (stack_name)
 			printk("%s </%s>\n", log_lvl, stack_name);
 	}
+#ifdef CONFIG_KMSAN
 	current->kmsan.allow_reporting = allow_reporting;
+#endif
 }
 
 void show_stack(struct task_struct *task, unsigned long *sp)
@@ -312,7 +316,9 @@ unsigned long oops_begin(void)
 	int cpu;
 	unsigned long flags;
 
+#ifdef CONFIG_KMSAN
 	current->kmsan.allow_reporting = false;
+#endif
 
 	oops_enter();
 
