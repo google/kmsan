@@ -85,7 +85,6 @@ static void map_pages(struct list_head *list)
 
 		for (i = 0; i < nr_pages; i++) {
 			list_add(&page->lru, &tmp_list);
-			page++;
 #ifdef CONFIG_KMSAN
 			// TODO(glider): we may lose the metadata when copying
 			// something to these pages. Need to allocated shadow
@@ -94,6 +93,7 @@ static void map_pages(struct list_head *list)
 			page->shadow = NULL;
 			page->origin = NULL;
 #endif
+			page++;
 		}
 	}
 
