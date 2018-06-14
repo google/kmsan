@@ -1857,8 +1857,8 @@ int __get_user_pages_fast(unsigned long start, int nr_pages, int write,
 int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 			struct page **pages)
 {
-	unsigned long addr, len, end;
-	int nr = 0, ret = 0;
+	unsigned long addr, len, end, page_addr;
+	int nr = 0, ret = 0, i;
 
 	start &= PAGE_MASK;
 	addr = start;
@@ -1878,10 +1878,13 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 		// to kernel memory.
 		// gup_pgd_range() has just created a number (less or equal to nr_pages)
 		// of new pages that KMSAN treats as uninitialized.
-		// In the case the [addr, end) range belongs to the userspace memory,
-		// unpoison the corresponding kernel pages.
-		if ((addr < TASK_SIZE) && (end < TASK_SIZE)) {
-			kmsan_unpoison_shadow(page_address(pages[0]), (unsigned long)nr << PAGE_SHIFT);
+		// In the case they belong to the userspace memory, unpoison the
+		// corresponding kernel pages.
+		for (i = 0; i < nr; i++) {
+			page_addr = page_address(pages[i]);
+			if ((page_addr < TASK_SIZE) && (page_addr + PAGE_SIZE < TASK_SIZE)) {
+				kmsan_unpoison_shadow(page_addr, PAGE_SIZE);
+			}
 		}
 		local_irq_enable();
 		ret = nr;
