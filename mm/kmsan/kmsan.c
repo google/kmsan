@@ -1008,7 +1008,11 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 		return;
 
 	ENTER_RUNTIME(irq_flags);
-	BUG_ON(!src->shadow || !dst->shadow);
+	if (!src->shadow || !dst->shadow) {
+		kmsan_pr_err("Copying %px (page %px, shadow %px) to %px (page %px, shadow %px)\n",
+				page_address(src), src, src->shadow, page_address(dst), dst, dst->shadow);
+		BUG();
+	}
 	__memcpy(page_address(dst->shadow), page_address(src->shadow), PAGE_SIZE);
 	BUG_ON(!src->origin || !dst->origin);
 	__memcpy(page_address(dst->origin), page_address(src->origin), PAGE_SIZE);
