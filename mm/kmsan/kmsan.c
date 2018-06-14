@@ -614,6 +614,7 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 				kmsan_pr_err("Uninit was stored to memory at:\n");
 				depot_fetch_stack(head, &chained_trace);
 				print_stack_trace(&chained_trace, 0);
+				kmsan_pr_err("\n");
 				continue;
 			} else
 			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FRAME) {
