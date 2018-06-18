@@ -19,6 +19,7 @@
 #include <linux/memory.h>
 #include <linux/mm.h>
 #include <linux/preempt.h>
+#include <linux/percpu-defs.h>
 #include <linux/mm_types.h>
 #include <linux/slab.h>
 #include <linux/stackdepot.h>
@@ -73,6 +74,7 @@ static inline char *kmsan_dummy_origin(bool is_store)
 kmsan_context_state kmsan_dummy_state;
 
 DEFINE_PER_CPU(kmsan_context_state[3], kmsan_percpu_cstate);
+DEFINE_PER_CPU(int, kmsan_in_interrupt);
 
 extern int oops_in_progress;
 
@@ -83,19 +85,20 @@ bool is_logbuf_locked(void)
 }
 EXPORT_SYMBOL(is_logbuf_locked);
 
-kmsan_context_state *task_kmsan_context_state(void)
+// TODO(glider): inline?
+kmsan_context_state *task_kmsan_context_state()
 {
-	int preempt = preempt_count();
 	int cpu = smp_processor_id();
+	int int_index = this_cpu_read(kmsan_in_interrupt);
 
-	if (preempt & HARDIRQ_MASK) {
-		return &per_cpu(kmsan_percpu_cstate[0], cpu);
-	} else if (preempt & SOFTIRQ_OFFSET) {  // Sic!
-		return &per_cpu(kmsan_percpu_cstate[1], cpu);
-	} else if (preempt & NMI_MASK) {
-		return &per_cpu(kmsan_percpu_cstate[2], cpu);
+	if (int_index) {
+		if (in_nmi())
+			return &per_cpu(kmsan_percpu_cstate[2], cpu);
+		else
+			return &per_cpu(kmsan_percpu_cstate[int_index - 1], cpu);
+	} else {
+		return &current->kmsan.cstate;
 	}
-	return &current->kmsan.cstate;
 }
 
 void kmsan_enter_runtime(unsigned long *flags)
@@ -1573,3 +1576,23 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
 	BUG_ON(!IS_ALIGNED((u64)ret, 4));
 	return ret;
 }
+
+void kmsan_interrupt_enter(void)
+{
+	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
+
+	// Turns out it's possible for in_interrupt to be >0 here.
+	BUG_ON(in_interrupt > 1);
+	this_cpu_write(kmsan_in_interrupt, in_interrupt + 1);
+
+}
+EXPORT_SYMBOL(kmsan_interrupt_enter);
+
+void kmsan_interrupt_exit(void)
+{
+	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
+
+	BUG_ON(!in_interrupt);
+	this_cpu_write(kmsan_in_interrupt, in_interrupt - 1);
+}
+EXPORT_SYMBOL(kmsan_interrupt_exit);
