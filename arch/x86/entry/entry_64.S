@@ -35,6 +35,7 @@
 #include <asm/asm.h>
 #include <asm/smap.h>
 #include <asm/pgtable_types.h>
+#include <asm/kmsan.h>
 #include <asm/export.h>
 #include <asm/frame.h>
 #include <asm/nospec-branch.h>
@@ -561,6 +562,7 @@ ENTRY(interrupt_entry)
 
 1:
 	ENTER_IRQ_STACK old_rsp=%rdi save_ret=1
+	KMSAN_INTERRUPT_ENTER
 	/* We entered an interrupt context - irqs are off: */
 	TRACE_IRQS_OFF
 
@@ -586,6 +588,7 @@ ret_from_intr:
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	TRACE_IRQS_OFF
 
+	KMSAN_INTERRUPT_EXIT
 	LEAVE_IRQ_STACK
 
 	testb	$3, CS(%rsp)
