@@ -11,6 +11,7 @@
  */
 #define pr_fmt(fmt) "kmsan test: %s : " fmt, __func__
 
+#include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <linux/slab.h>
@@ -151,6 +152,32 @@ void noinline uninit_kmsan_check_memory_test(void)
 	kmsan_check_memory((char*)local_array, 8);
 }
 
+void noinline init_kmsan_vmap_vunmap_test(void)
+{
+	const int npages = 2;
+	struct page *pages[npages];
+	void *vbuf;
+	int i;
+
+	pr_info("-----------------------------\n");
+	pr_info("pages initialized via vmap (no reports)\n");
+
+	for (i = 0; i < npages; i++) {
+		pages[i] = alloc_page(GFP_KERNEL);
+	}
+	vbuf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
+	memset(vbuf, 0xfe, npages * PAGE_SIZE);
+	for (i = 0; i < npages; i++) {
+		kmsan_check_memory(page_address(pages[i]), PAGE_SIZE);
+	}
+
+	if (vbuf)
+		vunmap(vbuf);
+	for (i = 0; i < npages; i++)
+		if (pages[i])
+			__free_page(pages[i]);
+}
+
 static noinline int __init kmsan_tests_init(void)
 {
 	uninit_kmalloc_test();
@@ -160,6 +187,7 @@ static noinline int __init kmsan_tests_init(void)
 	uninit_stack_var_test();
 	init_stack_var_test();
 	uninit_kmsan_check_memory_test();
+	init_kmsan_vmap_vunmap_test();
 	return -EAGAIN;
 }
 module_init(kmsan_tests_init);
