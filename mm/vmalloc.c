@@ -27,6 +27,7 @@
 #include <linux/rcupdate.h>
 #include <linux/pfn.h>
 #include <linux/kmemleak.h>
+#include <linux/kmsan.h>
 #include <linux/atomic.h>
 #include <linux/compiler.h>
 #include <linux/llist.h>
@@ -1622,6 +1623,7 @@ void vunmap(const void *addr)
 	might_sleep();
 	if (addr)
 		__vunmap(addr, 0);
+	kmsan_vunmap(addr);
 }
 EXPORT_SYMBOL(vunmap);
 
@@ -1656,6 +1658,7 @@ void *vmap(struct page **pages, unsigned int count,
 		return NULL;
 	}
 
+	kmsan_vmap(area, pages, count, flags, prot, __builtin_return_address(0));
 	return area->addr;
 }
 EXPORT_SYMBOL(vmap);
@@ -1712,6 +1715,11 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 
 	if (map_vm_area(area, prot, pages))
 		goto fail;
+#if CONFIG_KMSAN
+	area->is_kmsan_tracked = false;
+	area->shadow = NULL;
+	area->origin = NULL;
+#endif
 	return area->addr;
 
 fail:
