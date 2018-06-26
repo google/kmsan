@@ -40,6 +40,10 @@ struct vm_struct {
 	unsigned int		nr_pages;
 	phys_addr_t		phys_addr;
 	const void		*caller;
+#ifdef CONFIG_KMSAN
+	struct vm_struct	*shadow, *origin;
+	bool			is_kmsan_tracked;
+#endif
 };
 
 struct vmap_area {
