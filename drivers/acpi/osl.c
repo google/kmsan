@@ -281,14 +281,18 @@ acpi_map_lookup_virt(void __iomem *virt, acpi_size size)
 static void __iomem *acpi_map(acpi_physical_address pg_off, unsigned long pg_sz)
 {
 	unsigned long pfn;
+	void __iomem *ret;
 
 	pfn = pg_off >> PAGE_SHIFT;
 	if (should_use_kmap(pfn)) {
 		if (pg_sz > PAGE_SIZE)
 			return NULL;
-		return (void __iomem __force *)kmap(pfn_to_page(pfn));
-	} else
-		return acpi_os_ioremap(pg_off, pg_sz);
+		ret = (void __iomem __force *)kmap(pfn_to_page(pfn));
+	} else {
+		ret = acpi_os_ioremap(pg_off, pg_sz);
+	}
+	kmsan_acpi_map(ret, pg_sz);
+	return ret;
 }
 
 static void acpi_unmap(acpi_physical_address pg_off, void __iomem *vaddr)
@@ -296,10 +300,13 @@ static void acpi_unmap(acpi_physical_address pg_off, void __iomem *vaddr)
 	unsigned long pfn;
 
 	pfn = pg_off >> PAGE_SHIFT;
-	if (should_use_kmap(pfn))
+	if (should_use_kmap(pfn)) {
+		kmsan_acpi_unmap(vaddr, PAGE_SIZE);
 		kunmap(pfn_to_page(pfn));
-	else
+	} else {
+		kmsan_acpi_unmap(vaddr, /*size*/-1);
 		iounmap(vaddr);
+	}
 }
 
 /**
