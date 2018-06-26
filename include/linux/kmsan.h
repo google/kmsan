@@ -4,10 +4,13 @@
 
 #include <linux/stackdepot.h>
 #include <linux/types.h>
+#include <linux/vmalloc.h>
 
 struct page;
 struct kmem_cache;
 struct task_struct;
+struct vm_struct;
+
 
 extern bool kmsan_ready;
 extern bool kmsan_threads_ready;
@@ -66,6 +69,9 @@ void kmsan_thread_create(struct task_struct *task);
 void kmsan_task_exit(struct task_struct *task);
 void kmsan_alloc_shadow_for_region(void *start, size_t size);
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
+void kmsan_acpi_map(void *vaddr, unsigned long size);
+void kmsan_acpi_unmap(void *vaddr, unsigned long size);
+void kmsan_ioremap(u64 vaddr, unsigned long size);
 void kmsan_free_page(struct page *page, unsigned int order);
 void kmsan_split_page(struct page *page, unsigned int order);
 void kmsan_clear_user_page(struct page *page);
@@ -87,6 +93,12 @@ void kmsan_wipe_params_shadow_origin(void);
 void kmsan_record_future_shadow_range(u64 start, u64 end);
 
 void kmsan_vprintk_func(const char *fmt, va_list args);
+
+// Vmap
+void kmsan_vmap(struct vm_struct *area,
+		struct page **pages, unsigned int count, unsigned long flags,
+		pgprot_t prot, void *caller);
+void kmsan_vunmap(const void *addr);
 #else
 
 static inline void kmsan_thread_create(struct task_struct *task) {}
@@ -97,6 +109,9 @@ static inline int kmsan_alloc_page(
 {
 	return 0;
 }
+void kmsan_acpi_map(void *vaddr, unsigned long size) {}
+void kmsan_acpi_unmap(void *vaddr, unsigned long size) {}
+void kmsan_ioremap(u64 vaddr, unsigned long size) {}
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
 static inline void kmsan_split_page(struct page *page, unsigned int order) {}
 static inline void kmsan_clear_user_page(struct page *page) {}
@@ -124,6 +139,11 @@ static inline void kmsan_wipe_params_shadow_origin(void) {}
 static inline void kmsan_record_future_shadow_range(u64 start, u64 end) {}
 
 static inline void kmsan_vprintk_func(const char *fmt, va_list args) {}
+
+void kmsan_vmap(struct vm_struct *area,
+		struct page **pages, unsigned int count, unsigned long flags,
+		pgprot_t prot, void *caller) {}
+void kmsan_vunmap(const void *addr) {}
 
 #endif
 
