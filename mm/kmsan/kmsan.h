@@ -112,4 +112,6 @@ kmsan_context_state *task_kmsan_context_state(void);
 
 bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin);
 
+struct page *vmalloc_to_page_or_null(const void *vaddr);
+
 #endif

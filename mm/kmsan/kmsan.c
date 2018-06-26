@@ -26,6 +26,7 @@
 #include <linux/stacktrace.h>
 #include <linux/types.h>
 #include <asm/page.h>	// for clear_page()
+#include <linux/vmalloc.h>
 
 #include <linux/mmzone.h>
 
@@ -636,8 +637,6 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 	}
 }
 
-
-
 #define MAX_CHAIN_DEPTH 7
 depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id, bool full)
 {
@@ -847,6 +846,147 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 	return 0;
 }
 
+void kmsan_vmap(struct vm_struct *area,
+		struct page **pages, unsigned int count, unsigned long flags,
+		pgprot_t prot, void *caller)
+{
+	struct vm_struct *shadow, *origin;
+	struct page **s_pages, **o_pages;
+	unsigned long irq_flags, size;
+	int i;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+
+	size = (unsigned long)count << PAGE_SHIFT;
+	// It's important to call get_vm_area_caller() (which calls kmalloc())
+	// and kmalloc() outside the runtime.
+	// Calling kmalloc() may potentially allocate a new slab without
+	// corresponding shadow pages. Accesses to any subsequent allocations
+	// from that slab will crash the kernel.
+	shadow = get_vm_area_caller(size, flags, caller);
+	origin = get_vm_area_caller(size, flags, caller);
+	s_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL);
+	if (!s_pages)
+		goto err_free;
+	o_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL);
+	for (i = 0; i < count; i++) {
+		if (pages[i]->is_kmsan_untracked_page)
+			goto err_free;
+		s_pages[i] = pages[i]->shadow;
+		o_pages[i] = pages[i]->origin;
+	}
+	// Don't enter the runtime when allocating memory with kmalloc().
+	ENTER_RUNTIME(irq_flags);
+	if (map_vm_area(shadow, prot, s_pages) || map_vm_area(origin, prot, o_pages))
+		goto err_free;
+	LEAVE_RUNTIME(irq_flags);
+
+	shadow->pages = s_pages;
+	shadow->nr_pages = count;
+	shadow->is_kmsan_tracked = false;
+	origin->pages = o_pages;
+	origin->nr_pages = count;
+	origin->is_kmsan_tracked = false;
+	area->shadow = shadow;
+	area->origin = origin;
+	area->is_kmsan_tracked = true;
+	return;
+err_free:
+	if (s_pages)
+		kfree(s_pages);
+	if (o_pages)
+		kfree(o_pages);
+	if (shadow)
+		vunmap(shadow->addr);
+	if (origin)
+		vunmap(origin->addr);
+}
+
+void kmsan_vunmap(const void *addr)
+{
+	unsigned long irq_flags;
+	struct vm_struct *vms, *shadow, *origin;
+	int i;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+
+	ENTER_RUNTIME(irq_flags);
+	vms = find_vm_area(addr);
+	if (!vms || !vms->is_kmsan_tracked)
+		goto leave;
+	shadow = vms->shadow;
+	origin = vms->origin;
+
+	vunmap(vms->shadow->addr);
+	vunmap(vms->origin->addr);
+
+	BUG_ON(shadow->nr_pages != origin->nr_pages);
+	for (i = 0; i < shadow->nr_pages; i++) {
+		BUG_ON(shadow->pages[i]);
+		__free_pages(shadow->pages[i], 0);
+		BUG_ON(origin->pages[i]);
+		__free_pages(origin->pages[i], 0);
+	}
+	kfree(shadow->pages);
+	kfree(origin->pages);
+leave:
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(kmsan_vunmap);
+
+static bool is_module_addr(const void *vaddr)
+{
+	if (vaddr < MODULES_VADDR)
+		return false;
+	if (vaddr >= MODULES_END)
+		return false;
+	return true;
+}
+
+struct page *vmalloc_to_page_or_null(const void *vaddr)
+{
+	struct page *page;
+
+	if (!is_vmalloc_addr(vaddr) && !is_module_addr(vaddr))
+		return NULL;
+	page = vmalloc_to_page(vaddr);
+	if (pfn_valid(page_to_pfn(page)))
+		return page;
+	else
+		return NULL;
+}
+
+void kmsan_ioremap(u64 vaddr, unsigned long size)
+{
+	unsigned long irq_flags;
+	char *shadow, *origin;
+	int npages = size / PAGE_SIZE, i;
+	struct page *page;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+
+	// TODO(glider): according to https://lwn.net/Articles/57800/, new vmalloc()
+	// uses should be discouraged. We add these because we want the shadow
+	// and origin ranges to be contiguous.
+	shadow = vmalloc(size);
+	origin = vmalloc(size);
+	ENTER_RUNTIME(irq_flags);
+	for (i = 0; i < npages; i++, vaddr += PAGE_SIZE, shadow += PAGE_SIZE, origin += PAGE_SIZE) {
+		page = vmalloc_to_page_or_null(vaddr);
+		if (!page)
+			break;
+		page->shadow = vmalloc_to_page_or_null(shadow);
+		page->origin = vmalloc_to_page_or_null(origin);
+		page->is_kmsan_untracked_page = false;
+	}
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(kmsan_ioremap);
+
+
 // Clear shadow and origin for a given |page| (actually a page_st
 void kmsan_clear_user_page(struct page *page)
 {
@@ -889,6 +1029,58 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	ret = kmsan_alloc_meta_for_pages(page, order, flags, -1);
 	LEAVE_RUNTIME(irq_flags);
 	return ret;
+}
+
+static int order_from_size(unsigned long size)
+{
+	size >>= PAGE_SHIFT;
+	if (!size)
+		size = 1;
+	BUG_ON(hweight64(size) > 1);
+	return ffs(size) - 1;
+}
+
+void kmsan_acpi_map(void *vaddr, unsigned long size)
+{
+	struct page *page;
+	unsigned long irq_flags;
+	int order;
+
+	if (IN_RUNTIME())
+		return;
+	ENTER_RUNTIME(irq_flags);
+	page = vmalloc_to_page_or_null(vaddr);
+	if (!page) {
+		LEAVE_RUNTIME(irq_flags);
+		return;
+	}
+	order = order_from_size(size);
+	// Although the address is virtual, corresponding ACPI physical pages are
+	// consequent.
+	kmsan_alloc_meta_for_pages(page, order, GFP_KERNEL | __GFP_ZERO, -1);
+	LEAVE_RUNTIME(irq_flags);
+}
+
+void kmsan_acpi_unmap(void *vaddr, unsigned long size)
+{
+	struct page *page;
+	unsigned long irq_flags;
+	int order;
+	return;
+
+	if (IN_RUNTIME())
+		return;
+	ENTER_RUNTIME(irq_flags);
+	page = vmalloc_to_page_or_null(vaddr);
+	if (size == -1)
+		size = get_vm_area_size(find_vm_area(vaddr));
+	order = order_from_size(size);
+	page->is_kmsan_untracked_page = true;
+	if (page->shadow)
+		__free_pages(page->shadow, order);
+	if (page->origin)
+		__free_pages(page->origin, order);
+	LEAVE_RUNTIME(irq_flags);
 }
 
 
@@ -1350,18 +1542,20 @@ inline
 void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_store)
 {
 	struct page *page, *cur_page, *next_page;
-	unsigned long page_offset, shadow_size;
+	unsigned long offset, shadow_size;
 	void *ret;
 	depot_stack_handle_t origin;
 
-	// TODO(glider): For some reason vmalloc'ed addresses aren't considered valid.
+	// TODO(glider): refactor this code.
 	if (!my_virt_addr_valid(addr)) {
 		///kmsan_pr_err("not a valid virtual address: %px\n", addr);
 		// TODO(glider): Trinity is able to trigger the check below with size=14240.
 		// No point in increasing the dummy shadow size further.
+		page = vmalloc_to_page_or_null(addr);
+		if (page)
+			goto next;
 		if (size > PAGE_SIZE) {
-			WARN("kmsan_get_shadow_address(%px, %d, %d)\n", addr, size, checked);
-			///BUG();
+			WARN(1, "kmsan_get_shadow_address(%px, %d, %d)\n", addr, size, checked);
 			if (checked)
 				BUG();
 			else
@@ -1377,17 +1571,20 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
 		current->kmsan.is_reporting = false;
 		return kmsan_dummy_shadow(is_store);
 	}
+next:
 	if (page->is_kmsan_untracked_page)
 		return kmsan_dummy_shadow(is_store);
 	if (!page->shadow) {
 		oops_in_progress = 1;
+		current->kmsan.is_reporting = true;
 		kmsan_pr_err("Not allocated shadow for addr %px (page %px)\n", addr, page);
 		kmsan_pr_err("Attempted to access %d bytes\n", size);
 		BUG();
+		current->kmsan.is_reporting = false;
 	}
-	page_offset = addr % PAGE_SIZE;
+	offset = addr % PAGE_SIZE;
 
-	if (checked && (page_offset + size - 1 > PAGE_SIZE)) {
+	if (checked && (offset + size - 1 > PAGE_SIZE)) {
 		/* The access overflows the current page and touches the
 		 * subsequent ones. Make sure the shadow pages are also
 		 * consequent.
@@ -1397,7 +1594,7 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
 		}
 
 	}
-	ret = page_address(page->shadow) + page_offset;
+	ret = page_address(page->shadow) + offset;
 	return ret;
 }
 
@@ -1409,29 +1606,30 @@ inline
 void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 {
 	struct page *page, *next_page;
-	unsigned long page_offset, shadow_size;
+	unsigned long offset, shadow_size;
 	void *ret;
 	depot_stack_handle_t origin;
 	unsigned long irq_flags;
 
 	u64 caller = __builtin_return_address(1);
 
-	// TODO(glider): For some reason vmalloc'ed addresses aren't considered valid.
+	// TODO(glider): refactor this code.
 	if (!my_virt_addr_valid(addr)) {
-		ENTER_RUNTIME(irq_flags);
-		///kmsan_pr_err("not a valid virtual address: %px\n", addr);
 		// TODO(glider): Trinity is able to trigger the check below with size=14240.
 		// No point in increasing the dummy shadow size further.
+		page = vmalloc_to_page_or_null(addr);
+		if (page)
+			goto next;
 		if (size > PAGE_SIZE) {
-			WARN("kmsan_get_shadow_address_noruntime(%px, %d, %d)\n", addr, size, checked);
+			WARN(1, "kmsan_get_shadow_address_noruntime(%px, %d, %d)\n", addr, size, checked);
 			if (checked)
 				BUG();
 			else
 				return NULL;
 		}
-		LEAVE_RUNTIME(irq_flags);
 		return NULL;
 	}
+
 
 	page = virt_to_page(addr);
 	if (!page) {
@@ -1443,6 +1641,7 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 		LEAVE_RUNTIME(irq_flags);
 		return NULL;
 	}
+next:
 	if (!(page->shadow)) {
 		ENTER_RUNTIME(irq_flags);
 		oops_in_progress = 1;
@@ -1450,9 +1649,9 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 		BUG();
 		LEAVE_RUNTIME(irq_flags);
 	}
-	page_offset = addr % PAGE_SIZE;
+	offset = addr % PAGE_SIZE;
 
-	if (checked && (page_offset + size - 1 > PAGE_SIZE)) {
+	if (checked && (offset + size - 1 > PAGE_SIZE)) {
 		/* The access overflows the current page and touches the next
 		 * one. Make sure the shadow pages are also consequent.
 		 */
@@ -1460,7 +1659,7 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 			return NULL;
 		}
 	}
-	ret = page_address(page->shadow) + page_offset;
+	ret = page_address(page->shadow) + offset;
 	return ret;
 }
 
@@ -1469,7 +1668,7 @@ inline
 void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 {
 	struct page *page, *next_page;
-	unsigned long page_offset, shadow_size;
+	unsigned long offset, shadow_size;
 	void *ret;
 	depot_stack_handle_t origin;
 	unsigned long irq_flags;
@@ -1481,19 +1680,22 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 		addr -= pad;
 		size += pad;
 	}
+
+	// TODO(glider): refactor this code.
 	if (!my_virt_addr_valid(addr)) {
-		ENTER_RUNTIME(irq_flags);
 		///kmsan_pr_err("not a valid virtual address: %px\n", addr);
 		// TODO(glider): Trinity is able to trigger the check below with size=14240.
 		// No point in increasing the dummy origin size further.
+		page = vmalloc_to_page_or_null(addr);
+		if (page)
+			goto next;
 		if (size > PAGE_SIZE) {
-			WARN("kmsan_get_origin_address_noruntime(%px, %d, %d)\n", addr, size, checked);
+			WARN(1, "kmsan_get_origin_address_noruntime(%px, %d, %d)\n", addr, size, checked);
 			if (checked)
 				BUG();
 			else
 				return NULL;
 		}
-		LEAVE_RUNTIME(irq_flags);
 		return NULL;
 	}
 
@@ -1507,6 +1709,7 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 		LEAVE_RUNTIME(irq_flags);
 		return NULL;
 	}
+next:
 	if (!(page->origin)) {
 		ENTER_RUNTIME(irq_flags);
 		oops_in_progress = 1;
@@ -1514,9 +1717,9 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 		BUG();
 		LEAVE_RUNTIME(irq_flags);
 	}
-	page_offset = addr % PAGE_SIZE;
+	offset = addr % PAGE_SIZE;
 
-	if (checked && (page_offset + size - 1 > PAGE_SIZE)) {
+	if (checked && (offset + size - 1 > PAGE_SIZE)) {
 		/* The access overflows the current page and touches the next
 		 * one. Make sure the origin pages are also consequent.
 		 */
@@ -1524,7 +1727,7 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 			return NULL;
 		}
 	}
-	ret = page_address(page->origin) + page_offset;
+	ret = page_address(page->origin) + offset;
 	return ret;
 }
 
@@ -1533,14 +1736,27 @@ inline
 void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_store)
 {
 	struct page *page;
-	u64 page_offset;
+	u64 offset;
 	int pad = 0;
 	void *ret;
 
+	// TODO(glider): refactor this code.
 	if (!my_virt_addr_valid(addr)) {
-		BUG_ON(size > PAGE_SIZE);
+		// TODO(glider): Trinity is able to trigger the check below with size=14240.
+		// No point in increasing the dummy origin size further.
+		page = vmalloc_to_page_or_null(addr);
+		if (page)
+			goto next;
+		if (size > PAGE_SIZE) {
+			WARN(1, "kmsan_get_origin_address(%px, %d, %d)\n", addr, size, checked);
+			if (checked)
+				BUG();
+			else
+				return NULL;
+		}
 		return kmsan_dummy_origin(is_store);
 	}
+
 
  	page = virt_to_page(addr);
 	if (!page) {
@@ -1548,6 +1764,7 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
 		kmsan_pr_err("No page for address %px\n", addr);
 		current->kmsan.is_reporting = false;
 	}
+next:
 	if (page->is_kmsan_untracked_page)
 		return kmsan_dummy_origin(is_store);
 	if (!IS_ALIGNED(addr, 4)) {
@@ -1555,7 +1772,7 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
 		addr -= pad;
 		size += pad;
 	}
-	page_offset = (addr % PAGE_SIZE);
+	offset = (addr % PAGE_SIZE);
 	if (!page->origin) {
 		kmsan_pr_err("No origin for address %px (page %px), size=%d\n", addr, page, size);
 		BUG_ON(page->shadow);
@@ -1567,12 +1784,12 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
 		BUG_ON(!page->origin);
 	}
 	/* TODO(glider): this is conservative. */
-	if (checked && (page_offset + size - 1 > PAGE_SIZE)) {
+	if (checked && (offset + size - 1 > PAGE_SIZE)) {
 		if (!metadata_is_contiguous(addr, size, /*is_origin*/true)) {
 			return kmsan_dummy_origin(is_store);
 		}
 	}
-	ret = page_address(page->origin) + page_offset;
+	ret = page_address(page->origin) + offset;
 	BUG_ON(!IS_ALIGNED((u64)ret, 4));
 	return ret;
 }
