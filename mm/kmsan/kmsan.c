@@ -772,7 +772,7 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 
 	if (flags & __GFP_NO_KMSAN_SHADOW) {
 		for (i = 0; i < pages; i++) {
-			page[i].is_kmsan_untracked_page = true;
+			page[i].is_kmsan_tracked_page = false;
 			// TODO(glider): this is redundant.
 			page[i].shadow = NULL;
 			page[i].origin = NULL;
@@ -780,16 +780,13 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 		return 0;
 	}
 
-	if (page->is_kmsan_untracked_page)
-		return 0;
-
 	flags = GFP_ATOMIC;  // TODO(glider)
 	if (initialized)
 		flags |= __GFP_ZERO;
 	shadow = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
 	if (!shadow) {
 		for (i = 0; i < pages; i++) {
-			page[i].is_kmsan_untracked_page = true;
+			page[i].is_kmsan_tracked_page = false;
 			// TODO(glider): this is redundant.
 			page[i].shadow = NULL;
 			page[i].origin = NULL;
@@ -806,7 +803,7 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 	if (!origin) {
 		__free_pages(shadow, order);
 		for (i = 0; i < pages; i++) {
-			page[i].is_kmsan_untracked_page = true;
+			page[i].is_kmsan_tracked_page = false;
 			// TODO(glider): this is redundant.
 			page[i].shadow = NULL;
 			page[i].origin = NULL;
@@ -831,17 +828,17 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 		}
 		///if (page[i].shadow) continue;
 		page[i].shadow = &shadow[i];
-		page[i].shadow->is_kmsan_untracked_page = true;
+		page[i].shadow->is_kmsan_tracked_page = false;
 		page[i].shadow->shadow = NULL;
 		page[i].shadow->origin = NULL;
 		// TODO(glider): sometimes page[i].origin is initialized. Let's skip the check for now.
 		BUG_ON(page[i].origin && 0);
 		// page.origin is struct page.
 		page[i].origin = &origin[i];
-		page[i].origin->is_kmsan_untracked_page = true;
+		page[i].origin->is_kmsan_tracked_page = false;
 		page[i].origin->shadow = NULL;
 		page[i].origin->origin = NULL;
-		page[i].is_kmsan_untracked_page = false;
+		page[i].is_kmsan_tracked_page = true;
 	}
 	return 0;
 }
@@ -871,7 +868,7 @@ void kmsan_vmap(struct vm_struct *area,
 		goto err_free;
 	o_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL);
 	for (i = 0; i < count; i++) {
-		if (pages[i]->is_kmsan_untracked_page)
+		if (!pages[i]->is_kmsan_tracked_page)
 			goto err_free;
 		s_pages[i] = pages[i]->shadow;
 		o_pages[i] = pages[i]->origin;
@@ -980,27 +977,46 @@ void kmsan_ioremap(u64 vaddr, unsigned long size)
 			break;
 		page->shadow = vmalloc_to_page_or_null(shadow);
 		page->origin = vmalloc_to_page_or_null(origin);
-		page->is_kmsan_untracked_page = false;
+		page->is_kmsan_tracked_page = true;
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_ioremap);
 
+// TODO(glider): this is similar to kmsan_clear_user_page().
+void kmsan_clear_page(void *page_addr)
+{
+	struct page *page;
 
-// Clear shadow and origin for a given |page| (actually a page_st
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+	BUG_ON(!IS_ALIGNED((u64)page_addr, PAGE_SIZE));
+	page = vmalloc_to_page_or_null(page_addr);
+	if (!page)
+		page = virt_to_page(page_addr);
+	if (!page || !page->is_kmsan_tracked_page)
+		return;
+	if (!page->shadow)
+		return;
+	__memset(page_address(page->shadow), 0, PAGE_SIZE);
+	BUG_ON(!page->origin);
+	__memset(page_address(page->origin), 0, PAGE_SIZE);
+}
+EXPORT_SYMBOL(kmsan_clear_page);
+
+// Clear shadow and origin for a given struct page.
 void kmsan_clear_user_page(struct page *page)
 {
 	unsigned long irq_flags;
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	if (page->is_kmsan_untracked_page)
+	if (!page->is_kmsan_tracked_page)
 		return;
 
 	ENTER_RUNTIME(irq_flags);
-	// TODO(glider): clear_page() is x86-specific.
-	clear_page(page_address(page->shadow));
-	clear_page(page_address(page->origin));
+	__memset(page_address(page->shadow), 0, PAGE_SIZE);
+	__memset(page_address(page->origin), 0, PAGE_SIZE);
 	LEAVE_RUNTIME(irq_flags);
 }
 
@@ -1013,6 +1029,18 @@ void maybe_report_stats(void)
 			atomic_read(&alloc_calls), atomic_read(&free_calls), atomic_read(&meta_alloc_calls), atomic_read(&meta_free_calls));
 	}
 }
+
+// TODO(glider): unite with kmsan_alloc_page()?
+void kmsan_prep_pages(struct page *page, unsigned int order)
+{
+	int i;
+
+	for (i = 0; i < 1 << order; i++) {
+		page->shadow = 0;
+		page->origin = 0;
+	}
+}
+EXPORT_SYMBOL(kmsan_prep_pages);
 
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 {
@@ -1075,7 +1103,7 @@ void kmsan_acpi_unmap(void *vaddr, unsigned long size)
 	if (size == -1)
 		size = get_vm_area_size(find_vm_area(vaddr));
 	order = order_from_size(size);
-	page->is_kmsan_untracked_page = true;
+	page->is_kmsan_tracked_page = false;
 	if (page->shadow)
 		__free_pages(page->shadow, order);
 	if (page->origin)
@@ -1094,21 +1122,21 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	atomic_add(pages, &free_calls);
 	maybe_report_stats();
 
-	if (page->is_kmsan_untracked_page) {
+	if (!page->is_kmsan_tracked_page) {
 		for (i = 0; i < pages; i++) {
 			cur_page = &page[i];
-			cur_page->is_kmsan_untracked_page = false;
+			cur_page->is_kmsan_tracked_page = true;
 			BUG_ON(cur_page->shadow);
 		}
 		return;
 	}
 
 	// TODO(glider): order?
-	// We want is_kmsan_untracked_page be false for all deallocated pages.
+	// We want is_kmsan_tracked_page be true for all deallocated pages.
 	if (!kmsan_ready) {
 		for (i = 0; i < pages; i++) {
 			cur_page = &page[i];
-			cur_page->is_kmsan_untracked_page = false;
+			cur_page->is_kmsan_tracked_page = true;
 			cur_page->shadow = NULL;
 			cur_page->origin = NULL;
 		}
@@ -1142,16 +1170,16 @@ void kmsan_free_page(struct page *page, unsigned int order)
 
 	// TODO(glider): this is racy.
 	for (i = 0; i < pages; i++) {
-		BUG_ON(!(page[i].shadow->is_kmsan_untracked_page));
+		BUG_ON((page[i].shadow->is_kmsan_tracked_page));
 		page[i].shadow = NULL;
-		BUG_ON(!page[i].origin->is_kmsan_untracked_page);
+		BUG_ON(page[i].origin->is_kmsan_tracked_page);
 		page[i].origin = NULL;
 	}
-	BUG_ON(!shadow->is_kmsan_untracked_page);
+	BUG_ON(shadow->is_kmsan_tracked_page);
 	__free_pages(shadow, order);
 	atomic_add(pages, &meta_free_calls);
 
-	BUG_ON(!origin->is_kmsan_untracked_page);
+	BUG_ON(origin->is_kmsan_tracked_page);
 	__free_pages(origin, order);
 	atomic_add(pages, &meta_free_calls);
 	LEAVE_RUNTIME(irq_flags);
@@ -1168,7 +1196,7 @@ void kmsan_split_page(struct page *page, unsigned int order)
 		return;
 	if (IN_RUNTIME())
 		return;
-	if (page->is_kmsan_untracked_page)
+	if (!page->is_kmsan_tracked_page)
 		return;
 
 	ENTER_RUNTIME(irq_flags);
@@ -1194,13 +1222,13 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 		return;
 	if (IN_RUNTIME())
 		return;
-	if (src->is_kmsan_untracked_page) {
-		dst->is_kmsan_untracked_page = true;
+	if (!src->is_kmsan_tracked_page) {
+		dst->is_kmsan_tracked_page = false;
 		dst->shadow = 0;
 		dst->origin = 0;
 		return;
 	}
-	if (dst->is_kmsan_untracked_page)
+	if (!dst->is_kmsan_tracked_page)
 		return;
 
 	ENTER_RUNTIME(irq_flags);
@@ -1572,7 +1600,7 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
 		return kmsan_dummy_shadow(is_store);
 	}
 next:
-	if (page->is_kmsan_untracked_page)
+	if (!page->is_kmsan_tracked_page)
 		return kmsan_dummy_shadow(is_store);
 	if (!page->shadow) {
 		oops_in_progress = 1;
@@ -1765,7 +1793,7 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
 		current->kmsan.is_reporting = false;
 	}
 next:
-	if (page->is_kmsan_untracked_page)
+	if (!page->is_kmsan_tracked_page)
 		return kmsan_dummy_origin(is_store);
 	if (!IS_ALIGNED(addr, 4)) {
 		pad = addr % 4;

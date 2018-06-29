@@ -204,7 +204,7 @@ struct page {
 #ifdef CONFIG_KMSAN
 	struct page *shadow;
 	struct page *origin;
-	bool is_kmsan_untracked_page;
+	bool is_kmsan_tracked_page;
 #endif
 
 #ifdef LAST_CPUPID_NOT_IN_PAGE_FLAGS
