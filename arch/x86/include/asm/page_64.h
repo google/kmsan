@@ -44,14 +44,20 @@ void clear_page_orig(void *page);
 void clear_page_rep(void *page);
 void clear_page_erms(void *page);
 
+// This is an assembly header, avoid including too much of kmsan.h
+void kmsan_clear_page(void *page_addr);
 static inline void clear_page(void *page)
 {
+	// alternative_call_2() changes |page|.
+	void *page_copy = page;
 	alternative_call_2(clear_page_orig,
 			   clear_page_rep, X86_FEATURE_REP_GOOD,
 			   clear_page_erms, X86_FEATURE_ERMS,
 			   "=D" (page),
 			   "0" (page)
 			   : "cc", "memory", "rax", "rcx");
+	// Clear KMSAN shadow for the pages that have it.
+	kmsan_clear_page(page_copy);
 }
 
 void copy_page(void *to, void *from);
