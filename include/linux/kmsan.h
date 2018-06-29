@@ -68,6 +68,7 @@ extern kmsan_context_state kmsan_dummy_state;
 void kmsan_thread_create(struct task_struct *task);
 void kmsan_task_exit(struct task_struct *task);
 void kmsan_alloc_shadow_for_region(void *start, size_t size);
+void kmsan_prep_pages(struct page *page, unsigned int order);
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
 void kmsan_acpi_map(void *vaddr, unsigned long size);
 void kmsan_acpi_unmap(void *vaddr, unsigned long size);
