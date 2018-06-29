@@ -82,20 +82,18 @@ void kmsan_initialize_shadow_for_text()
 	// Ideally, every single section should have consequent shadow memory range.
 	// Which is quite hard, because page_alloc can allocate at most 1 << (MAX_ORDER-1) pages.
 	for (addr = 0; addr < size; addr += (PAGE_SIZE << order)) {
-		page = virt_to_page((char*)addr + start);
+		page = virt_to_page((char*)addr + __START_KERNEL_map);
 		BUG_ON(kmsan_alloc_meta_for_pages(page, order, GFP_ATOMIC | __GFP_ZERO,
 							NUMA_NO_NODE));
-		///kmsan_alloc_meta_for_pages(upper, order, GFP_ATOMIC, NUMA_NO_NODE);
-	}
-	for (addr = 0; addr < 1 << order; addr += PAGE_SIZE) {
-		// TODO(glider): may we use a single page for both upper and lower mappings?
-		// Depends on whether ffff880000000000 and ffffffff80000000 are the same.
-		page = virt_to_page((char*)addr + start);
 		upper = virt_to_page((char*)addr + __PAGE_OFFSET);
-		upper->shadow = page->shadow;
-		upper->origin = page->origin;
+		BUG_ON(page != upper);
+		for (int np = 0; np < 1 << order; np++) {
+			// TODO(glider): may we use a single page for both upper and lower mappings?
+			// Depends on whether ffff880000000000 and ffffffff80000000 are the same.
+			upper[np].shadow = page[np].shadow;
+			upper[np].origin = page[np].origin;
+		}
 	}
-
 }
 
 void __initdata kmsan_initialize_shadow_range(u64 start, u64 end)
