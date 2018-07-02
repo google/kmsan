@@ -71,7 +71,9 @@
 /**/
 
 #define KMSAN_SYSCALL_EXIT			\
+	KMSAN_PUSH_REGS				\
 	call	kmsan_syscall_exit;		\
+	KMSAN_POP_REGS				\
 /**/
 
 #else /* ifdef CONFIG_KMSAN */
