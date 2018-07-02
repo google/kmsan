@@ -1851,22 +1851,18 @@ void kmsan_interrupt_enter(void)
 
 	// Turns out it's possible for in_interrupt to be >0 here.
 	BUG_ON(in_interrupt > 1);
-	BUG_ON(!preempt_count() & HARDIRQ_MASK);
+	// Can't check preempt_count() here, it may be zero.
 	this_cpu_write(kmsan_in_interrupt, in_interrupt + 1);
-	///kmsan_pr_err("kmsan_interrupt_enter()\n");
-	///dump_stack();
 
 }
 EXPORT_SYMBOL(kmsan_interrupt_enter);
 
 void kmsan_interrupt_exit(void)
 {
-	///kmsan_pr_err("kmsan_interrupt_exit()\n");
-	///dump_stack();
 	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
 
 	BUG_ON(!in_interrupt);
-	BUG_ON(!preempt_count() & HARDIRQ_MASK);
+	// Can't check preempt_count() here, it may be zero.
 	this_cpu_write(kmsan_in_interrupt, in_interrupt - 1);
 }
 EXPORT_SYMBOL(kmsan_interrupt_exit);
@@ -1876,7 +1872,7 @@ void kmsan_softirq_enter(void)
 	bool in_softirq = this_cpu_read(kmsan_in_softirq);
 
 	BUG_ON(in_softirq);
-	BUG_ON(!preempt_count() & SOFTIRQ_OFFSET);
+	// Can't check preempt_count() here, it may be zero.
 	this_cpu_write(kmsan_in_softirq, true);
 }
 EXPORT_SYMBOL(kmsan_softirq_enter);
@@ -1886,7 +1882,7 @@ void kmsan_softirq_exit(void)
 	bool in_softirq = this_cpu_read(kmsan_in_softirq);
 
 	BUG_ON(!in_softirq);
-	BUG_ON(!preempt_count() & SOFTIRQ_OFFSET);
+	// Can't check preempt_count() here, it may be zero.
 	this_cpu_write(kmsan_in_softirq, false);
 }
 EXPORT_SYMBOL(kmsan_softirq_exit);
@@ -1896,7 +1892,7 @@ void kmsan_nmi_enter(void)
 	bool in_nmi = this_cpu_read(kmsan_in_nmi);
 
 	BUG_ON(in_nmi);
-	BUG_ON(!preempt_count() & NMI_MASK);
+	BUG_ON(!(preempt_count() & NMI_MASK));
 	this_cpu_write(kmsan_in_nmi, true);
 }
 EXPORT_SYMBOL(kmsan_nmi_enter);
@@ -1906,7 +1902,7 @@ void kmsan_nmi_exit(void)
 	bool in_nmi = this_cpu_read(kmsan_in_nmi);
 
 	BUG_ON(!in_nmi);
-	BUG_ON(!preempt_count() & NMI_MASK);
+	BUG_ON(!(preempt_count() & NMI_MASK));
 	this_cpu_write(kmsan_in_nmi, false);
 
 }
