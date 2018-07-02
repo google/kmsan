@@ -1027,7 +1027,9 @@ ENTRY(do_softirq_own_stack)
 	pushq	%rbp
 	mov	%rsp, %rbp
 	ENTER_IRQ_STACK regs=0 old_rsp=%r11
+	KMSAN_SOFTIRQ_ENTER
 	call	__do_softirq
+	KMSAN_SOFTIRQ_EXIT
 	LEAVE_IRQ_STACK regs=0
 	leaveq
 	ret
@@ -1406,9 +1408,11 @@ ENTRY(nmi)
 	 * done with the NMI stack.
 	 */
 
+	KMSAN_NMI_ENTER
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
 	call	do_nmi
+	KMSAN_NMI_EXIT
 
 	/*
 	 * Return back to user mode.  We must *not* do the normal exit
@@ -1618,10 +1622,12 @@ end_repeat_nmi:
 	call	paranoid_entry
 	UNWIND_HINT_REGS
 
+	KMSAN_NMI_ENTER
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
 	call	do_nmi
+	KMSAN_NMI_EXIT
 
 	/* Always restore stashed CR3 value (see paranoid_entry) */
 	RESTORE_CR3 scratch_reg=%r15 save_reg=%r14
