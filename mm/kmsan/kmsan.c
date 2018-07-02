@@ -74,8 +74,11 @@ static inline char *kmsan_dummy_origin(bool is_store)
 }
 kmsan_context_state kmsan_dummy_state;
 
+// 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
 DEFINE_PER_CPU(kmsan_context_state[3], kmsan_percpu_cstate);
 DEFINE_PER_CPU(int, kmsan_in_interrupt);
+DEFINE_PER_CPU(bool, kmsan_in_softirq);
+DEFINE_PER_CPU(bool, kmsan_in_nmi);
 
 extern int oops_in_progress;
 
@@ -91,15 +94,16 @@ kmsan_context_state *task_kmsan_context_state()
 {
 	int cpu = smp_processor_id();
 	int int_index = this_cpu_read(kmsan_in_interrupt);
-
-	if (int_index) {
-		if (in_nmi())
-			return &per_cpu(kmsan_percpu_cstate[2], cpu);
-		else
-			return &per_cpu(kmsan_percpu_cstate[int_index - 1], cpu);
-	} else {
+	bool in_softirq = this_cpu_read(kmsan_in_softirq);
+	bool in_nmi = this_cpu_read(kmsan_in_nmi);
+	if (in_nmi)
+		return &per_cpu(kmsan_percpu_cstate[2], cpu);
+	else if (in_softirq)
+		return &per_cpu(kmsan_percpu_cstate[1], cpu);
+	else if (int_index)
+		return &per_cpu(kmsan_percpu_cstate[0], cpu);
+	else
 		return &current->kmsan.cstate;
-	}
 }
 
 void kmsan_enter_runtime(unsigned long *flags)
@@ -1828,16 +1832,63 @@ void kmsan_interrupt_enter(void)
 
 	// Turns out it's possible for in_interrupt to be >0 here.
 	BUG_ON(in_interrupt > 1);
+	BUG_ON(!preempt_count() & HARDIRQ_MASK);
 	this_cpu_write(kmsan_in_interrupt, in_interrupt + 1);
+	///kmsan_pr_err("kmsan_interrupt_enter()\n");
+	///dump_stack();
 
 }
 EXPORT_SYMBOL(kmsan_interrupt_enter);
 
 void kmsan_interrupt_exit(void)
 {
+	///kmsan_pr_err("kmsan_interrupt_exit()\n");
+	///dump_stack();
 	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
 
 	BUG_ON(!in_interrupt);
+	BUG_ON(!preempt_count() & HARDIRQ_MASK);
 	this_cpu_write(kmsan_in_interrupt, in_interrupt - 1);
 }
 EXPORT_SYMBOL(kmsan_interrupt_exit);
+
+void kmsan_softirq_enter(void)
+{
+	bool in_softirq = this_cpu_read(kmsan_in_softirq);
+
+	BUG_ON(in_softirq);
+	BUG_ON(!preempt_count() & SOFTIRQ_OFFSET);
+	this_cpu_write(kmsan_in_softirq, true);
+}
+EXPORT_SYMBOL(kmsan_softirq_enter);
+
+void kmsan_softirq_exit(void)
+{
+	bool in_softirq = this_cpu_read(kmsan_in_softirq);
+
+	BUG_ON(!in_softirq);
+	BUG_ON(!preempt_count() & SOFTIRQ_OFFSET);
+	this_cpu_write(kmsan_in_softirq, false);
+}
+EXPORT_SYMBOL(kmsan_softirq_exit);
+
+void kmsan_nmi_enter(void)
+{
+	bool in_nmi = this_cpu_read(kmsan_in_nmi);
+
+	BUG_ON(in_nmi);
+	BUG_ON(!preempt_count() & NMI_MASK);
+	this_cpu_write(kmsan_in_nmi, true);
+}
+EXPORT_SYMBOL(kmsan_nmi_enter);
+
+void kmsan_nmi_exit(void)
+{
+	bool in_nmi = this_cpu_read(kmsan_in_nmi);
+
+	BUG_ON(!in_nmi);
+	BUG_ON(!preempt_count() & NMI_MASK);
+	this_cpu_write(kmsan_in_nmi, false);
+
+}
+EXPORT_SYMBOL(kmsan_nmi_exit);
