@@ -83,7 +83,8 @@ void kmsan_initialize_shadow_for_text()
 	// Which is quite hard, because page_alloc can allocate at most 1 << (MAX_ORDER-1) pages.
 	for (addr = 0; addr < size; addr += (PAGE_SIZE << order)) {
 		page = virt_to_page((char*)addr + __START_KERNEL_map);
-		BUG_ON(kmsan_alloc_meta_for_pages(page, order, GFP_ATOMIC | __GFP_ZERO,
+		// TODO(glider): use proper actual_size?
+		BUG_ON(kmsan_alloc_meta_for_pages(page, order, /*actual_size*/0, GFP_ATOMIC | __GFP_ZERO,
 							NUMA_NO_NODE));
 		upper = virt_to_page((char*)addr + __PAGE_OFFSET);
 		BUG_ON(page != upper);
@@ -105,7 +106,7 @@ void __initdata kmsan_initialize_shadow_range(u64 start, u64 end)
 		if (page->shadow) {
 			///kmsan_pr_err("skipping %px (page %px)\n", addr, page);
 		} else {
-			BUG_ON(kmsan_alloc_meta_for_pages(page, 0, GFP_ATOMIC | __GFP_ZERO,
+			BUG_ON(kmsan_alloc_meta_for_pages(page, /*order*/0, /*actual_size*/0, GFP_ATOMIC | __GFP_ZERO,
 							NUMA_NO_NODE));
 		}
 	}
