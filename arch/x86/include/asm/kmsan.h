@@ -40,6 +40,30 @@
 	KMSAN_POP_REGS				\
 /**/
 
+#define KMSAN_SOFTIRQ_ENTER			\
+	KMSAN_PUSH_REGS				\
+	call	kmsan_softirq_enter;		\
+	KMSAN_POP_REGS				\
+/**/
+
+#define KMSAN_SOFTIRQ_EXIT			\
+	KMSAN_PUSH_REGS				\
+	call	kmsan_softirq_exit;		\
+	KMSAN_POP_REGS				\
+/**/
+
+#define KMSAN_NMI_ENTER				\
+	KMSAN_PUSH_REGS				\
+	call	kmsan_nmi_enter;		\
+	KMSAN_POP_REGS				\
+/**/
+
+#define KMSAN_NMI_EXIT				\
+	KMSAN_PUSH_REGS				\
+	call	kmsan_nmi_exit;			\
+	KMSAN_POP_REGS				\
+/**/
+
 #define KMSAN_SYSCALL_ENTER			\
 	KMSAN_PUSH_REGS				\
 	call	kmsan_syscall_enter;		\
