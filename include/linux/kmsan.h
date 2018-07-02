@@ -100,6 +100,9 @@ void kmsan_vmap(struct vm_struct *area,
 		struct page **pages, unsigned int count, unsigned long flags,
 		pgprot_t prot, void *caller);
 void kmsan_vunmap(const void *addr);
+
+void kmsan_softirq_enter(void);
+void kmsan_softirq_exit(void);
 #else
 
 static inline void kmsan_thread_create(struct task_struct *task) {}
@@ -145,6 +148,9 @@ void kmsan_vmap(struct vm_struct *area,
 		struct page **pages, unsigned int count, unsigned long flags,
 		pgprot_t prot, void *caller) {}
 void kmsan_vunmap(const void *addr) {}
+
+void kmsan_softirq_enter(void) {}
+void kmsan_softirq_exit(void) {}
 
 #endif
 
