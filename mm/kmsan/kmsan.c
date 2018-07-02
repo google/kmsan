@@ -766,13 +766,19 @@ void kmsan_thread_create(struct task_struct *task)
 EXPORT_SYMBOL(kmsan_thread_create);
 
 int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
-		     		gfp_t flags, int node)
+		     		unsigned int actual_size, gfp_t flags, int node)
 {
 	struct page *shadow, *origin;
 	int pages = 1 << order;
 	int i;
 	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
 	depot_stack_handle_t handle;
+
+	// If |actual_size| is non-zero, we allocate |1 << order| metadata pages
+	// for |actual_size| bytes of memory. We can't set shadow for more than
+	// |actual_size >> PAGE_SHIFT| pages in that case.
+	if (actual_size)
+		pages = ALIGN(actual_size, PAGE_SIZE) >> PAGE_SHIFT;
 
 	if (flags & __GFP_NO_KMSAN_SHADOW) {
 		for (i = 0; i < pages; i++) {
@@ -1058,7 +1064,7 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 		return 0;
 	maybe_report_stats();
 	ENTER_RUNTIME(irq_flags);
-	ret = kmsan_alloc_meta_for_pages(page, order, flags, -1);
+	ret = kmsan_alloc_meta_for_pages(page, order, /*actual_size*/0, flags, -1);
 	LEAVE_RUNTIME(irq_flags);
 	return ret;
 }
@@ -1069,10 +1075,12 @@ static int order_from_size(unsigned long size)
 
 	if (!pages)
 		pages = 1;
-	if (hweight64(pages) > 1) {
-		kmsan_pr_err("pages: %d, size: %d\n", pages, size);
-	}
-	return ffs(pages) - 1;
+	if (hweight64(pages) > 1)
+		// TODO(glider): round up to the next power of 2.
+		// This is a bit excessive.
+		return fls(pages);
+	else
+		return fls(pages) - 1;
 }
 
 void kmsan_acpi_map(void *vaddr, unsigned long size)
@@ -1092,7 +1100,8 @@ void kmsan_acpi_map(void *vaddr, unsigned long size)
 	order = order_from_size(size);
 	// Although the address is virtual, corresponding ACPI physical pages are
 	// consequent.
-	kmsan_alloc_meta_for_pages(page, order, GFP_KERNEL | __GFP_ZERO, -1);
+	kmsan_pr_err("order=%d, size: %d\n", order, size);
+	kmsan_alloc_meta_for_pages(page, order, size, GFP_KERNEL | __GFP_ZERO, -1);
 	LEAVE_RUNTIME(irq_flags);
 }
 
@@ -1101,6 +1110,7 @@ void kmsan_acpi_unmap(void *vaddr, unsigned long size)
 	struct page *page;
 	unsigned long irq_flags;
 	int order;
+	int pages, i;
 	return;
 
 	if (IN_RUNTIME())
@@ -1115,6 +1125,12 @@ void kmsan_acpi_unmap(void *vaddr, unsigned long size)
 		__free_pages(page->shadow, order);
 	if (page->origin)
 		__free_pages(page->origin, order);
+	pages = ALIGN(size, PAGE_SIZE) >> PAGE_SHIFT;
+	for (i = 0; i < pages; i++) {
+		page[i].shadow = NULL;
+		page[i].origin = NULL;
+		page[i].is_kmsan_tracked_page = false;
+	}
 	LEAVE_RUNTIME(irq_flags);
 }
 
