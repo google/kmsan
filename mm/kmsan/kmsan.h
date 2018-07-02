@@ -103,7 +103,7 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 			int off_first, int off_last, bool deep, int reason);
 
 int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
-				gfp_t flags, int node);
+				unsigned int actual_size, gfp_t flags, int node);
 
 void __msan_init(void);
 
