@@ -1892,3 +1892,15 @@ void kmsan_nmi_exit(void)
 
 }
 EXPORT_SYMBOL(kmsan_nmi_exit);
+
+void kmsan_syscall_enter(void)
+{
+
+}
+EXPORT_SYMBOL(kmsan_syscall_enter);
+
+void kmsan_syscall_exit(void)
+{
+
+}
+EXPORT_SYMBOL(kmsan_syscall_exit);
