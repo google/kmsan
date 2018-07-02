@@ -169,12 +169,14 @@ GLOBAL(entry_SYSCALL_64_after_hwframe)
 	PUSH_AND_CLEAR_REGS rax=$-ENOSYS
 
 	TRACE_IRQS_OFF
+	KMSAN_SYSCALL_ENTER
 
 	/* IRQs are off. */
 	movq	%rax, %rdi
 	movq	%rsp, %rsi
 	call	do_syscall_64		/* returns with IRQs disabled */
 
+	KMSAN_SYSCALL_EXIT
 	TRACE_IRQS_IRETQ		/* we're about to change IF */
 
 	/*
