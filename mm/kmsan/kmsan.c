@@ -1065,11 +1065,14 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 
 static int order_from_size(unsigned long size)
 {
-	size >>= PAGE_SHIFT;
-	if (!size)
-		size = 1;
-	BUG_ON(hweight64(size) > 1);
-	return ffs(size) - 1;
+	unsigned long pages = size >> PAGE_SHIFT;
+
+	if (!pages)
+		pages = 1;
+	if (hweight64(pages) > 1) {
+		kmsan_pr_err("pages: %d, size: %d\n", pages, size);
+	}
+	return ffs(pages) - 1;
 }
 
 void kmsan_acpi_map(void *vaddr, unsigned long size)
