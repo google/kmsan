@@ -129,7 +129,6 @@ static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
  * Helpers for first chunk memory allocation
  */
 void kmsan_record_future_shadow_range(u64 start, u64 end);
-void kmsan_init_percpu_metadata(void *mem, void *shadow, void *origin, size_t size);
 static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size, size_t align)
 {
 	void *ret = pcpu_alloc_bootmem(cpu, size, align);
