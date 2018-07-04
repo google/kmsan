@@ -113,6 +113,12 @@ struct cpu_entry_area {
 
 DECLARE_PER_CPU(struct cpu_entry_area *, cpu_entry_area);
 DECLARE_PER_CPU(struct cea_exception_stacks *, cea_exception_stacks);
+#ifdef CONFIG_KMSAN
+// The kernel can't get us struct pages corresponding to cpu_entry_area.
+// Thus use contiguous char arrays to store shadow and origin.
+DECLARE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
+DECLARE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
+#endif
 
 extern void setup_cpu_entry_areas(void);
 extern void cea_set_pte(void *cea_vaddr, phys_addr_t pa, pgprot_t flags);
