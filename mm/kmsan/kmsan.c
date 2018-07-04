@@ -82,7 +82,10 @@ kmsan_context_state kmsan_dummy_state;
 //  - interrupt stack - when handling external hardware interrupts and softirqs
 //  - 
 // 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
-DEFINE_PER_CPU(kmsan_context_state[3], kmsan_percpu_cstate);
+// Because interrupts may nest, trying to use a new context for every new interrupt.
+#define KMSAN_NESTED_CONTEXT_MAX (8)
+DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);
+DEFINE_PER_CPU(int, kmsan_context_level);  // 0 for task context, |i>0| for kmsan_context_state[i-1]
 DEFINE_PER_CPU(int, kmsan_in_interrupt);
 DEFINE_PER_CPU(bool, kmsan_in_softirq);
 DEFINE_PER_CPU(bool, kmsan_in_nmi);
@@ -100,6 +103,7 @@ bool is_logbuf_locked(void)
 EXPORT_SYMBOL(is_logbuf_locked);
 
 // TODO(glider): inline?
+#if 0
 kmsan_context_state *task_kmsan_context_state()
 {
 	int cpu = smp_processor_id();
@@ -115,6 +119,17 @@ kmsan_context_state *task_kmsan_context_state()
 	else
 		return &current->kmsan.cstate;
 }
+#else
+kmsan_context_state *task_kmsan_context_state(void)
+{
+	int cpu = smp_processor_id();
+	int level = this_cpu_read(kmsan_context_level);
+	if (!level)
+		return &current->kmsan.cstate;
+	else
+		return &per_cpu(kmsan_percpu_cstate[level - 1], cpu);
+}
+#endif
 
 void kmsan_enter_runtime(unsigned long *flags)
 {
@@ -1905,15 +1920,29 @@ next:
 	return ret;
 }
 
+static inline void kmsan_context_enter(void)
+{
+	int level = this_cpu_read(kmsan_context_level) + 1;
+	BUG_ON(level > KMSAN_NESTED_CONTEXT_MAX);
+	this_cpu_write(kmsan_context_level, level);
+}
+
+static inline void kmsan_context_exit(void)
+{
+	int level = this_cpu_read(kmsan_context_level) - 1;
+	BUG_ON(level < 0);
+	this_cpu_write(kmsan_context_level, level);
+}
+
 void kmsan_interrupt_enter(void)
 {
 	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
 
 	// Turns out it's possible for in_interrupt to be >0 here.
+	kmsan_context_enter();
 	BUG_ON(in_interrupt > 1);
 	// Can't check preempt_count() here, it may be zero.
 	this_cpu_write(kmsan_in_interrupt, in_interrupt + 1);
-
 }
 EXPORT_SYMBOL(kmsan_interrupt_enter);
 
@@ -1922,6 +1951,7 @@ void kmsan_interrupt_exit(void)
 	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
 
 	BUG_ON(!in_interrupt);
+	kmsan_context_exit();
 	// Can't check preempt_count() here, it may be zero.
 	this_cpu_write(kmsan_in_interrupt, in_interrupt - 1);
 }
@@ -1932,6 +1962,7 @@ void kmsan_softirq_enter(void)
 	bool in_softirq = this_cpu_read(kmsan_in_softirq);
 
 	BUG_ON(in_softirq);
+	kmsan_context_enter();
 	// Can't check preempt_count() here, it may be zero.
 	this_cpu_write(kmsan_in_softirq, true);
 }
@@ -1942,6 +1973,7 @@ void kmsan_softirq_exit(void)
 	bool in_softirq = this_cpu_read(kmsan_in_softirq);
 
 	BUG_ON(!in_softirq);
+	kmsan_context_exit();
 	// Can't check preempt_count() here, it may be zero.
 	this_cpu_write(kmsan_in_softirq, false);
 }
@@ -1953,6 +1985,7 @@ void kmsan_nmi_enter(void)
 
 	BUG_ON(in_nmi);
 	BUG_ON(!(preempt_count() & NMI_MASK));
+	kmsan_context_enter();
 	this_cpu_write(kmsan_in_nmi, true);
 }
 EXPORT_SYMBOL(kmsan_nmi_enter);
@@ -1963,6 +1996,7 @@ void kmsan_nmi_exit(void)
 
 	BUG_ON(!in_nmi);
 	BUG_ON(!(preempt_count() & NMI_MASK));
+	kmsan_context_exit();
 	this_cpu_write(kmsan_in_nmi, false);
 
 }
@@ -1982,11 +2016,11 @@ EXPORT_SYMBOL(kmsan_syscall_exit);
 
 void kmsan_ist_enter(u64 shift_ist)
 {
-
+	kmsan_context_enter();
 }
 EXPORT_SYMBOL(kmsan_ist_enter);
 
 void kmsan_ist_exit(u64 shift_ist)
 {
-
+	kmsan_context_exit();
 }
