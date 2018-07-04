@@ -944,11 +944,13 @@ ENTRY(\sym)
 
 	.if \shift_ist != -1
 	subq	$\ist_offset, CPU_TSS_IST(\shift_ist)
+	KMSAN_IST_ENTER(\shift_ist)
 	.endif
 
 	call	\do_sym
 
 	.if \shift_ist != -1
+	KMSAN_IST_EXIT(\shift_ist)
 	addq	$\ist_offset, CPU_TSS_IST(\shift_ist)
 	.endif
 
