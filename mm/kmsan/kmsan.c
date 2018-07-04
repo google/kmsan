@@ -26,6 +26,7 @@
 #include <linux/stacktrace.h>
 #include <linux/types.h>
 #include <asm/page.h>	// for clear_page()
+#include <asm/cpu_entry_area.h>  // for CPU_ENTRY_AREA_MAP_SIZE
 #include <linux/vmalloc.h>
 
 #include <linux/mmzone.h>
@@ -74,11 +75,20 @@ static inline char *kmsan_dummy_origin(bool is_store)
 }
 kmsan_context_state kmsan_dummy_state;
 
+
+// According to Documentation/x86/kernel-stacks, kernel code can run on the
+// following stacks:
+//  - regular task stack - when executing the task code
+//  - interrupt stack - when handling external hardware interrupts and softirqs
+//  - 
 // 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
 DEFINE_PER_CPU(kmsan_context_state[3], kmsan_percpu_cstate);
 DEFINE_PER_CPU(int, kmsan_in_interrupt);
 DEFINE_PER_CPU(bool, kmsan_in_softirq);
 DEFINE_PER_CPU(bool, kmsan_in_nmi);
+
+DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
+DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
 
 extern int oops_in_progress;
 
@@ -354,7 +364,7 @@ void kmsan_kfree_large(const void *ptr)
 	if (IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
-	page = virt_to_page(ptr);
+	page = virt_to_page_or_null(ptr);
 	kmsan_internal_poison_shadow((void*)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL);
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -765,7 +775,8 @@ void kmsan_thread_create(struct task_struct *task)
 }
 EXPORT_SYMBOL(kmsan_thread_create);
 
-int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
+
+int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 		     		unsigned int actual_size, gfp_t flags, int node)
 {
 	struct page *shadow, *origin;
@@ -832,10 +843,6 @@ int kmsan_alloc_meta_for_pages(struct page *page, unsigned int order,
 
 	for (i = 0; i < pages; i++) {
 		// TODO(glider): sometimes page[i].shadow is initialized. Let's skip the check for now.
-		if (page[i].shadow && 0) {
-			kmsan_pr_err("page[%d].shadow=%px (should be 0), page[%d] points to %px\n", i, page[i].shadow, i, page_address(&page[i]));
-			BUG();
-		}
 		///if (page[i].shadow) continue;
 		page[i].shadow = &shadow[i];
 		page[i].shadow->is_kmsan_tracked_page = false;
@@ -952,6 +959,72 @@ static bool is_module_addr(const void *vaddr)
 	return true;
 }
 
+// Taken from arch/x86/mm/physaddr.h
+// TODO(glider): do we need it?
+static inline int my_phys_addr_valid(resource_size_t addr)
+{
+#ifdef CONFIG_PHYS_ADDR_T_64BIT
+	return !(addr >> boot_cpu_data.x86_phys_bits);
+#else
+	return 1;
+#endif
+}
+
+// Taken from arch/x86/mm/physaddr.c
+// TODO(glider): do we need it?
+static bool my_virt_addr_valid(unsigned long x)
+{
+	unsigned long y = x - __START_KERNEL_map;
+
+	/* use the carry flag to determine if x was < __START_KERNEL_map */
+	if (unlikely(x > y)) {
+		x = y + phys_base;
+
+		if (y >= KERNEL_IMAGE_SIZE)
+			return false;
+	} else {
+		x = y + (__START_KERNEL_map - PAGE_OFFSET);
+
+		/* carry flag will be set if starting x was >= PAGE_OFFSET */
+		if ((x > y) || !my_phys_addr_valid(x))
+			return false;
+	}
+
+	return pfn_valid(x >> PAGE_SHIFT);
+}
+
+bool is_cpu_entry_area_addr(u64 addr)
+{
+	return (addr >= CPU_ENTRY_AREA_BASE) && (addr < CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE);
+}
+
+void *get_cea_shadow_or_null(const void *addr)
+{
+	int cpu = smp_processor_id();
+	int off;
+
+	if (!is_cpu_entry_area_addr(addr))
+		return NULL;
+	off = (char*)addr - (char*)get_cpu_entry_area(cpu);
+	if ((off < 0) || (off >= CPU_ENTRY_AREA_SIZE))
+		return NULL;
+	return &per_cpu(cpu_entry_area_shadow[off], cpu);
+}
+
+void *get_cea_origin_or_null(const void *addr)
+{
+	int cpu = smp_processor_id();
+	int off;
+	char *cea;
+
+	if (!is_cpu_entry_area_addr(addr))
+		return NULL;
+	off = (char*)addr - (char*)get_cpu_entry_area(cpu);
+	if ((off < 0) || (off >= CPU_ENTRY_AREA_SIZE))
+		return NULL;
+	return &per_cpu(cpu_entry_area_origin[off], cpu);
+}
+
 struct page *vmalloc_to_page_or_null(const void *vaddr)
 {
 	struct page *page;
@@ -964,6 +1037,15 @@ struct page *vmalloc_to_page_or_null(const void *vaddr)
 	else
 		return NULL;
 }
+
+struct page *virt_to_page_or_null(const void *vaddr)
+{
+	if (my_virt_addr_valid(vaddr))
+		return virt_to_page(vaddr);
+	else
+		return NULL;
+}
+
 
 void kmsan_ioremap(u64 vaddr, unsigned long size)
 {
@@ -1003,7 +1085,7 @@ void kmsan_clear_page(void *page_addr)
 	BUG_ON(!IS_ALIGNED((u64)page_addr, PAGE_SIZE));
 	page = vmalloc_to_page_or_null(page_addr);
 	if (!page)
-		page = virt_to_page(page_addr);
+		page = virt_to_page_or_null(page_addr);
 	if (!page || !page->is_kmsan_tracked_page)
 		return;
 	if (!page->shadow)
@@ -1064,7 +1146,7 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 		return 0;
 	maybe_report_stats();
 	ENTER_RUNTIME(irq_flags);
-	ret = kmsan_alloc_meta_for_pages(page, order, /*actual_size*/0, flags, -1);
+	ret = kmsan_internal_alloc_meta_for_pages(page, order, /*actual_size*/0, flags, -1);
 	LEAVE_RUNTIME(irq_flags);
 	return ret;
 }
@@ -1101,7 +1183,7 @@ void kmsan_acpi_map(void *vaddr, unsigned long size)
 	// Although the address is virtual, corresponding ACPI physical pages are
 	// consequent.
 	kmsan_pr_err("order=%d, size: %d\n", order, size);
-	kmsan_alloc_meta_for_pages(page, order, size, GFP_KERNEL | __GFP_ZERO, -1);
+	kmsan_internal_alloc_meta_for_pages(page, order, size, GFP_KERNEL | __GFP_ZERO, -1);
 	LEAVE_RUNTIME(irq_flags);
 }
 
@@ -1404,40 +1486,6 @@ void kmsan_vprintk_func(const char *fmt, va_list args)
 	}
 }
 
-// Taken from arch/x86/mm/physaddr.h
-// TODO(glider): do we need it?
-static inline int my_phys_addr_valid(resource_size_t addr)
-{
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-	return !(addr >> boot_cpu_data.x86_phys_bits);
-#else
-	return 1;
-#endif
-}
-
-// Taken from arch/x86/mm/physaddr.c
-// TODO(glider): do we need it?
-static bool my_virt_addr_valid(unsigned long x)
-{
-	unsigned long y = x - __START_KERNEL_map;
-
-	/* use the carry flag to determine if x was < __START_KERNEL_map */
-	if (unlikely(x > y)) {
-		x = y + phys_base;
-
-		if (y >= KERNEL_IMAGE_SIZE)
-			return false;
-	} else {
-		x = y + (__START_KERNEL_map - PAGE_OFFSET);
-
-		/* carry flag will be set if starting x was >= PAGE_OFFSET */
-		if ((x > y) || !my_phys_addr_valid(x))
-			return false;
-	}
-
-	return pfn_valid(x >> PAGE_SHIFT);
-}
-
 
 inline
 void kmsan_internal_check_memory(const void *addr, size_t size, int reason)
@@ -1560,8 +1608,8 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 	for (cur_addr = addr; next_addr < addr + size;
 			cur_addr = next_addr, next_addr += PAGE_SIZE) {
 		next_addr = cur_addr + PAGE_SIZE;
-		cur_page = virt_to_page(cur_addr);
-		next_page = virt_to_page(next_addr);
+		cur_page = virt_to_page_or_null(cur_addr);
+		next_page = virt_to_page_or_null(next_addr);
 		cur_meta_addr = page_address(is_origin ? cur_page->shadow : cur_page->origin);
 		next_meta_addr = page_address(is_origin ? next_page->shadow : next_page->origin);
 		if (cur_meta_addr != next_meta_addr - PAGE_SIZE) {
@@ -1605,6 +1653,9 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
 		page = vmalloc_to_page_or_null(addr);
 		if (page)
 			goto next;
+		ret = get_cea_shadow_or_null(addr);
+		if (ret)
+			return ret;
 		if (size > PAGE_SIZE) {
 			WARN(1, "kmsan_get_shadow_address(%px, %d, %d)\n", addr, size, checked);
 			if (checked)
@@ -1615,7 +1666,7 @@ void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_stor
 		return kmsan_dummy_shadow(is_store);
 	}
 
- 	page = virt_to_page(addr);
+ 	page = virt_to_page_or_null(addr);
 	if (!page) {
 		current->kmsan.is_reporting = true;
 		kmsan_pr_err("No page for address %px\n", addr);
@@ -1671,6 +1722,9 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 		page = vmalloc_to_page_or_null(addr);
 		if (page)
 			goto next;
+		ret = get_cea_shadow_or_null(addr);
+		if (ret)
+			return ret;
 		if (size > PAGE_SIZE) {
 			WARN(1, "kmsan_get_shadow_address_noruntime(%px, %d, %d)\n", addr, size, checked);
 			if (checked)
@@ -1682,7 +1736,7 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 	}
 
 
-	page = virt_to_page(addr);
+	page = virt_to_page_or_null(addr);
 	if (!page) {
 		return NULL;
 		ENTER_RUNTIME(irq_flags);
@@ -1740,6 +1794,9 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 		page = vmalloc_to_page_or_null(addr);
 		if (page)
 			goto next;
+		ret = get_cea_origin_or_null(addr);
+		if (ret)
+			return ret;
 		if (size > PAGE_SIZE) {
 			WARN(1, "kmsan_get_origin_address_noruntime(%px, %d, %d)\n", addr, size, checked);
 			if (checked)
@@ -1750,7 +1807,7 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 		return NULL;
 	}
 
-	page = virt_to_page(addr);
+	page = virt_to_page_or_null(addr);
 	if (!page) {
 		return NULL;
 		ENTER_RUNTIME(irq_flags);
@@ -1798,6 +1855,9 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
 		page = vmalloc_to_page_or_null(addr);
 		if (page)
 			goto next;
+		ret = get_cea_origin_or_null(addr);
+		if (ret)
+			return ret;
 		if (size > PAGE_SIZE) {
 			WARN(1, "kmsan_get_origin_address(%px, %d, %d)\n", addr, size, checked);
 			if (checked)
@@ -1809,7 +1869,7 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
 	}
 
 
- 	page = virt_to_page(addr);
+ 	page = virt_to_page_or_null(addr);
 	if (!page) {
 		current->kmsan.is_reporting = true;
 		kmsan_pr_err("No page for address %px\n", addr);
@@ -1919,3 +1979,14 @@ void kmsan_syscall_exit(void)
 
 }
 EXPORT_SYMBOL(kmsan_syscall_exit);
+
+void kmsan_ist_enter(u64 shift_ist)
+{
+
+}
+EXPORT_SYMBOL(kmsan_ist_enter);
+
+void kmsan_ist_exit(u64 shift_ist)
+{
+
+}

@@ -150,7 +150,12 @@ void *kmsan_get_shadow_address_inline(u64 addr, size_t size, bool checked)
 			LEAVE_RUNTIME(irq_flags);
 			goto next;
 		}
-		WARN(1, "kmsan_get_shadow_address_inline(%px, %d, %d)\n", addr, size, checked);
+		ret = get_cea_shadow_or_null(addr);
+		if (ret) {
+			LEAVE_RUNTIME(irq_flags);
+			return ret;
+		}
+		kmsan_pr_err("kmsan_get_shadow_address_inline(%px, %d, %d)\n", addr, size, checked);
 		if (checked) {
 			BUG();
 		} else {
@@ -212,6 +217,11 @@ void *kmsan_get_origin_address_inline(u64 addr, size_t size)
 			LEAVE_RUNTIME(irq_flags);
 			goto next;
 		}
+		ret = get_cea_origin_or_null(addr);
+		if (ret) {
+			LEAVE_RUNTIME(irq_flags);
+			return ret;
+		}
 		WARN(1, "kmsan_get_origin_address_inline(%px, %d)\n", addr, size);
 		BUG();
 	}
@@ -264,6 +274,12 @@ shadow_origin_ptr_t msan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 		if (page) {
 			LEAVE_RUNTIME(irq_flags);
 			goto next;
+		}
+		shadow = get_cea_shadow_or_null(addr);
+		origin = get_cea_origin_or_null(addr);
+		if (shadow && origin) {
+			ret.s = shadow;
+			ret.o = origin;
 		}
 		LEAVE_RUNTIME(irq_flags);
 		return ret;
