@@ -572,6 +572,7 @@ inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
 void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 pc)
 {
 	depot_stack_handle_t handle;
+	BUG_ON(size > PAGE_SIZE * 4);
 	unsigned long entries[4];
 	struct stack_trace trace = {
 		.nr_entries = 4,
