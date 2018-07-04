@@ -11,6 +11,7 @@
  */
 
 #include "kmsan.h"
+#include <asm/cpu_entry_area.h>
 #include <linux/mm.h>
 
 #define NUM_FUTURE_RANGES 128
@@ -19,7 +20,8 @@ struct start_end_pair {
 };
 
 __initdata struct start_end_pair start_end_pairs[NUM_FUTURE_RANGES];
-__initdata int future_index = 0;
+__initdata int future_index = 0;	// next available index
+__initdata int future_processed = 0;
 
 /* For percpu allocations it may be too early to allocate memory using
  * alloc_pages().
@@ -32,17 +34,19 @@ void kmsan_init_percpu_metadata(void *mem, void *shadow, void *origin, size_t si
 
 	BUG_ON(size % PAGE_SIZE);
 	for (i = 0; i < size / PAGE_SIZE; i++, addr += PAGE_SIZE) {
-		page = virt_to_page((void*)addr);
-		page->shadow = virt_to_page(shadow) + i;
-		page->origin = virt_to_page(origin) + i;
+		page = virt_to_page_or_null((void*)addr);
+		page->shadow = virt_to_page_or_null(shadow) + i;
+		page->origin = virt_to_page_or_null(origin) + i;
 	}
 }
 
 // TODO(glider): this is thread-unsafe.
 void __initdata kmsan_record_future_shadow_range(u64 start, u64 end)
 {
-	if (future_index == NUM_FUTURE_RANGES)
+	if (future_index == NUM_FUTURE_RANGES) {
+		BUG();
 		return;
+	}
 	start_end_pairs[future_index].start = start;
 	start_end_pairs[future_index].end = end;
 	future_index++;
@@ -82,11 +86,11 @@ void kmsan_initialize_shadow_for_text()
 	// Ideally, every single section should have consequent shadow memory range.
 	// Which is quite hard, because page_alloc can allocate at most 1 << (MAX_ORDER-1) pages.
 	for (addr = 0; addr < size; addr += (PAGE_SIZE << order)) {
-		page = virt_to_page((char*)addr + __START_KERNEL_map);
+		page = virt_to_page_or_null((char*)addr + __START_KERNEL_map);
 		// TODO(glider): use proper actual_size?
-		BUG_ON(kmsan_alloc_meta_for_pages(page, order, /*actual_size*/0, GFP_ATOMIC | __GFP_ZERO,
+		BUG_ON(kmsan_internal_alloc_meta_for_pages(page, order, /*actual_size*/0, GFP_ATOMIC | __GFP_ZERO,
 							NUMA_NO_NODE));
-		upper = virt_to_page((char*)addr + __PAGE_OFFSET);
+		upper = virt_to_page_or_null((char*)addr + __PAGE_OFFSET);
 		BUG_ON(page != upper);
 		for (int np = 0; np < 1 << order; np++) {
 			// TODO(glider): may we use a single page for both upper and lower mappings?
@@ -102,14 +106,28 @@ void __initdata kmsan_initialize_shadow_range(u64 start, u64 end)
 	u64 addr;
 	struct page *page;
 	for (addr = start; addr < end; addr += PAGE_SIZE) {
-		page = virt_to_page((void*)addr);
+		page = virt_to_page_or_null((void*)addr);
+		if (!virt_addr_valid(addr)) {
+			pr_err("addr: %px, page: %px\n", addr, page);
+			BUG();
+		}
 		if (page->shadow) {
 			///kmsan_pr_err("skipping %px (page %px)\n", addr, page);
 		} else {
-			BUG_ON(kmsan_alloc_meta_for_pages(page, /*order*/0, /*actual_size*/0, GFP_ATOMIC | __GFP_ZERO,
+			BUG_ON(kmsan_internal_alloc_meta_for_pages(page, /*order*/0, /*actual_size*/0, GFP_ATOMIC | __GFP_ZERO,
 							NUMA_NO_NODE));
 		}
 	}
+}
+
+void __initdata process_future_ranges(void)
+{
+	int i;
+
+	for (i = future_processed; i < future_index; i++) {
+		kmsan_initialize_shadow_range(start_end_pairs[i].start, start_end_pairs[i].end);
+	}
+	future_processed = future_index;
 }
 
 void __initdata kmsan_initialize_shadow(void)
@@ -126,12 +144,13 @@ void __initdata kmsan_initialize_shadow(void)
 	////kmsan_record_future_shadow_range((u64)NODE_DATA(0), (u64)NODE_DATA(0) + roundup(sizeof(struct pglist_data), PAGE_SIZE) * num_online_cpus());
 	//
 	// TODO(glider): alloc_node_data() in arch/x86/mm/numa.c uses sizeof(pg_data_t).
-	for_each_online_node(nid)
+	for_each_online_node(nid) {
 		kmsan_record_future_shadow_range((u64)NODE_DATA(nid), (u64)NODE_DATA(nid) + nd_size);
-	///kmsan_pr_err("future_index: %d\n", future_index);
-	for (i = 0; i < future_index; i++) {
-		kmsan_initialize_shadow_range(start_end_pairs[i].start, start_end_pairs[i].end);
+		///pr_err("nid: %d, stack: %px, size: %d\n", nid, get_cpu_entry_area(nid)->exception_stacks, CPU_ENTRY_AREA_SIZE);
+		///kmsan_record_future_shadow_range((u64)get_cpu_entry_area(nid)->exception_stacks, CPU_ENTRY_AREA_SIZE);
 	}
+	///kmsan_pr_err("future_index: %d\n", future_index);
+	process_future_ranges();
 	// TODO(glider): should be init_task.
 	do_kmsan_thread_create(current);
 	kmsan_pr_err("Starting KernelMemorySanitizer\n");
