@@ -76,10 +76,29 @@
 	KMSAN_POP_REGS				\
 /**/
 
+#define KMSAN_IST_ENTER(shift_ist)		\
+	KMSAN_PUSH_REGS				\
+	movq	$shift_ist, %rdi;		\
+	call	kmsan_ist_enter;		\
+	KMSAN_POP_REGS				\
+/**/
+
+#define KMSAN_IST_EXIT(shift_ist)		\
+	KMSAN_PUSH_REGS				\
+	movq	$shift_ist, %rdi;		\
+	call	kmsan_ist_exit;			\
+	KMSAN_POP_REGS				\
+/**/
+
+
 #else /* ifdef CONFIG_KMSAN */
 
 #define KMSAN_INTERRUPT_ENTER
 #define KMSAN_INTERRUPT_EXIT
+#define KMSAN_SOFTIRQ_ENTER
+#define KMSAN_SOFTIRQ_EXIT
+#define KMSAN_NMI_ENTER
+#define KMSAN_NMI_EXIT
 #define KMSAN_SYSCALL_ENTER
 #define KMSAN_SYSCALL_EXIT
 
