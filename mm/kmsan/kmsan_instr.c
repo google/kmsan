@@ -346,18 +346,7 @@ EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size);
 
 DECLARE_METADATA_PTR_GETTER(1);
 DECLARE_METADATA_PTR_GETTER(2);
-shadow_origin_ptr_t __msan_metadata_ptr_for_load_4(u64 addr)
-{
-	return msan_get_shadow_origin_ptr(addr, 4, /*store*/false);
-}
-EXPORT_SYMBOL(__msan_metadata_ptr_for_load_4);
-shadow_origin_ptr_t __msan_metadata_ptr_for_store_4(u64 addr)
-{
-	return msan_get_shadow_origin_ptr(addr, 4, /*store*/true);
-}
-EXPORT_SYMBOL(__msan_metadata_ptr_for_store_4);
-
-///DECLARE_METADATA_PTR_GETTER(4);
+DECLARE_METADATA_PTR_GETTER(4);
 DECLARE_METADATA_PTR_GETTER(8);
 
 
