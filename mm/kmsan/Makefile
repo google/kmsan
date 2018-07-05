@@ -1,4 +1,4 @@
-obj-y := kmsan.o kmsan_instr.o kmsan_init.o
+obj-y := kmsan.o kmsan_instr.o kmsan_init.o kmsan_entry.o
 
 KMSAN_SANITIZE := n
 KCOV_INSTRUMENT := n
