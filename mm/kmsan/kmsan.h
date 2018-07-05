@@ -9,11 +9,17 @@
 #include <linux/nmi.h>
 
 #define KMSAN_MAGIC_MASK 0xffffffffff00
-//#define KMSAN_ALLOCA_MAGIC_ORIGIN 0x4110c4071914
 #define KMSAN_ALLOCA_MAGIC_ORIGIN 0x4110c4071900
-///#define KMSAN_CHAIN_MAGIC_ORIGIN 0x419170cba14
 #define KMSAN_CHAIN_MAGIC_ORIGIN_FULL 0xd419170cba00
 #define KMSAN_CHAIN_MAGIC_ORIGIN_FRAME 0xed41917ddd00
+
+
+#define KMSAN_NESTED_CONTEXT_MAX (8)
+DECLARE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);  // [0] for dummy per-CPU context
+DECLARE_PER_CPU(int, kmsan_context_level);  // 0 for task context, |i>0| for kmsan_context_state[i]
+DECLARE_PER_CPU(int, kmsan_in_interrupt);
+DECLARE_PER_CPU(bool, kmsan_in_softirq);
+DECLARE_PER_CPU(bool, kmsan_in_nmi);
 
 extern spinlock_t report_lock;
 bool is_logbuf_locked(void);
@@ -105,9 +111,6 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 				unsigned int actual_size, gfp_t flags, int node);
 
-void __msan_init(void);
-
-int task_tls_index(void);
 kmsan_context_state *task_kmsan_context_state(void);
 
 bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin);
