@@ -148,6 +148,5 @@ void __init kmsan_initialize_shadow(void)
 	do_kmsan_thread_create(current);
 	kmsan_pr_err("Starting KernelMemorySanitizer\n");
 	kmsan_ready = true;
-	kmsan_threads_ready = true;
 }
 EXPORT_SYMBOL(kmsan_initialize_shadow);
