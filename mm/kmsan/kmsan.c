@@ -56,7 +56,6 @@ char dummy_shadow_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 char dummy_origin_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
 bool kmsan_ready = false;
-bool kmsan_threads_ready = false;
 #define KMSAN_STACK_DEPTH 64
 
 #define DUMMY_SHADOW_SIZE (PAGE_SIZE * 2)
@@ -171,7 +170,7 @@ void kmsan_task_exit(struct task_struct *task)
 {
 	unsigned long irq_flags;
 	kmsan_thread_state *state = &task->kmsan;
-	if (!kmsan_threads_ready)
+	if (!kmsan_ready)
 		return;
 	if (IN_RUNTIME())
 		return;
