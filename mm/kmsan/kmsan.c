@@ -76,7 +76,6 @@ static inline char *kmsan_dummy_origin(bool is_store)
 //  - 
 // 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
 // Because interrupts may nest, trying to use a new context for every new interrupt.
-#define KMSAN_NESTED_CONTEXT_MAX (8)
 DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);  // [0] for dummy per-CPU context
 DEFINE_PER_CPU(int, kmsan_context_level);  // 0 for task context, |i>0| for kmsan_context_state[i]
 DEFINE_PER_CPU(int, kmsan_in_interrupt);
@@ -182,13 +181,6 @@ void kmsan_task_exit(struct task_struct *task)
 
 	LEAVE_RUNTIME(irq_flags);
 }
-
-// TODO(glider): rename (underscores, kmsan).
-// Do we really need the constructors in the kernel? Probably no.
-void __msan_init(void) {
-	return;
-}
-EXPORT_SYMBOL(__msan_init);
 
 inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size)
 {
@@ -1884,109 +1876,4 @@ next:
 	ret = page_address(page->origin) + offset;
 	BUG_ON(!IS_ALIGNED((u64)ret, 4));
 	return ret;
-}
-
-static inline void kmsan_context_enter(void)
-{
-	int level = this_cpu_read(kmsan_context_level) + 1;
-	BUG_ON(level >= KMSAN_NESTED_CONTEXT_MAX);
-	this_cpu_write(kmsan_context_level, level);
-}
-
-static inline void kmsan_context_exit(void)
-{
-	int level = this_cpu_read(kmsan_context_level) - 1;
-	BUG_ON(level < 0);
-	this_cpu_write(kmsan_context_level, level);
-}
-
-void kmsan_interrupt_enter(void)
-{
-	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
-
-	// Turns out it's possible for in_interrupt to be >0 here.
-	kmsan_context_enter();
-	BUG_ON(in_interrupt > 1);
-	// Can't check preempt_count() here, it may be zero.
-	this_cpu_write(kmsan_in_interrupt, in_interrupt + 1);
-}
-EXPORT_SYMBOL(kmsan_interrupt_enter);
-
-void kmsan_interrupt_exit(void)
-{
-	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
-
-	BUG_ON(!in_interrupt);
-	kmsan_context_exit();
-	// Can't check preempt_count() here, it may be zero.
-	this_cpu_write(kmsan_in_interrupt, in_interrupt - 1);
-}
-EXPORT_SYMBOL(kmsan_interrupt_exit);
-
-void kmsan_softirq_enter(void)
-{
-	bool in_softirq = this_cpu_read(kmsan_in_softirq);
-
-	BUG_ON(in_softirq);
-	kmsan_context_enter();
-	// Can't check preempt_count() here, it may be zero.
-	this_cpu_write(kmsan_in_softirq, true);
-}
-EXPORT_SYMBOL(kmsan_softirq_enter);
-
-void kmsan_softirq_exit(void)
-{
-	bool in_softirq = this_cpu_read(kmsan_in_softirq);
-
-	BUG_ON(!in_softirq);
-	kmsan_context_exit();
-	// Can't check preempt_count() here, it may be zero.
-	this_cpu_write(kmsan_in_softirq, false);
-}
-EXPORT_SYMBOL(kmsan_softirq_exit);
-
-void kmsan_nmi_enter(void)
-{
-	bool in_nmi = this_cpu_read(kmsan_in_nmi);
-
-	BUG_ON(in_nmi);
-	BUG_ON(!(preempt_count() & NMI_MASK));
-	kmsan_context_enter();
-	this_cpu_write(kmsan_in_nmi, true);
-}
-EXPORT_SYMBOL(kmsan_nmi_enter);
-
-void kmsan_nmi_exit(void)
-{
-	bool in_nmi = this_cpu_read(kmsan_in_nmi);
-
-	BUG_ON(!in_nmi);
-	BUG_ON(!(preempt_count() & NMI_MASK));
-	kmsan_context_exit();
-	this_cpu_write(kmsan_in_nmi, false);
-
-}
-EXPORT_SYMBOL(kmsan_nmi_exit);
-
-void kmsan_syscall_enter(void)
-{
-
-}
-EXPORT_SYMBOL(kmsan_syscall_enter);
-
-void kmsan_syscall_exit(void)
-{
-
-}
-EXPORT_SYMBOL(kmsan_syscall_exit);
-
-void kmsan_ist_enter(u64 shift_ist)
-{
-	kmsan_context_enter();
-}
-EXPORT_SYMBOL(kmsan_ist_enter);
-
-void kmsan_ist_exit(u64 shift_ist)
-{
-	kmsan_context_exit();
 }
