@@ -14,13 +14,10 @@ struct vm_struct;
 
 extern bool kmsan_ready;
 extern bool kmsan_threads_ready;
+
 #ifdef CONFIG_KMSAN
-void __init kmsan_early_init(void);
-void __init kmsan_init(void);
 void __init kmsan_initialize_shadow(void);
 #else
-static inline void kmsan_early_init(void) { }
-static inline void kmsan_init(void) { }
 static inline void __init kmsan_initialize_shadow(void) { }
 #endif
 
