@@ -73,8 +73,6 @@ static inline char *kmsan_dummy_origin(bool is_store)
 {
 	return is_store ? dummy_origin_store_page : dummy_origin_load_page;
 }
-kmsan_context_state kmsan_dummy_state;
-
 
 // According to Documentation/x86/kernel-stacks, kernel code can run on the
 // following stacks:
@@ -84,8 +82,8 @@ kmsan_context_state kmsan_dummy_state;
 // 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
 // Because interrupts may nest, trying to use a new context for every new interrupt.
 #define KMSAN_NESTED_CONTEXT_MAX (8)
-DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);
-DEFINE_PER_CPU(int, kmsan_context_level);  // 0 for task context, |i>0| for kmsan_context_state[i-1]
+DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);  // [0] for dummy per-CPU context
+DEFINE_PER_CPU(int, kmsan_context_level);  // 0 for task context, |i>0| for kmsan_context_state[i]
 DEFINE_PER_CPU(int, kmsan_in_interrupt);
 DEFINE_PER_CPU(bool, kmsan_in_softirq);
 DEFINE_PER_CPU(bool, kmsan_in_nmi);
@@ -122,12 +120,25 @@ kmsan_context_state *task_kmsan_context_state()
 #else
 kmsan_context_state *task_kmsan_context_state(void)
 {
+	unsigned long irq_flags;
 	int cpu = smp_processor_id();
 	int level = this_cpu_read(kmsan_context_level);
+	kmsan_context_state *ret;
+
+	if (!kmsan_ready || IN_RUNTIME()) {
+		ret = &per_cpu(kmsan_percpu_cstate[0], cpu);
+		__memset(ret, 0, sizeof(kmsan_context_state));
+		return ret;
+	}
+
+	// TODO(glider): no need to enter/leave runtime?
+	ENTER_RUNTIME(irq_flags);
 	if (!level)
-		return &current->kmsan.cstate;
+		ret = &current->kmsan.cstate;
 	else
-		return &per_cpu(kmsan_percpu_cstate[level - 1], cpu);
+		ret = &per_cpu(kmsan_percpu_cstate[level], cpu);
+	LEAVE_RUNTIME(irq_flags);
+	return ret;
 }
 #endif
 
@@ -1923,7 +1934,7 @@ next:
 static inline void kmsan_context_enter(void)
 {
 	int level = this_cpu_read(kmsan_context_level) + 1;
-	BUG_ON(level > KMSAN_NESTED_CONTEXT_MAX);
+	BUG_ON(level >= KMSAN_NESTED_CONTEXT_MAX);
 	this_cpu_write(kmsan_context_level, level);
 }
 
