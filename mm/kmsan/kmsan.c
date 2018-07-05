@@ -153,9 +153,6 @@ EXPORT_SYMBOL(kmsan_leave_runtime);
 // TODO(glider): switch to page_ext. We need to update the kernel version for that.
 void inline do_kmsan_thread_create(struct task_struct *task)
 {
-	int i;
-	size_t order = 5;
-	struct page *page;
 	kmsan_thread_state *state = &task->kmsan;
 
 #ifdef CONFIG_VMAP_STACK
@@ -173,7 +170,6 @@ EXPORT_SYMBOL(do_kmsan_thread_create);
 void kmsan_task_exit(struct task_struct *task)
 {
 	unsigned long irq_flags;
-	int i;
 	kmsan_thread_state *state = &task->kmsan;
 	if (!kmsan_threads_ready)
 		return;
@@ -268,7 +264,6 @@ EXPORT_SYMBOL(kmsan_unpoison_shadow);
 void kmsan_poison_slab(struct page *page, gfp_t flags)
 {
 	unsigned long irq_flags;
-	depot_stack_handle_t handle;
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
@@ -337,7 +332,6 @@ inline depot_stack_handle_t kmsan_save_stack()
 void kmsan_kmalloc(struct kmem_cache *cache, const void *object, size_t size,
 		   gfp_t flags)
 {
-	depot_stack_handle_t handle;
 	unsigned long irq_flags;
 
 	if (unlikely(object == NULL))
@@ -379,7 +373,6 @@ bool kmsan_slab_free(struct kmem_cache *s, void *object)
 
 void kmsan_kfree_large(const void *ptr)
 {
-	depot_stack_handle_t handle;
 	struct page *page;
 	unsigned long irq_flags;
 
@@ -393,7 +386,6 @@ void kmsan_kfree_large(const void *ptr)
 
 void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 {
-	depot_stack_handle_t handle;
 	unsigned long irq_flags;
 
 	if (unlikely(ptr == NULL))
@@ -526,13 +518,9 @@ void kmsan_memcpy_origin_to_mem(u64 dst, u64 src, size_t n)
 // origins.
 void kmsan_memcpy_origins(u64 dst, u64 src, size_t n)
 {
-	void *origin_src, *origin_dst;
 	size_t off, rem_src, rem_dst, to_copy;
-	bool printed = false;
 	depot_stack_handle_t handle = 0, new_handle = 0;
 	depot_stack_handle_t *h_src, *h_dst;
-	u64 old_dst = dst, old_src = src;
-	size_t old_n = n;
 	u32 shadow;
 	u32 *shadow_ptr;
 
@@ -583,12 +571,12 @@ void kmsan_memcpy_origins(u64 dst, u64 src, size_t n)
 
 void kmsan_store_arg_shadow_origin(u64 dst_shadow, u64 dst_origin, u64 src, u64 size) {
 	u64 origin_size = ALIGN(size, 4);
-	BUG_ON(origin_size != size);  // TODO(glider)
 	depot_stack_handle_t origin;
 	u64 to_copy;
 	u32 *src_shadow;
 	depot_stack_handle_t *src_origin;
 
+	BUG_ON(origin_size != size);  // TODO(glider)
 	while (size) {
 		to_copy = min_num(4, size);
 		// The above memcpy has performed the check already.
@@ -689,7 +677,6 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 	int depth = 0;
 	u64 old_magic;
 	static int skipped = 0;
-	static int stat_origins = 0;
 
 	if (!kmsan_ready)
 		return 0;
@@ -1035,7 +1022,6 @@ void *get_cea_origin_or_null(const void *addr)
 {
 	int cpu = smp_processor_id();
 	int off;
-	char *cea;
 
 	if (!is_cpu_entry_area_addr(addr))
 		return NULL;
@@ -1147,7 +1133,6 @@ EXPORT_SYMBOL(kmsan_prep_pages);
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 {
 	unsigned long irq_flags;
-	int pages = 1 << order;  // TODO(glider): remove
 	int ret;
 
 	if (IN_RUNTIME())
@@ -1296,7 +1281,6 @@ EXPORT_SYMBOL(kmsan_free_page);
 void kmsan_split_page(struct page *page, unsigned int order)
 {
 	struct page *shadow, *origin;
-	int i;
 	unsigned long irq_flags;
 
 	if (!kmsan_ready)
@@ -1387,6 +1371,8 @@ inline void *return_address(int arg)
 			return __builtin_return_address(1);
 		case 2:
 			return __builtin_return_address(2);
+		default:
+			BUG();
 	}
 #else
 	unsigned long entries[1];
@@ -1477,7 +1463,6 @@ void kmsan_vprintk_func(const char *fmt, va_list args)
 {
 	const char *cur_p = fmt;
 	char cur;
-	size_t size = 8;  // TODO(glider)
 
 	while ((cur = *cur_p)) {
 		if (cur == '%') {
@@ -1642,10 +1627,9 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 inline
 void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_store)
 {
-	struct page *page, *cur_page, *next_page;
-	unsigned long offset, shadow_size;
+	struct page *page;
+	unsigned long offset;
 	void *ret;
-	depot_stack_handle_t origin;
 
 	// TODO(glider): refactor this code.
 	if (!my_virt_addr_valid(addr)) {
@@ -1709,13 +1693,10 @@ next:
 inline
 void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked)
 {
-	struct page *page, *next_page;
-	unsigned long offset, shadow_size;
+	struct page *page;
+	unsigned long offset;
 	void *ret;
-	depot_stack_handle_t origin;
 	unsigned long irq_flags;
-
-	u64 caller = __builtin_return_address(1);
 
 	// TODO(glider): refactor this code.
 	if (!my_virt_addr_valid(addr)) {
@@ -1774,10 +1755,9 @@ next:
 inline
 void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked)
 {
-	struct page *page, *next_page;
-	unsigned long offset, shadow_size;
+	struct page *page;
+	unsigned long offset;
 	void *ret;
-	depot_stack_handle_t origin;
 	unsigned long irq_flags;
 	size_t pad;
 
