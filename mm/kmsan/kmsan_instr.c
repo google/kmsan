@@ -74,7 +74,7 @@ void kmsan_wipe_params_shadow_origin()
 
 	if (!kmsan_ready)
 		return;
-	if (IN_RUNTIME() || !current->kmsan.enabled)
+	if (IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
 	__memset(cstate->param_origin_tls, 0, KMSAN_PARAM_SIZE);
@@ -657,25 +657,10 @@ EXPORT_SYMBOL(__msan_warning_32);
 // Per-task getters.
 kmsan_context_state *__msan_get_context_state(void)
 {
-	unsigned long irq_flags;
 	kmsan_context_state *ret;
 
-	if (!kmsan_threads_ready) {
-		__memset(&kmsan_dummy_state, 0, sizeof(kmsan_dummy_state));
-		return &kmsan_dummy_state;
-	}
-	__msan_init();
-	if (IN_RUNTIME() || !current->kmsan.enabled) {
-		// We're in runtime, don't care about the shadow.
-		return &kmsan_dummy_state;
-	}
-	// No need to enter/leave runtime?
-	ENTER_RUNTIME(irq_flags);
 	ret = task_kmsan_context_state();
-	LEAVE_RUNTIME(irq_flags);
-
 	BUG_ON(!ret);
-
 	return ret;
 }
 EXPORT_SYMBOL(__msan_get_context_state);
