@@ -41,10 +41,6 @@
  */
 unsigned long __force_order;
 
-// shadow page stats
-atomic_t alloc_calls = ATOMIC_INIT(0), free_calls = ATOMIC_INIT(0);
-atomic_t meta_alloc_calls = ATOMIC_INIT(0), meta_free_calls = ATOMIC_INIT(0);
-
 extern char __irqentry_text_end[];
 extern char __irqentry_text_start[];
 extern char __softirqentry_text_end[];
@@ -840,12 +836,10 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 		}
 		return -ENOMEM;
 	}
-	atomic_add(pages, &meta_alloc_calls);
 	if (!initialized)
 		__memset(page_address(shadow), -1, PAGE_SIZE * pages);
 
 	origin = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
-	atomic_add(pages, &meta_alloc_calls);
 	// Assume we've allocated the origin.
 	if (!origin) {
 		__free_pages(shadow, order);
@@ -1138,16 +1132,6 @@ void kmsan_clear_user_page(struct page *page)
 	LEAVE_RUNTIME(irq_flags);
 }
 
-void maybe_report_stats(void)
-{
-	return;
-	if (atomic_read(&alloc_calls) % 10000 == 0) {
-		kmsan_pr_err("alloc_calls: %d, free_calls: %d\n"
-			"meta_alloc_calls: %d, meta_free_calls: %d\n",
-			atomic_read(&alloc_calls), atomic_read(&free_calls), atomic_read(&meta_alloc_calls), atomic_read(&meta_free_calls));
-	}
-}
-
 // TODO(glider): unite with kmsan_alloc_page()?
 void kmsan_prep_pages(struct page *page, unsigned int order)
 {
@@ -1166,11 +1150,8 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	int pages = 1 << order;  // TODO(glider): remove
 	int ret;
 
-	atomic_add(pages, &alloc_calls);
-
 	if (IN_RUNTIME())
 		return 0;
-	maybe_report_stats();
 	ENTER_RUNTIME(irq_flags);
 	ret = kmsan_internal_alloc_meta_for_pages(page, order, /*actual_size*/0, flags, -1);
 	LEAVE_RUNTIME(irq_flags);
@@ -1250,9 +1231,6 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	int i;
 	unsigned long irq_flags;
 
-	atomic_add(pages, &free_calls);
-	maybe_report_stats();
-
 	if (!page->is_kmsan_tracked_page) {
 		for (i = 0; i < pages; i++) {
 			cur_page = &page[i];
@@ -1308,11 +1286,9 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	}
 	BUG_ON(shadow->is_kmsan_tracked_page);
 	__free_pages(shadow, order);
-	atomic_add(pages, &meta_free_calls);
 
 	BUG_ON(origin->is_kmsan_tracked_page);
 	__free_pages(origin, order);
-	atomic_add(pages, &meta_free_calls);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_free_page);
