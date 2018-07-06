@@ -136,6 +136,7 @@ kmsan_context_state *task_kmsan_context_state(void)
 }
 #endif
 
+/* For KMSAN_ENABLE and KMSAN_DISABLE */
 void kmsan_enter_runtime(unsigned long *flags)
 {
 	ENTER_RUNTIME(*flags);
@@ -165,33 +166,15 @@ void inline do_kmsan_thread_create(struct task_struct *task)
 }
 EXPORT_SYMBOL(do_kmsan_thread_create);
 
-void kmsan_task_exit(struct task_struct *task)
-{
-	unsigned long irq_flags;
-	kmsan_thread_state *state = &task->kmsan;
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
-		return;
-
-	ENTER_RUNTIME(irq_flags);
-	state->enabled = false;
-	state->allow_reporting = false;
-	state->is_reporting = false;
-
-	LEAVE_RUNTIME(irq_flags);
-}
-
 inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size)
 {
 	void *shadow_start;
 	u64 page_offset;
 	size_t to_fill;
 
-	if (!kmsan_ready) {
-		// No need to fill the dummy shadow.
+	if (!kmsan_ready)
+		/* No need to fill the dummy shadow. */
 		return;
-	}
 
 	while (size) {
 		page_offset = address % PAGE_SIZE;
@@ -252,20 +235,6 @@ void kmsan_unpoison_shadow(void *address, size_t size)
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);
 
-void kmsan_poison_slab(struct page *page, gfp_t flags)
-{
-	unsigned long irq_flags;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	if (flags & __GFP_ZERO) {
-		kmsan_internal_unpoison_shadow(page_address(page), PAGE_SIZE << compound_order(page));
-	} else {
-		kmsan_internal_poison_shadow(page_address(page), PAGE_SIZE << compound_order(page), flags);
-	}
-	LEAVE_RUNTIME(irq_flags);
-}
 
 // TODO(glider): move to lib/
 static inline int in_irqentry_text(unsigned long ptr)
@@ -320,78 +289,6 @@ inline depot_stack_handle_t kmsan_save_stack()
 	return kmsan_save_stack_with_flags(GFP_ATOMIC);
 }
 
-void kmsan_kmalloc(struct kmem_cache *cache, const void *object, size_t size,
-		   gfp_t flags)
-{
-	unsigned long irq_flags;
-
-	if (unlikely(object == NULL))
-		return;
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	if (flags & __GFP_ZERO) {
-		// TODO(glider) do we poison by default?
-		kmsan_internal_unpoison_shadow((void *)object, size);
-	} else {
-		if (!cache->ctor)
-			kmsan_internal_poison_shadow((void *)object, size, flags);
-	}
-	LEAVE_RUNTIME(irq_flags);
-}
-
-void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
-{
-	kmsan_kmalloc(s, object, s->object_size, flags);
-}
-
-void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
-			size_t size, void *object)
-{
-	kmsan_kmalloc(s, object, size, flags);
-}
-
-bool kmsan_slab_free(struct kmem_cache *s, void *object)
-{
-	/* RCU slabs could be legally used after free within the RCU period */
-	if (unlikely(s->flags & SLAB_TYPESAFE_BY_RCU))
-		return false;
-	kmsan_internal_poison_shadow((void *)object, s->object_size, GFP_KERNEL);
-	return true;
-}
-
-void kmsan_kfree_large(const void *ptr)
-{
-	struct page *page;
-	unsigned long irq_flags;
-
-	if (IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	page = virt_to_page_or_null(ptr);
-	kmsan_internal_poison_shadow((void*)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL);
-	LEAVE_RUNTIME(irq_flags);
-}
-
-void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
-{
-	unsigned long irq_flags;
-
-	if (unlikely(ptr == NULL))
-		return;
-	if (IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	if (flags & __GFP_ZERO) {
-		// TODO(glider) do we poison by default?
-		kmsan_internal_unpoison_shadow((void *)ptr, size);
-	} else {
-		kmsan_internal_poison_shadow((void *)ptr, size, flags);
-	}
-	LEAVE_RUNTIME(irq_flags);
-}
 
 void kmsan_memcpy_shadow(u64 dst, u64 src, size_t n)
 {
@@ -765,17 +662,6 @@ void enable_reporting()
 EXPORT_SYMBOL(enable_reporting);
 
 
-void kmsan_thread_create(struct task_struct *task)
-{
-	unsigned long irq_flags;
-
-	ENTER_RUNTIME(irq_flags);
-	do_kmsan_thread_create(task);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_thread_create);
-
-
 int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 		     		unsigned int actual_size, gfp_t flags, int node)
 {
@@ -858,95 +744,6 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 	return 0;
 }
 
-void kmsan_vmap(struct vm_struct *area,
-		struct page **pages, unsigned int count, unsigned long flags,
-		pgprot_t prot, void *caller)
-{
-	struct vm_struct *shadow, *origin;
-	struct page **s_pages, **o_pages;
-	unsigned long irq_flags, size;
-	int i;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-
-	size = (unsigned long)count << PAGE_SHIFT;
-	// It's important to call get_vm_area_caller() (which calls kmalloc())
-	// and kmalloc() outside the runtime.
-	// Calling kmalloc() may potentially allocate a new slab without
-	// corresponding shadow pages. Accesses to any subsequent allocations
-	// from that slab will crash the kernel.
-	shadow = get_vm_area_caller(size, flags, caller);
-	origin = get_vm_area_caller(size, flags, caller);
-	s_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL);
-	if (!s_pages)
-		goto err_free;
-	o_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL);
-	for (i = 0; i < count; i++) {
-		if (!pages[i]->is_kmsan_tracked_page)
-			goto err_free;
-		s_pages[i] = pages[i]->shadow;
-		o_pages[i] = pages[i]->origin;
-	}
-	// Don't enter the runtime when allocating memory with kmalloc().
-	ENTER_RUNTIME(irq_flags);
-	if (map_vm_area(shadow, prot, s_pages) || map_vm_area(origin, prot, o_pages))
-		goto err_free;
-	LEAVE_RUNTIME(irq_flags);
-
-	shadow->pages = s_pages;
-	shadow->nr_pages = count;
-	shadow->is_kmsan_tracked = false;
-	origin->pages = o_pages;
-	origin->nr_pages = count;
-	origin->is_kmsan_tracked = false;
-	area->shadow = shadow;
-	area->origin = origin;
-	area->is_kmsan_tracked = true;
-	return;
-err_free:
-	if (s_pages)
-		kfree(s_pages);
-	if (o_pages)
-		kfree(o_pages);
-	if (shadow)
-		vunmap(shadow->addr);
-	if (origin)
-		vunmap(origin->addr);
-}
-
-void kmsan_vunmap(const void *addr)
-{
-	unsigned long irq_flags;
-	struct vm_struct *vms, *shadow, *origin;
-	int i;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-
-	ENTER_RUNTIME(irq_flags);
-	vms = find_vm_area(addr);
-	if (!vms || !vms->is_kmsan_tracked)
-		goto leave;
-	shadow = vms->shadow;
-	origin = vms->origin;
-
-	vunmap(vms->shadow->addr);
-	vunmap(vms->origin->addr);
-
-	BUG_ON(shadow->nr_pages != origin->nr_pages);
-	for (i = 0; i < shadow->nr_pages; i++) {
-		BUG_ON(shadow->pages[i]);
-		__free_pages(shadow->pages[i], 0);
-		BUG_ON(origin->pages[i]);
-		__free_pages(origin->pages[i], 0);
-	}
-	kfree(shadow->pages);
-	kfree(origin->pages);
-leave:
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_vunmap);
 
 static bool is_module_addr(const void *vaddr)
 {
@@ -1044,33 +841,6 @@ struct page *virt_to_page_or_null(const void *vaddr)
 }
 
 
-void kmsan_ioremap(u64 vaddr, unsigned long size)
-{
-	unsigned long irq_flags;
-	char *shadow, *origin;
-	int npages = size / PAGE_SIZE, i;
-	struct page *page;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-
-	// TODO(glider): according to https://lwn.net/Articles/57800/, new vmalloc()
-	// uses should be discouraged. We add these because we want the shadow
-	// and origin ranges to be contiguous.
-	shadow = vmalloc(size);
-	origin = vmalloc(size);
-	ENTER_RUNTIME(irq_flags);
-	for (i = 0; i < npages; i++, vaddr += PAGE_SIZE, shadow += PAGE_SIZE, origin += PAGE_SIZE) {
-		page = vmalloc_to_page_or_null(vaddr);
-		if (!page)
-			break;
-		page->shadow = vmalloc_to_page_or_null(shadow);
-		page->origin = vmalloc_to_page_or_null(origin);
-		page->is_kmsan_tracked_page = true;
-	}
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_ioremap);
 
 // TODO(glider): this is similar to kmsan_clear_user_page().
 void kmsan_clear_page(void *page_addr)
@@ -1121,20 +891,7 @@ void kmsan_prep_pages(struct page *page, unsigned int order)
 }
 EXPORT_SYMBOL(kmsan_prep_pages);
 
-int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
-{
-	unsigned long irq_flags;
-	int ret;
-
-	if (IN_RUNTIME())
-		return 0;
-	ENTER_RUNTIME(irq_flags);
-	ret = kmsan_internal_alloc_meta_for_pages(page, order, /*actual_size*/0, flags, -1);
-	LEAVE_RUNTIME(irq_flags);
-	return ret;
-}
-
-static int order_from_size(unsigned long size)
+int order_from_size(unsigned long size)
 {
 	unsigned long pages = size >> PAGE_SHIFT;
 
@@ -1147,184 +904,6 @@ static int order_from_size(unsigned long size)
 	else
 		return fls(pages) - 1;
 }
-
-void kmsan_acpi_map(void *vaddr, unsigned long size)
-{
-	struct page *page;
-	unsigned long irq_flags;
-	int order;
-
-	if (IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	page = vmalloc_to_page_or_null(vaddr);
-	if (!page) {
-		LEAVE_RUNTIME(irq_flags);
-		return;
-	}
-	order = order_from_size(size);
-	// Although the address is virtual, corresponding ACPI physical pages are
-	// consequent.
-	kmsan_pr_err("order=%d, size: %d\n", order, size);
-	kmsan_internal_alloc_meta_for_pages(page, order, size, GFP_KERNEL | __GFP_ZERO, -1);
-	LEAVE_RUNTIME(irq_flags);
-}
-
-void kmsan_acpi_unmap(void *vaddr, unsigned long size)
-{
-	struct page *page;
-	unsigned long irq_flags;
-	int order;
-	int pages, i;
-	return;
-
-	if (IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	page = vmalloc_to_page_or_null(vaddr);
-	if (size == -1)
-		size = get_vm_area_size(find_vm_area(vaddr));
-	order = order_from_size(size);
-	page->is_kmsan_tracked_page = false;
-	if (page->shadow)
-		__free_pages(page->shadow, order);
-	if (page->origin)
-		__free_pages(page->origin, order);
-	pages = ALIGN(size, PAGE_SIZE) >> PAGE_SHIFT;
-	for (i = 0; i < pages; i++) {
-		page[i].shadow = NULL;
-		page[i].origin = NULL;
-		page[i].is_kmsan_tracked_page = false;
-	}
-	LEAVE_RUNTIME(irq_flags);
-}
-
-
-void kmsan_free_page(struct page *page, unsigned int order)
-{
-	struct page *shadow, *origin, *cur_page;
-	int pages = 1 << order;
-	int i;
-	unsigned long irq_flags;
-
-	if (!page->is_kmsan_tracked_page) {
-		for (i = 0; i < pages; i++) {
-			cur_page = &page[i];
-			cur_page->is_kmsan_tracked_page = true;
-			BUG_ON(cur_page->shadow);
-		}
-		return;
-	}
-
-	// TODO(glider): order?
-	// We want is_kmsan_tracked_page be true for all deallocated pages.
-	if (!kmsan_ready) {
-		for (i = 0; i < pages; i++) {
-			cur_page = &page[i];
-			cur_page->is_kmsan_tracked_page = true;
-			cur_page->shadow = NULL;
-			cur_page->origin = NULL;
-		}
-		return;
-	}
-
-	if (IN_RUNTIME()) {
-		// TODO(glider): looks legit. depot_save_stack() may call free_pages().
-		return;
-	}
-
-	ENTER_RUNTIME(irq_flags);
-	if (!page[0].shadow) {
-		/// TODO(glider): can we free a page without a shadow?
-		// Maybe if it was allocated at boot time?
-		// Anyway, all shadow pages must be NULL then.
-		for (i = 0; i < pages; i++)
-			if (page[i].shadow) {
-				current->kmsan.is_reporting = true;
-				for (i = 0; i < pages; i++)
-					kmsan_pr_err("page[%d].shadow=%px\n", i, page[i].shadow);
-				current->kmsan.is_reporting = false;
-				break;
-			}
-		LEAVE_RUNTIME(irq_flags);
-		return;
-	}
-
-	shadow = page[0].shadow;
-	origin = page[0].origin;
-
-	// TODO(glider): this is racy.
-	for (i = 0; i < pages; i++) {
-		BUG_ON((page[i].shadow->is_kmsan_tracked_page));
-		page[i].shadow = NULL;
-		BUG_ON(page[i].origin->is_kmsan_tracked_page);
-		page[i].origin = NULL;
-	}
-	BUG_ON(shadow->is_kmsan_tracked_page);
-	__free_pages(shadow, order);
-
-	BUG_ON(origin->is_kmsan_tracked_page);
-	__free_pages(origin, order);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_free_page);
-
-void kmsan_split_page(struct page *page, unsigned int order)
-{
-	struct page *shadow, *origin;
-	unsigned long irq_flags;
-
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
-		return;
-	if (!page->is_kmsan_tracked_page)
-		return;
-
-	ENTER_RUNTIME(irq_flags);
-	if (!page[0].shadow) {
-		BUG_ON(page[0].origin);
-		LEAVE_RUNTIME(irq_flags);
-		return;
-	}
-	shadow = page[0].shadow;
-	split_page(shadow, order);
-
-	origin = page[0].origin;
-	split_page(origin, order);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_split_page);
-
-void kmsan_copy_page_meta(struct page *dst, struct page *src)
-{
-	unsigned long irq_flags;
-
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
-		return;
-	if (!src->is_kmsan_tracked_page) {
-		dst->is_kmsan_tracked_page = false;
-		dst->shadow = 0;
-		dst->origin = 0;
-		return;
-	}
-	if (!dst->is_kmsan_tracked_page)
-		return;
-
-	ENTER_RUNTIME(irq_flags);
-	if (!src->shadow || !dst->shadow) {
-		kmsan_pr_err("Copying %px (page %px, shadow %px) to %px (page %px, shadow %px)\n",
-				page_address(src), src, src->shadow, page_address(dst), dst, dst->shadow);
-		BUG();
-	}
-	__memcpy(page_address(dst->shadow), page_address(src->shadow), PAGE_SIZE);
-	BUG_ON(!src->origin || !dst->origin);
-	__memcpy(page_address(dst->origin), page_address(src->origin), PAGE_SIZE);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_copy_page_meta);
 
 DEFINE_SPINLOCK(report_lock);
 #define MAX_REPORTS 12800
@@ -1450,20 +1029,6 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	current->kmsan.allow_reporting = true;
 }
 
-void kmsan_vprintk_func(const char *fmt, va_list args)
-{
-	const char *cur_p = fmt;
-	char cur;
-
-	while ((cur = *cur_p)) {
-		if (cur == '%') {
-			// TODO(glider): this is inaccurate.
-			// Okay, this is actually doing nothing.
-		}
-		cur_p++;
-	}
-}
-
 
 inline
 void kmsan_internal_check_memory(const void *addr, size_t size, int reason)
@@ -1516,66 +1081,6 @@ void kmsan_check_memory(const void *addr, size_t size)
 EXPORT_SYMBOL(kmsan_check_memory);
 
 
-// TODO(glider): at this point we've copied the memory already.
-// Might be better to check it before copying.
-void kmsan_copy_to_user(const void *to, const void *from,
-			size_t to_copy, size_t left)
-{
-	void *shadow;
-	// copy_to_user() may copy zero bytes. No need to check.
-	if (!to_copy)
-		return;
-	if (to < TASK_SIZE) {
-		// This is a user memory access, check it.
-		kmsan_internal_check_memory(from, to_copy - left, REASON_COPY_TO_USER);
-		return;
-	}
-	// Otherwise this is a kernel memory access. This happens when a compat
-	// syscall passes an argument allocated on the kernel stack to a real
-	// syscall.
-	// Don't check anything, just copy the shadow of the copied bytes.
-	shadow = kmsan_get_shadow_address(to, to_copy - left, /*checked*/true, /*is_store*/false);
-	if (shadow) {
-		kmsan_memcpy_shadow(to, from, to_copy - left);
-		kmsan_memcpy_origins(to, from, to_copy - left);
-	}
-}
-EXPORT_SYMBOL(kmsan_copy_to_user);
-
-
-// Handle csum_partial_copy_generic(), which may be copying memory from/to both
-// userspace and kernel.
-// Note the order of arguments: |src| before |dst| to match that of
-// csum_partial_copy_generic().
-void kmsan_csum_partial_copy_generic(const void *src, const void *dst,
-		size_t len)
-{
-	bool is_user_src = src < TASK_SIZE;
-	bool is_user_dst = dst < TASK_SIZE;
-
-	if (is_user_src) {
-		if (is_user_dst) {
-			// Copying memory from userspace to userspace.
-			// TODO(glider): do we need this case?
-			return;
-		} else {
-			// Copying memory from userspace to kernel - unpoison dst.
-			kmsan_unpoison_shadow((void*)dst, len);
-			return;
-		}
-	} else {
-		if (is_user_dst) {
-			// Copying memory from kernel to userspace - check src.
-			kmsan_internal_check_memory(src, len, REASON_COPY_TO_USER);
-			return;
-		} else {
-			// Copying memory from kernel to kernel - copy metadata.
-			kmsan_memcpy_shadow(dst, src, len);
-			kmsan_memcpy_origins(dst, src, len);
-		}
-	}
-}
-EXPORT_SYMBOL(kmsan_csum_partial_copy_generic);
 
 // TODO(glider): this check shouldn't be performed for origin pages, because
 // they're always accessed after the shadow pages.
