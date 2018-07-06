@@ -95,23 +95,6 @@ bool is_logbuf_locked(void)
 EXPORT_SYMBOL(is_logbuf_locked);
 
 // TODO(glider): inline?
-#if 0
-kmsan_context_state *task_kmsan_context_state()
-{
-	int cpu = smp_processor_id();
-	int int_index = this_cpu_read(kmsan_in_interrupt);
-	bool in_softirq = this_cpu_read(kmsan_in_softirq);
-	bool in_nmi = this_cpu_read(kmsan_in_nmi);
-	if (in_nmi)
-		return &per_cpu(kmsan_percpu_cstate[2], cpu);
-	else if (in_softirq)
-		return &per_cpu(kmsan_percpu_cstate[1], cpu);
-	else if (int_index)
-		return &per_cpu(kmsan_percpu_cstate[0], cpu);
-	else
-		return &current->kmsan.cstate;
-}
-#else
 kmsan_context_state *task_kmsan_context_state(void)
 {
 	unsigned long irq_flags;
@@ -134,7 +117,6 @@ kmsan_context_state *task_kmsan_context_state(void)
 	LEAVE_RUNTIME(irq_flags);
 	return ret;
 }
-#endif
 
 /* For KMSAN_ENABLE and KMSAN_DISABLE */
 void kmsan_enter_runtime(unsigned long *flags)
