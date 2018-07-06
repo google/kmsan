@@ -68,7 +68,6 @@ void kmsan_prep_pages(struct page *page, unsigned int order);
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
 void kmsan_acpi_map(void *vaddr, unsigned long size);
 void kmsan_acpi_unmap(void *vaddr, unsigned long size);
-void kmsan_ioremap(u64 vaddr, unsigned long size);
 void kmsan_free_page(struct page *page, unsigned int order);
 void kmsan_split_page(struct page *page, unsigned int order);
 void kmsan_clear_user_page(struct page *page);
@@ -111,7 +110,6 @@ static inline int kmsan_alloc_page(
 }
 static void kmsan_acpi_map(void *vaddr, unsigned long size) {}
 static void kmsan_acpi_unmap(void *vaddr, unsigned long size) {}
-static void kmsan_ioremap(u64 vaddr, unsigned long size) {}
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
 static inline void kmsan_split_page(struct page *page, unsigned int order) {}
 static inline void kmsan_clear_user_page(struct page *page) {}
