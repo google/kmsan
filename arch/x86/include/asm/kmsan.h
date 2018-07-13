@@ -101,6 +101,8 @@
 #define KMSAN_NMI_EXIT
 #define KMSAN_SYSCALL_ENTER
 #define KMSAN_SYSCALL_EXIT
+#define KMSAN_IST_ENTER(shift_ist)
+#define KMSAN_IST_EXIT(shift_ist)
 
 #endif /* ifdef CONFIG_KMSAN */
 #endif /* ifndef _ASM_X86_KMSAN_H */
