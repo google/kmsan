@@ -69,13 +69,6 @@ void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked);
 
 void kmsan_memcpy_shadow(u64 dst, u64 src, size_t n);
 void kmsan_memmove_shadow(u64 dst, u64 src, size_t n);
-void kmsan_memcpy_shadow_to_mem(u64 dst, u64 src, size_t n);
-void kmsan_memcpy_origin_to_mem(u64 dst, u64 src, size_t n);
-void kmsan_memcpy_mem_to_shadow(u64 dst, u64 src, size_t n);
-void kmsan_memcpy_mem_to_origin(u64 dst, u64 src, size_t n);
-
-
-void kmsan_store_arg_shadow_origin(u64 dst_shadow, u64 dst_origin, u64 src, u64 size);
 void kmsan_memcpy_origins(u64 dst, u64 src, size_t n);
 void kmsan_memmove_origins(u64 dst, u64 src, size_t n);
 
@@ -83,8 +76,6 @@ extern char dummy_shadow_load_page[PAGE_SIZE];
 extern char dummy_origin_load_page[PAGE_SIZE];
 extern char dummy_shadow_store_page[PAGE_SIZE];
 extern char dummy_origin_store_page[PAGE_SIZE];
-
-
 
 extern void *kmsan_dummy_retval_tls[];
 extern u64 kmsan_dummy_va_arg_overflow_size_tls;
