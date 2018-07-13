@@ -24,6 +24,7 @@
 #define PLUGIN_DEBUG
 #endif
 
+#include <linux/kmsan-checks.h>	// for kmsan_unpoison_shadow()
 #include <linux/slab.h>
 #include <linux/time.h>
 #include <linux/vmalloc.h>
@@ -68,6 +69,13 @@ static int snd_pcm_plugin_alloc(struct snd_pcm_plugin *plugin, snd_pcm_uframes_t
 	if (plugin->buf_frames < frames) {
 		vfree(plugin->buf);
 		plugin->buf = vmalloc(size);
+		/* Unpoison the freshly created buffer to prevent KMSAN from
+		 * reporting uninit errors.
+		 * TODO(glider): unpoison it only when it's actually
+		 * initialized.
+		 */
+		if (plugin->buf)
+			kmsan_unpoison_shadow(plugin->buf, size);
 		plugin->buf_frames = frames;
 	}
 	if (!plugin->buf) {
