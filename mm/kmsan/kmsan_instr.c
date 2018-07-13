@@ -626,6 +626,11 @@ void __msan_unpoison_alloca(void *address, u64 size)
 EXPORT_SYMBOL(__msan_unpoison_alloca);
 
 // Compiler API
+// TODO(glider): __msan_warning_32() is deprecated. The new name is
+// __msan_warning().
+void __msan_warning(u32 origin) __attribute__((alias("__msan_warning_32")));
+EXPORT_SYMBOL(__msan_warning);
+
 void __msan_warning_32(u32 origin)
 {
 	void *caller;
