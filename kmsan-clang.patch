@@ -1,6 +1,6 @@
 Index: include/clang/Basic/Features.def
 ===================================================================
---- include/clang/Basic/Features.def	(revision 334104)
+--- include/clang/Basic/Features.def	(revision 337579)
 +++ include/clang/Basic/Features.def	(working copy)
 @@ -72,7 +72,9 @@
  FEATURE(enumerator_attributes, true)
@@ -15,7 +15,7 @@ Index: include/clang/Basic/Features.def
  FEATURE(efficiency_sanitizer,
 Index: include/clang/Basic/Sanitizers.def
 ===================================================================
---- include/clang/Basic/Sanitizers.def	(revision 334104)
+--- include/clang/Basic/Sanitizers.def	(revision 337579)
 +++ include/clang/Basic/Sanitizers.def	(working copy)
 @@ -53,6 +53,9 @@
  // MemorySanitizer
@@ -29,7 +29,7 @@ Index: include/clang/Basic/Sanitizers.def
  
 Index: lib/CodeGen/BackendUtil.cpp
 ===================================================================
---- lib/CodeGen/BackendUtil.cpp	(revision 334104)
+--- lib/CodeGen/BackendUtil.cpp	(revision 337579)
 +++ lib/CodeGen/BackendUtil.cpp	(working copy)
 @@ -265,14 +265,14 @@
        /*CompileKernel*/ true, /*Recover*/ true));
@@ -78,7 +78,7 @@ Index: lib/CodeGen/BackendUtil.cpp
  static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
                                     legacy::PassManagerBase &PM) {
    PM.add(createThreadSanitizerPass());
-@@ -612,6 +634,13 @@
+@@ -613,6 +635,13 @@
                             addMemorySanitizerPass);
    }
  
@@ -94,7 +94,7 @@ Index: lib/CodeGen/BackendUtil.cpp
                             addThreadSanitizerPass);
 Index: lib/CodeGen/CGDeclCXX.cpp
 ===================================================================
---- lib/CodeGen/CGDeclCXX.cpp	(revision 334104)
+--- lib/CodeGen/CGDeclCXX.cpp	(revision 337579)
 +++ lib/CodeGen/CGDeclCXX.cpp	(working copy)
 @@ -347,6 +347,10 @@
        !isInSanitizerBlacklist(SanitizerKind::Memory, Fn, Loc))
@@ -109,9 +109,9 @@ Index: lib/CodeGen/CGDeclCXX.cpp
      Fn->addFnAttr(llvm::Attribute::SafeStack);
 Index: lib/CodeGen/CodeGenFunction.cpp
 ===================================================================
---- lib/CodeGen/CodeGenFunction.cpp	(revision 334104)
+--- lib/CodeGen/CodeGenFunction.cpp	(revision 337579)
 +++ lib/CodeGen/CodeGenFunction.cpp	(working copy)
-@@ -877,7 +877,7 @@
+@@ -866,7 +866,7 @@
      Fn->addFnAttr(llvm::Attribute::SanitizeHWAddress);
    if (SanOpts.has(SanitizerKind::Thread))
      Fn->addFnAttr(llvm::Attribute::SanitizeThread);
@@ -122,7 +122,7 @@ Index: lib/CodeGen/CodeGenFunction.cpp
      Fn->addFnAttr(llvm::Attribute::SafeStack);
 Index: lib/Driver/SanitizerArgs.cpp
 ===================================================================
---- lib/Driver/SanitizerArgs.cpp	(revision 334104)
+--- lib/Driver/SanitizerArgs.cpp	(revision 337579)
 +++ lib/Driver/SanitizerArgs.cpp	(working copy)
 @@ -34,7 +34,7 @@
    RequiresPIE = DataFlow | HWAddress | Scudo,
@@ -133,7 +133,7 @@ Index: lib/Driver/SanitizerArgs.cpp
                       DataFlow | Fuzzer | FuzzerNoLink,
    RecoverableByDefault = Undefined | Integer | Nullability,
    Unrecoverable = Unreachable | Return,
-@@ -354,8 +354,9 @@
+@@ -380,8 +380,9 @@
                                            SafeStack),
        std::make_pair(KernelHWAddress, Address | HWAddress | Leak | Thread |
                                            Memory | KernelAddress | Efficiency |
@@ -145,7 +145,7 @@ Index: lib/Driver/SanitizerArgs.cpp
    // Enable toolchain specific default sanitizers if not explicitly disabled.
    SanitizerMask Default = TC.getDefaultSanitizers() & ~AllRemove;
  
-@@ -835,6 +836,11 @@
+@@ -859,6 +860,11 @@
    if (MsanUseAfterDtor)
      CmdArgs.push_back("-fsanitize-memory-use-after-dtor");
  
@@ -159,9 +159,9 @@ Index: lib/Driver/SanitizerArgs.cpp
      CmdArgs.push_back("-mllvm");
 Index: lib/Driver/ToolChains/Linux.cpp
 ===================================================================
---- lib/Driver/ToolChains/Linux.cpp	(revision 334104)
+--- lib/Driver/ToolChains/Linux.cpp	(revision 337579)
 +++ lib/Driver/ToolChains/Linux.cpp	(working copy)
-@@ -920,6 +920,8 @@
+@@ -927,6 +927,8 @@
      Res |= SanitizerKind::Leak;
    if (IsX86_64 || IsMIPS64 || IsAArch64 || IsPowerPC64)
      Res |= SanitizerKind::Thread;
@@ -172,9 +172,9 @@ Index: lib/Driver/ToolChains/Linux.cpp
    if (IsX86 || IsX86_64)
 Index: lib/Frontend/CompilerInvocation.cpp
 ===================================================================
---- lib/Frontend/CompilerInvocation.cpp	(revision 334104)
+--- lib/Frontend/CompilerInvocation.cpp	(revision 337579)
 +++ lib/Frontend/CompilerInvocation.cpp	(working copy)
-@@ -3042,7 +3042,9 @@
+@@ -3063,7 +3063,9 @@
    // names.
    Res.getCodeGenOpts().DiscardValueNames &=
        !LangOpts.Sanitize.has(SanitizerKind::Address) &&
