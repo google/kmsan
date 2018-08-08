@@ -445,6 +445,7 @@ do {									\
 	__typeof__(*(ptr)) __pu_val;				\
 	__pu_val = x;						\
 	__uaccess_begin();					\
+	kmsan_check_memory(&(__pu_val), size);			\
 	__put_user_size(__pu_val, (ptr), (size), __pu_label);	\
 	__pu_err = 0;						\
 __pu_label:							\
