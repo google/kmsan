@@ -1,6 +1,6 @@
 Index: include/clang/Basic/Features.def
 ===================================================================
---- include/clang/Basic/Features.def	(revision 337579)
+--- include/clang/Basic/Features.def	(revision 339138)
 +++ include/clang/Basic/Features.def	(working copy)
 @@ -72,7 +72,9 @@
  FEATURE(enumerator_attributes, true)
@@ -15,7 +15,7 @@ Index: include/clang/Basic/Features.def
  FEATURE(efficiency_sanitizer,
 Index: include/clang/Basic/Sanitizers.def
 ===================================================================
---- include/clang/Basic/Sanitizers.def	(revision 337579)
+--- include/clang/Basic/Sanitizers.def	(revision 339138)
 +++ include/clang/Basic/Sanitizers.def	(working copy)
 @@ -53,6 +53,9 @@
  // MemorySanitizer
@@ -29,7 +29,7 @@ Index: include/clang/Basic/Sanitizers.def
  
 Index: lib/CodeGen/BackendUtil.cpp
 ===================================================================
---- lib/CodeGen/BackendUtil.cpp	(revision 337579)
+--- lib/CodeGen/BackendUtil.cpp	(revision 339138)
 +++ lib/CodeGen/BackendUtil.cpp	(working copy)
 @@ -265,14 +265,14 @@
        /*CompileKernel*/ true, /*Recover*/ true));
@@ -94,7 +94,7 @@ Index: lib/CodeGen/BackendUtil.cpp
                             addThreadSanitizerPass);
 Index: lib/CodeGen/CGDeclCXX.cpp
 ===================================================================
---- lib/CodeGen/CGDeclCXX.cpp	(revision 337579)
+--- lib/CodeGen/CGDeclCXX.cpp	(revision 339138)
 +++ lib/CodeGen/CGDeclCXX.cpp	(working copy)
 @@ -347,6 +347,10 @@
        !isInSanitizerBlacklist(SanitizerKind::Memory, Fn, Loc))
@@ -109,7 +109,7 @@ Index: lib/CodeGen/CGDeclCXX.cpp
      Fn->addFnAttr(llvm::Attribute::SafeStack);
 Index: lib/CodeGen/CodeGenFunction.cpp
 ===================================================================
---- lib/CodeGen/CodeGenFunction.cpp	(revision 337579)
+--- lib/CodeGen/CodeGenFunction.cpp	(revision 339138)
 +++ lib/CodeGen/CodeGenFunction.cpp	(working copy)
 @@ -866,7 +866,7 @@
      Fn->addFnAttr(llvm::Attribute::SanitizeHWAddress);
@@ -122,16 +122,16 @@ Index: lib/CodeGen/CodeGenFunction.cpp
      Fn->addFnAttr(llvm::Attribute::SafeStack);
 Index: lib/Driver/SanitizerArgs.cpp
 ===================================================================
---- lib/Driver/SanitizerArgs.cpp	(revision 337579)
+--- lib/Driver/SanitizerArgs.cpp	(revision 339138)
 +++ lib/Driver/SanitizerArgs.cpp	(working copy)
 @@ -34,7 +34,7 @@
    RequiresPIE = DataFlow | HWAddress | Scudo,
    NeedsUnwindTables = Address | HWAddress | Thread | Memory | DataFlow,
    SupportsCoverage = Address | HWAddress | KernelAddress | KernelHWAddress |
--                     Memory | Leak | Undefined | Integer | Nullability |
-+                     Memory | KernelMemory | Leak | Undefined | Integer | Nullability |
-                      DataFlow | Fuzzer | FuzzerNoLink,
-   RecoverableByDefault = Undefined | Integer | Nullability,
+-                     Memory | Leak | Undefined | Integer | ImplicitConversion |
++                     Memory | KernelMemory | Leak | Undefined | Integer | ImplicitConversion |
+                      Nullability | DataFlow | Fuzzer | FuzzerNoLink,
+   RecoverableByDefault = Undefined | Integer | ImplicitConversion | Nullability,
    Unrecoverable = Unreachable | Return,
 @@ -380,8 +380,9 @@
                                            SafeStack),
@@ -151,7 +151,7 @@ Index: lib/Driver/SanitizerArgs.cpp
  
 +  if (Sanitizers.has(KernelMemory)) {
 +    CmdArgs.push_back("-mllvm");
-+    CmdArgs.push_back("-msan-handle-asm-conservative=1");
++    CmdArgs.push_back("-msan-handle-asm-conservative=0");
 +  }
 +
    // FIXME: Pass these parameters as function attributes, not as -llvm flags.
@@ -159,9 +159,9 @@ Index: lib/Driver/SanitizerArgs.cpp
      CmdArgs.push_back("-mllvm");
 Index: lib/Driver/ToolChains/Linux.cpp
 ===================================================================
---- lib/Driver/ToolChains/Linux.cpp	(revision 337579)
+--- lib/Driver/ToolChains/Linux.cpp	(revision 339138)
 +++ lib/Driver/ToolChains/Linux.cpp	(working copy)
-@@ -927,6 +927,8 @@
+@@ -934,6 +934,8 @@
      Res |= SanitizerKind::Leak;
    if (IsX86_64 || IsMIPS64 || IsAArch64 || IsPowerPC64)
      Res |= SanitizerKind::Thread;
@@ -172,9 +172,9 @@ Index: lib/Driver/ToolChains/Linux.cpp
    if (IsX86 || IsX86_64)
 Index: lib/Frontend/CompilerInvocation.cpp
 ===================================================================
---- lib/Frontend/CompilerInvocation.cpp	(revision 337579)
+--- lib/Frontend/CompilerInvocation.cpp	(revision 339138)
 +++ lib/Frontend/CompilerInvocation.cpp	(working copy)
-@@ -3063,7 +3063,9 @@
+@@ -3064,7 +3064,9 @@
    // names.
    Res.getCodeGenOpts().DiscardValueNames &=
        !LangOpts.Sanitize.has(SanitizerKind::Address) &&
