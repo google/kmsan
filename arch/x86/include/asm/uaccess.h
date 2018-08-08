@@ -442,7 +442,9 @@ do {									\
 ({								\
 	__label__ __pu_label;					\
 	int __pu_err = -EFAULT;					\
+	__typeof__(*(ptr)) __pu_val = x;			\
 	__uaccess_begin();					\
+	kmsan_check_memory(&(__pu_val), size);			\
 	__put_user_size((x), (ptr), (size), __pu_label);	\
 	__pu_err = 0;						\
 __pu_label:							\
