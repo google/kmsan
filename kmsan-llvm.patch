@@ -1,6 +1,6 @@
 Index: include/llvm/Transforms/Instrumentation.h
 ===================================================================
---- include/llvm/Transforms/Instrumentation.h	(revision 337583)
+--- include/llvm/Transforms/Instrumentation.h	(revision 339138)
 +++ include/llvm/Transforms/Instrumentation.h	(working copy)
 @@ -131,7 +131,8 @@
  
@@ -14,7 +14,7 @@ Index: include/llvm/Transforms/Instrumentation.h
                                             bool Recover = false);
 Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
 ===================================================================
---- lib/Transforms/Instrumentation/MemorySanitizer.cpp	(revision 337583)
+--- lib/Transforms/Instrumentation/MemorySanitizer.cpp	(revision 339138)
 +++ lib/Transforms/Instrumentation/MemorySanitizer.cpp	(working copy)
 @@ -89,7 +89,35 @@
  /// implementation ignores the load aspect of CAS/RMW, always returning a clean
@@ -258,10 +258,10 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
                              /*hasSideEffects=*/true);
  
 -  createUserspaceApi(M);
-+  if (!CompileKernel) {
-+    createUserspaceApi(M);
-+  } else {
++  if (CompileKernel) {
 +    createKernelApi(M);
++  } else {
++    createUserspaceApi(M);
 +  }
    CallbacksInitialized = true;
  }
@@ -361,13 +361,13 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        Origin = (Value *)IRB.getInt32(0);
 -    if (MS.TrackOrigins) {
 -      IRB.CreateStore(Origin, MS.OriginTLS);
-+    if (!MS.CompileKernel) {
++    if (MS.CompileKernel) {
++      IRB.CreateCall(MS.WarningFn, Origin);
++    } else {
 +      if (MS.TrackOrigins) {
 +        IRB.CreateStore(Origin, MS.OriginTLS);
 +      }
 +      IRB.CreateCall(MS.WarningFn, {});
-+    } else {
-+      IRB.CreateCall(MS.WarningFn, Origin);
      }
 -    IRB.CreateCall(MS.WarningFn, {});
      IRB.CreateCall(MS.EmptyAsm, {});
@@ -412,7 +412,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
    /// Add MemorySanitizer instrumentation to a function.
    bool runOnFunction() {
      // In the presence of unreachable blocks, we may see Phi nodes with
-@@ -1139,12 +1324,43 @@
+@@ -1139,12 +1324,40 @@
      return std::make_pair(ShadowPtr, OriginPtr);
    }
  
@@ -420,11 +420,9 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
 +  getShadowOriginPtrKernel(Value *Addr, IRBuilder<> &IRB, Type *ShadowTy,
 +                           unsigned Alignment, bool isStore) {
 +    Value *ShadowOriginPtrs;
-+    int BitWidth = VectorOrPrimitiveTypeSizeInBits(ShadowTy);
-+    int Size = BitWidth / 8;
-+    // Make sure Size is at least 1 if the operand is i1.
-+    if (Size * 8 < BitWidth)
-+      Size++;
++    const DataLayout &DL = F.getParent()->getDataLayout();
++    int Size = DL.getTypeStoreSize(ShadowTy);
++
 +    Value *Getter = MS.getKmsanShadowOriginAccessFn(isStore, Size);
 +    Value *AddrCast =
 +        IRB.CreatePointerCast(Addr, PointerType::get(IRB.getInt8Ty(), 0));
@@ -450,15 +448,14 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
 -    std::pair<Value *, Value *> ret =
 -        getShadowOriginPtrUserspace(Addr, IRB, ShadowTy, Alignment);
 +    std::pair<Value *, Value *> ret;
-+    if (!MS.CompileKernel) {
-+      ret = getShadowOriginPtrUserspace(Addr, IRB, ShadowTy, Alignment);
-+    } else {
++    if (MS.CompileKernel)
 +      ret = getShadowOriginPtrKernel(Addr, IRB, ShadowTy, Alignment, isStore);
-+    }
++    else
++      ret = getShadowOriginPtrUserspace(Addr, IRB, ShadowTy, Alignment);
      return ret;
    }
  
-@@ -1163,7 +1379,8 @@
+@@ -1163,7 +1376,8 @@
    /// Compute the origin address for a given function argument.
    Value *getOriginPtrForArgument(Value *A, IRBuilder<> &IRB,
                                   int ArgOffset) {
@@ -468,13 +465,13 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
      Value *Base = IRB.CreatePointerCast(MS.ParamOriginTLS, MS.IntptrTy);
      if (ArgOffset)
        Base = IRB.CreateAdd(Base, ConstantInt::get(MS.IntptrTy, ArgOffset));
-@@ -1299,10 +1516,11 @@
+@@ -1299,10 +1513,11 @@
                Type *EltType = A->getType()->getPointerElementType();
                ArgAlign = DL.getABITypeAlignment(EltType);
              }
 -            Value *CpShadowPtr =
-+            Value *CpShadowPtr, *CpOriginPtr;
-+            std::tie(CpShadowPtr, CpOriginPtr) =
++            Value *CpShadowPtr;
++            std::tie(CpShadowPtr, /*OriginPtr*/ std::ignore) =
                  getShadowOriginPtr(V, EntryIRB, EntryIRB.getInt8Ty(), ArgAlign,
 -                                   /*isStore*/ true)
 -                    .first;
@@ -483,7 +480,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
              if (Overflow) {
                // ParamTLS overflow.
                EntryIRB.CreateMemSet(
-@@ -2921,12 +3139,14 @@
+@@ -2921,12 +3136,14 @@
          if (ArgOffset + Size > kParamTLSSize) break;
          unsigned ParamAlignment = CS.getParamAlignment(i);
          unsigned Alignment = std::min(ParamAlignment, kShadowTLSAlignment);
@@ -501,7 +498,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        } else {
          Size = DL.getTypeAllocSize(A->getType());
          if (ArgOffset + Size > kParamTLSSize) break;
-@@ -3033,22 +3253,27 @@
+@@ -3033,22 +3250,27 @@
                                    "_msphi_o"));
    }
  
@@ -541,7 +538,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
  
        Value *PoisonValue = IRB.getInt8(PoisonStack ? ClPoisonStackPattern : 0);
        IRB.CreateMemSet(ShadowBase, PoisonValue, Len, I.getAlignment());
-@@ -3055,18 +3280,7 @@
+@@ -3055,18 +3277,7 @@
      }
  
      if (PoisonStack && MS.TrackOrigins) {
@@ -561,7 +558,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        IRB.CreateCall(MS.MsanSetAllocaOrigin4Fn,
                       {IRB.CreatePointerCast(&I, IRB.getInt8PtrTy()), Len,
                        IRB.CreatePointerCast(Descr, IRB.getInt8PtrTy()),
-@@ -3074,6 +3288,38 @@
+@@ -3074,6 +3285,38 @@
      }
    }
  
@@ -591,16 +588,24 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
 +    if (I.isArrayAllocation())
 +      Len = IRB.CreateMul(Len, I.getArraySize());
 +
-+    if (!MS.CompileKernel)
-+      instrumentAllocaUserspace(I, IRB, Len);
-+    else
++    if (MS.CompileKernel)
 +      instrumentAllocaKmsan(I, IRB, Len);
++    else
++      instrumentAllocaUserspace(I, IRB, Len);
 +  }
 +
    void visitSelectInst(SelectInst& I) {
      IRBuilder<> IRB(&I);
      // a = select b, c, d
-@@ -3249,12 +3495,16 @@
+@@ -3200,6 +3443,7 @@
+     // Conservative inline assembly handling: check for poisoned shadow of
+     // asm() arguments, then unpoison the result and all the memory locations
+     // pointed to by those arguments.
++    errs() << "HERE!!!\n";
+     CallInst *CI = dyn_cast<CallInst>(&I);
+ 
+     for (size_t i = 0, n = CI->getNumOperands(); i < n; i++) {
+@@ -3249,12 +3493,16 @@
    // An unfortunate workaround for asymmetric lowering of va_arg stuff.
    // See a comment in visitCallSite for more details.
    static const unsigned AMD64GpEndOffset = 48;  // AMD64 ABI Draft 0.99.6 p3.5.7
@@ -618,7 +623,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
    Value *VAArgOverflowSize = nullptr;
  
    SmallVector<CallInst*, 16> VAStartInstrumentationList;
-@@ -3287,7 +3537,9 @@
+@@ -3287,7 +3535,9 @@
    void visitCallSite(CallSite &CS, IRBuilder<> &IRB) override {
      unsigned GpOffset = 0;
      unsigned FpOffset = AMD64GpEndOffset;
@@ -629,7 +634,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
      const DataLayout &DL = F.getParent()->getDataLayout();
      for (CallSite::arg_iterator ArgIt = CS.arg_begin(), End = CS.arg_end();
           ArgIt != End; ++ArgIt) {
-@@ -3306,6 +3558,10 @@
+@@ -3306,6 +3556,10 @@
          uint64_t ArgSize = DL.getTypeAllocSize(RealTy);
          Value *ShadowBase =
              getShadowPtrForVAArgument(RealTy, IRB, OverflowOffset);
@@ -640,7 +645,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
          OverflowOffset += alignTo(ArgSize, 8);
          Value *ShadowPtr, *OriginPtr;
          std::tie(ShadowPtr, OriginPtr) =
-@@ -3314,20 +3570,30 @@
+@@ -3314,20 +3568,30 @@
  
          IRB.CreateMemCpy(ShadowBase, kShadowTLSAlignment, ShadowPtr,
                           kShadowTLSAlignment, ArgSize);
@@ -673,7 +678,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
              FpOffset += 16;
              break;
            case AK_Memory:
-@@ -3336,18 +3602,28 @@
+@@ -3336,18 +3600,28 @@
              uint64_t ArgSize = DL.getTypeAllocSize(A->getType());
              ShadowBase =
                  getShadowPtrForVAArgument(A->getType(), IRB, OverflowOffset);
@@ -706,7 +711,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
      IRB.CreateStore(OverflowSize, MS.VAArgOverflowSizeTLS);
    }
  
-@@ -3356,8 +3632,15 @@
+@@ -3356,8 +3630,15 @@
                                     int ArgOffset) {
      Value *Base = IRB.CreatePointerCast(MS.VAArgTLS, MS.IntptrTy);
      Base = IRB.CreateAdd(Base, ConstantInt::get(MS.IntptrTy, ArgOffset));
@@ -723,7 +728,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
    }
  
    void unpoisonVAListTagForInst(IntrinsicInst &I) {
-@@ -3390,6 +3673,8 @@
+@@ -3390,6 +3671,8 @@
    }
  
    void finalizeInstrumentation() override {
@@ -732,7 +737,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
      assert(!VAArgOverflowSize && !VAArgTLSCopy &&
             "finalizeInstrumentation called twice");
      if (!VAStartInstrumentationList.empty()) {
-@@ -3397,11 +3682,14 @@
+@@ -3397,11 +3680,14 @@
        // va_arg_tls somewhere in the function entry block.
        IRBuilder<> IRB(MSV.ActualFnStart->getFirstNonPHI());
        VAArgOverflowSize = IRB.CreateLoad(MS.VAArgOverflowSizeTLS);
@@ -750,7 +755,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
      }
  
      // Instrument va_start.
-@@ -3422,7 +3710,11 @@
+@@ -3422,7 +3708,11 @@
            MSV.getShadowOriginPtr(RegSaveAreaPtr, IRB, IRB.getInt8Ty(),
                                   Alignment, /*isStore*/ true);
        IRB.CreateMemCpy(RegSaveAreaShadowPtr, Alignment, VAArgTLSCopy, Alignment,
@@ -763,7 +768,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
        Value *OverflowArgAreaPtrPtr = IRB.CreateIntToPtr(
            IRB.CreateAdd(IRB.CreatePtrToInt(VAListTag, MS.IntptrTy),
                          ConstantInt::get(MS.IntptrTy, 8)),
-@@ -3432,10 +3724,17 @@
+@@ -3432,10 +3722,17 @@
        std::tie(OverflowArgAreaShadowPtr, OverflowArgAreaOriginPtr) =
            MSV.getShadowOriginPtr(OverflowArgAreaPtr, IRB, IRB.getInt8Ty(),
                                   Alignment, /*isStore*/ true);
@@ -785,7 +790,7 @@ Index: lib/Transforms/Instrumentation/MemorySanitizer.cpp
  };
 Index: test/Instrumentation/MemorySanitizer/alloca.ll
 ===================================================================
---- test/Instrumentation/MemorySanitizer/alloca.ll	(revision 337583)
+--- test/Instrumentation/MemorySanitizer/alloca.ll	(revision 339138)
 +++ test/Instrumentation/MemorySanitizer/alloca.ll	(working copy)
 @@ -2,6 +2,7 @@
  ; RUN: opt < %s -msan -msan-check-access-address=0 -msan-poison-stack-with-call=1 -S | FileCheck %s --check-prefixes=CHECK,CALL
@@ -844,7 +849,7 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 ===================================================================
 --- test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll	(nonexistent)
 +++ test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll	(working copy)
-@@ -0,0 +1,368 @@
+@@ -0,0 +1,401 @@
 +; KMSAN instrumentation tests
 +; RUN: opt < %s -msan -msan-kernel=1 -S | FileCheck %s -check-prefixes=CHECK
 +
@@ -860,12 +865,20 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Empty
 +; CHECK: entry:
 +; CHECK: @__msan_get_context_state()
-+; CHECK: %param_shadow
-+; CHECK: %retval_shadow
-+; CHECK: %va_arg_shadow
-+; CHECK: %va_arg_overflow_size
-+; CHECK: %param_origin
-+; CHECK: %retval_origin
++; %param_shadow:
++; CHECK: getelementptr {{.*}} i32 0, i32 0
++; %retval_shadow:
++; CHECK: getelementptr {{.*}} i32 0, i32 1
++; %va_arg_shadow:
++; CHECK: getelementptr {{.*}} i32 0, i32 2
++; %va_arg_origin:
++; CHECK: getelementptr {{.*}} i32 0, i32 3
++; %va_arg_overflow_size:
++; CHECK: getelementptr {{.*}} i32 0, i32 4
++; %param_origin:
++; CHECK: getelementptr {{.*}} i32 0, i32 5
++; %retval_origin:
++; CHECK: getelementptr {{.*}} i32 0, i32 6
 +; CHECK: entry.split:
 +
 +; Check instrumentation of stores
@@ -879,10 +892,13 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Store1
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: [[BASE2:%[0-9]+]] = ptrtoint {{.*}} [[PARAM_SHADOW]]
++; CHECK: [[BASE:%[0-9]+]] = ptrtoint {{.*}} [[PARAM_SHADOW]]
++; CHECK: [[SHADOW:%[a-z0-9_]+]] = inttoptr {{.*}} [[BASE]]
 +; Load the shadow of %p and check it
-+; CHECK: load i64
++; CHECK: load i64, i64* [[SHADOW]]
 +; CHECK: icmp
 +; CHECK: br i1
 +; CHECK-LABEL: <label>
@@ -909,8 +925,9 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Store2
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; Load the shadow of %p and check it
 +; CHECK: load i64
 +; CHECK: icmp
@@ -941,8 +958,9 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Store4
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; Load the shadow of %p and check it
 +; CHECK: load i32
 +; CHECK: icmp
@@ -972,8 +990,9 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Store8
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; Load the shadow of %p and check it
 +; CHECK: load i64
 +; CHECK: icmp
@@ -1003,8 +1022,9 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Store16
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; Load the shadow of %p and check it
 +; CHECK: load i64
 +; CHECK: icmp
@@ -1037,8 +1057,9 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Load1
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; Load the shadow of %p and check it
 +; CHECK: load i64
 +; CHECK: icmp
@@ -1062,8 +1083,9 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Load2
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; Load the shadow of %p and check it
 +; CHECK: load i64
 +; CHECK: icmp
@@ -1088,8 +1110,9 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Load4
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; Load the shadow of %p and check it
 +; CHECK: load i64
 +; CHECK: icmp
@@ -1113,8 +1136,9 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Load8
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; Load the shadow of %p and check it
 +; CHECK: load i64
 +; CHECK: icmp
@@ -1138,8 +1162,9 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +; CHECK-LABEL: @Load16
 +; CHECK-LABEL: entry:
 +; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
 +; CHECK-LABEL: entry.split:
-+; CHECK: %param_shadow
++; CHECK: ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; Load the shadow of %p and check it
 +; CHECK: load i64
 +; CHECK: icmp
@@ -1176,14 +1201,20 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +}
 +
 +; CHECK-LABEL: @VarArgFn
-+; CHECK: [[OSIZE:%[0-9]+]] = load i64, i64* %va_arg_overflow_size
++; CHECK: @__msan_get_context_state()
++; CHECK: [[VA_ARG_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 2
++; CHECK: [[VA_ARG_ORIGIN:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 3
++; CHECK: [[VA_ARG_OVERFLOW_SIZE:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 4
++
++; CHECK-LABEL: entry.split:
++; CHECK: [[OSIZE:%[0-9]+]] = load i64, i64* [[VA_ARG_OVERFLOW_SIZE]]
 +; Register save area is 48 bytes.
 +; CHECK: [[SIZE:%[0-9]+]] = add i64 48, [[OSIZE]]
 +; CHECK: [[SHADOWS:%[0-9]+]] = alloca i8, i64 [[SIZE]]
-+; CHECK: %va_arg_shadow
++; CHECK: [[VA_ARG_SHADOW]]
 +; CHECK: call void @llvm.memcpy{{.*}}(i8* align 8 [[SHADOWS]], {{.*}}, i64 [[SIZE]]
 +; CHECK: [[ORIGINS:%[0-9]+]] = alloca i8, i64 [[SIZE]]
-+; CHECK: %va_arg_origin
++; CHECK: [[VA_ARG_ORIGIN]]
 +; CHECK: call void @llvm.memcpy{{.*}}(i8* align 8 [[ORIGINS]], {{.*}}, i64 [[SIZE]]
 +; CHECK: call i32 @VAListFn
 +
@@ -1196,26 +1227,33 @@ Index: test/Instrumentation/MemorySanitizer/msan_kernel_basic.ll
 +
 +; CHECK-LABEL: @VarArgCaller
 +
-+; CHECK: [[PARAM_SI:%[_a-z0-9]+]] = ptrtoint {{.*}} %param_shadow to i64
++; CHECK-LABEL: entry:
++; CHECK: @__msan_get_context_state()
++; CHECK: [[PARAM_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 0
++; CHECK: [[VA_ARG_SHADOW:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 2
++; CHECK: [[VA_ARG_OVERFLOW_SIZE:%[a-z0-9_]+]] = getelementptr {{.*}} i32 0, i32 4
++
++; CHECK-LABEL: entry.split:
++; CHECK: [[PARAM_SI:%[_a-z0-9]+]] = ptrtoint {{.*}} [[PARAM_SHADOW]]
 +; CHECK: [[ARG1_S:%[_a-z0-9]+]] = inttoptr i64 [[PARAM_SI]] to i64*
 +; First argument is initialized
 +; CHECK: store i64 0, i64* [[ARG1_S]]
 +
 +; Dangling cast of va_arg_shadow[0], unused because the first argument is fixed.
-+; CHECK: [[VA_CAST0:%[_a-z0-9]+]] = ptrtoint {{.*}} %va_arg_shadow to i64
++; CHECK: [[VA_CAST0:%[_a-z0-9]+]] = ptrtoint {{.*}} [[VA_ARG_SHADOW]] to i64
 +
-+; CHECK: [[VA_CAST1:%[_a-z0-9]+]] = ptrtoint {{.*}} %va_arg_shadow to i64
++; CHECK: [[VA_CAST1:%[_a-z0-9]+]] = ptrtoint {{.*}} [[VA_ARG_SHADOW]] to i64
 +; CHECK: [[ARG1_SI:%[_a-z0-9]+]] = add i64 [[VA_CAST1]], 8
 +; CHECK: [[PARG1_S:%[_a-z0-9]+]] = inttoptr i64 [[ARG1_SI]] to i32*
 +
 +; Shadow for 123 is 0.
 +; CHECK: store i32 0, i32* [[ARG1_S]]
 +
-+; CHECK: store i64 0, i64* %va_arg_overflow_size
++; CHECK: store i64 0, i64* [[VA_ARG_OVERFLOW_SIZE]]
 +; CHECK: call i32 (i8*, ...) @VarArgFn({{.*}} @.str{{.*}} i32 123)
 Index: test/Instrumentation/MemorySanitizer/store-origin.ll
 ===================================================================
---- test/Instrumentation/MemorySanitizer/store-origin.ll	(revision 337583)
+--- test/Instrumentation/MemorySanitizer/store-origin.ll	(revision 339138)
 +++ test/Instrumentation/MemorySanitizer/store-origin.ll	(working copy)
 @@ -1,5 +1,6 @@
 -; RUN: opt < %s -msan -msan-check-access-address=0 -msan-track-origins=1 -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-ORIGINS1 %s
