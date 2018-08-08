@@ -284,10 +284,7 @@ extern void __put_user_8(void);
 #define __put_user_size(x, ptr, size, retval, errret)			\
 do {									\
 	retval = 0;							\
-	__typeof__(*(ptr)) __pu_val;					\
 	__chk_user_ptr(ptr);						\
-	__pu_val = x;							\
-	kmsan_check_memory(&(__pu_val), size);				\
 	switch (size) {							\
 	case 1:								\
 		__put_user_asm(x, ptr, retval, "b", "b", "iq", errret);	\
@@ -451,7 +448,9 @@ do {									\
 #define __put_user_nocheck(x, ptr, size)			\
 ({								\
 	int __pu_err;						\
+	__typeof__(*(ptr)) __pu_val = x;			\
 	__uaccess_begin();					\
+	kmsan_check_memory(&(__pu_val), size);			\
 	__put_user_size((x), (ptr), (size), __pu_err, -EFAULT);	\
 	__uaccess_end();					\
 	__builtin_expect(__pu_err, 0);				\
@@ -726,6 +725,7 @@ extern struct movsl_mask {
 do {										\
 	int __pu_err;								\
 	__typeof__(*(ptr)) __pu_val = (x);					\
+	kmsan_check_memory(&(__pu_val), sizeof(*(ptr)));			\
 	__put_user_size(__pu_val, (ptr), sizeof(*(ptr)), __pu_err, -EFAULT);	\
 	if (unlikely(__pu_err)) goto err_label;					\
 } while (0)
