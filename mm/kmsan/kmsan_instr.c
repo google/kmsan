@@ -398,8 +398,7 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 #if 0
 	if ((dst != src) && (!(((u64)dst + n <= (u64)src) || ((u64)src + n <= (u64)dst)))) {
 		kmsan_pr_err("==================================================================\n");
-		// TODO(glider): avoid __builtin_return_address(1).
-		kmsan_pr_err("WARNING: memcpy-param-overlap in %pS\n", __builtin_return_address(1));
+		kmsan_pr_err("WARNING: memcpy-param-overlap in %pS\n", kmsan_internal_return_address(1));
 		kmsan_pr_err("__msan_memcpy(%px, %px, %d)\n", dst, src, n);
 		dump_stack();
 		kmsan_pr_err("==================================================================\n");
@@ -558,7 +557,8 @@ inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
 }
 
 
-void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 pc)
+// TODO(glider): drop the last argument.
+void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 unused)
 {
 	depot_stack_handle_t handle;
 	BUG_ON(size > PAGE_SIZE * 4);
@@ -600,7 +600,7 @@ void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 pc)
 	entries[0] = KMSAN_ALLOCA_MAGIC_ORIGIN;
 	entries[1] = (u64)descr;
 	entries[2] = __builtin_return_address(0);
-	entries[3] = pc;
+	entries[3] = kmsan_internal_return_address(1);
 
 	ENTER_RUNTIME(irq_flags);
 	handle = depot_save_stack(&trace, GFP_ATOMIC);

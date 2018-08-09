@@ -113,4 +113,31 @@ struct page *virt_to_page_or_null(const void *vaddr);
 void *get_cea_shadow_or_null(const void *addr);
 void *get_cea_origin_or_null(const void *addr);
 
+// Dummy replacement for __builtin_return_address() which may crash without
+// frame pointers.
+static inline void *kmsan_internal_return_address(int arg)
+{
+#ifdef CONFIG_UNWINDER_FRAME_POINTER
+	switch (arg) {
+		case 1:
+			return __builtin_return_address(1);
+		case 2:
+			return __builtin_return_address(2);
+		default:
+			BUG();
+	}
+#else
+	unsigned long entries[1];
+	struct stack_trace trace = {
+		.nr_entries = 0,
+		.entries = entries,
+		.max_entries = 1,
+		.skip = arg
+	};
+	save_stack_trace(&trace);
+	return entries[0];
+#endif
+}
+
+
 #endif
