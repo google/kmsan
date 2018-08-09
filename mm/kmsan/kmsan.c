@@ -572,7 +572,7 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 	if (full) {
 		entries[1] = kmsan_save_stack();
 	} else {
-		entries[1] = (unsigned long)__builtin_return_address(1);
+		entries[1] = (unsigned long)kmsan_internal_return_address(1);
 	}
 	entries[2] = id;
 	handle = depot_save_stack(&trace, GFP_ATOMIC);
@@ -905,32 +905,6 @@ void save_reporter(void *caller, void **table, int *index)
 	table[(*index)++] = caller;
 }
 
-// Dummy replacement for __builtin_return_address() which may crash without
-// frame pointers.
-inline void *return_address(int arg)
-{
-#ifdef CONFIG_UNWINDER_FRAME_POINTER
-	switch (arg) {
-		case 1:
-			return __builtin_return_address(1);
-		case 2:
-			return __builtin_return_address(2);
-		default:
-			BUG();
-	}
-#else
-	unsigned long entries[1];
-	struct stack_trace trace = {
-		.nr_entries = 0,
-		.entries = entries,
-		.max_entries = 1,
-		.skip = arg
-	};
-	save_stack_trace(&trace);
-	return entries[0];
-#endif
-}
-
 // |deep| is a dirty hack to skip an additional frame when calling
 // kmsan_report() from kmsan_copy_to_user().
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
@@ -970,13 +944,13 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	spin_lock_irqsave(&report_lock, flags);
 	save_reporter(caller, reporters_tbl, &reporters_index);
 	kmsan_pr_err("==================================================================\n");
-	// TODO(glider): inline this properly, avoid __builtin_return_address(1).
+	// TODO(glider): inline this properly
 	switch (reason) {
 		case REASON_ANY:
-			kmsan_pr_err("BUG: KMSAN: uninit-value in %pS\n", deep ? return_address(2) : return_address(1));
+			kmsan_pr_err("BUG: KMSAN: uninit-value in %pS\n", deep ? kmsan_internal_return_address(2) : kmsan_internal_return_address(1));
 			break;
 		case REASON_COPY_TO_USER:
-			kmsan_pr_err("BUG: KMSAN: kernel-infoleak in %pS\n", deep ? return_address(2) : return_address(1));
+			kmsan_pr_err("BUG: KMSAN: kernel-infoleak in %pS\n", deep ? kmsan_internal_return_address(2) : kmsan_internal_return_address(1));
 			break;
 	}
 	dump_stack();
