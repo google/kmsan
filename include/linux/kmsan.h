@@ -103,14 +103,14 @@ void kmsan_softirq_exit(void);
 static inline void kmsan_thread_create(struct task_struct *task) {}
 static inline void kmsan_task_exit(struct task_struct *task) {}
 static inline void kmsan_alloc_shadow_for_region(void *start, size_t size) {}
-static void kmsan_prep_pages(struct page *page, unsigned int order) {}
+static inline void kmsan_prep_pages(struct page *page, unsigned int order) {}
 static inline int kmsan_alloc_page(
 	struct page *page, unsigned int order, gfp_t flags)
 {
 	return 0;
 }
-static void kmsan_acpi_map(void *vaddr, unsigned long size) {}
-static void kmsan_acpi_unmap(void *vaddr, unsigned long size) {}
+static inline void kmsan_acpi_map(void *vaddr, unsigned long size) {}
+static inline void kmsan_acpi_unmap(void *vaddr, unsigned long size) {}
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
 static inline void kmsan_split_page(struct page *page, unsigned int order) {}
 static inline void kmsan_clear_user_page(struct page *page) {}
@@ -139,13 +139,13 @@ static inline void kmsan_record_future_shadow_range(u64 start, u64 end) {}
 
 static inline void kmsan_vprintk_func(const char *fmt, va_list args) {}
 
-static void kmsan_vmap(struct vm_struct *area,
+static inline void kmsan_vmap(struct vm_struct *area,
 		struct page **pages, unsigned int count, unsigned long flags,
 		pgprot_t prot, void *caller) {}
-static void kmsan_vunmap(const void *addr) {}
+static inline void kmsan_vunmap(const void *addr) {}
 
-static void kmsan_softirq_enter(void) {}
-static void kmsan_softirq_exit(void) {}
+static inline void kmsan_softirq_enter(void) {}
+static inline void kmsan_softirq_exit(void) {}
 
 
 #endif
