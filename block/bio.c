@@ -866,6 +866,12 @@ static int __bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter)
 		bv[idx].bv_page = pages[idx];
 		bv[idx].bv_len = PAGE_SIZE;
 		bv[idx].bv_offset = 0;
+		/* TODO(glider): these pages will be soon passed to block
+		 * device for reading, so consider them initialized.
+		 */
+		if (iov_iter_rw(iter) == READ)
+			kmsan_unpoison_shadow(page_address(pages[idx]),
+						PAGE_SIZE);
 	}
 
 	bv[0].bv_offset += offset;
