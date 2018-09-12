@@ -474,6 +474,9 @@ void kmsan_copy_to_user(const void *to, const void *from,
 	/* copy_to_user() may copy zero bytes. No need to check. */
 	if (!to_copy)
 		return;
+	/* Or maybe copy_to_user() failed to copy anything. */
+	if (to_copy == left)
+		return;
 	if ((u64)to < TASK_SIZE) {
 		/* This is a user memory access, check it. */
 		kmsan_internal_check_memory(from, to_copy - left,
