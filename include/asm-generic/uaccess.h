@@ -87,7 +87,10 @@ static inline int __access_ok(unsigned long addr, unsigned long size)
 
 static inline int __put_user_fn(size_t size, void __user *ptr, void *x)
 {
-	return unlikely(raw_copy_to_user(ptr, x, size)) ? -EFAULT : 0;
+	int n;
+	n = raw_copy_to_user(ptr, x, size);
+	kmsan_copy_to_user(ptr, x, size, n);
+	return unlikely(n) ? -EFAULT : 0;
 }
 
 #define __put_user_fn(sz, u, k)	__put_user_fn(sz, u, k)
