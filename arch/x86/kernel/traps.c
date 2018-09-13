@@ -284,6 +284,7 @@ static void do_error_trap(struct pt_regs *regs, long error_code, char *str,
 #define DO_ERROR(trapnr, signr, sicode, addr, str, name)		   \
 dotraplinkage void do_##name(struct pt_regs *regs, long error_code)	   \
 {									   \
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));		\
 	do_error_trap(regs, error_code, str, trapnr, signr, sicode, addr); \
 }
 
@@ -321,6 +322,8 @@ dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code)
 #ifdef CONFIG_VMAP_STACK
 	unsigned long cr2;
 #endif
+
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 
 #ifdef CONFIG_X86_ESPFIX64
 	extern unsigned char native_irq_return_iret[];
@@ -437,6 +440,7 @@ dotraplinkage void do_bounds(struct pt_regs *regs, long error_code)
 {
 	const struct mpx_bndcsr *bndcsr;
 
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	if (notify_die(DIE_TRAP, "bounds", regs, error_code,
 			X86_TRAP_BR, SIGSEGV) == NOTIFY_STOP)
@@ -574,6 +578,7 @@ NOKPROBE_SYMBOL(do_general_protection);
 
 dotraplinkage void notrace do_int3(struct pt_regs *regs, long error_code)
 {
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 #ifdef CONFIG_DYNAMIC_FTRACE
 	/*
 	 * ftrace must be first, everything else may cause a recursive crash.
@@ -719,6 +724,7 @@ dotraplinkage void do_debug(struct pt_regs *regs, long error_code)
 	unsigned long dr6;
 	int si_code;
 
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	ist_enter(regs);
 
 	get_debugreg(dr6, 6);
@@ -863,6 +869,7 @@ static void math_error(struct pt_regs *regs, int error_code, int trapnr)
 
 dotraplinkage void do_coprocessor_error(struct pt_regs *regs, long error_code)
 {
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	math_error(regs, error_code, X86_TRAP_MF);
 }
@@ -870,6 +877,7 @@ dotraplinkage void do_coprocessor_error(struct pt_regs *regs, long error_code)
 dotraplinkage void
 do_simd_coprocessor_error(struct pt_regs *regs, long error_code)
 {
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	math_error(regs, error_code, X86_TRAP_XF);
 }
@@ -877,6 +885,7 @@ do_simd_coprocessor_error(struct pt_regs *regs, long error_code)
 dotraplinkage void
 do_spurious_interrupt_bug(struct pt_regs *regs, long error_code)
 {
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	cond_local_irq_enable(regs);
 }
 
@@ -885,6 +894,7 @@ do_device_not_available(struct pt_regs *regs, long error_code)
 {
 	unsigned long cr0;
 
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 
 #ifdef CONFIG_MATH_EMULATION
@@ -918,6 +928,7 @@ NOKPROBE_SYMBOL(do_device_not_available);
 #ifdef CONFIG_X86_32
 dotraplinkage void do_iret_error(struct pt_regs *regs, long error_code)
 {
+	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	local_irq_enable();
 
