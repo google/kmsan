@@ -15,53 +15,76 @@
 
 #include <linux/build_bug.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 
 static __always_inline int atomic_read(const atomic_t *v)
 {
 	kasan_check_read(v, sizeof(*v));
-	return arch_atomic_read(v);
+	kmsan_check_memory(&v, sizeof(v));
+	return INIT_INT(arch_atomic_read(v));
 }
 
 static __always_inline s64 atomic64_read(const atomic64_t *v)
 {
 	kasan_check_read(v, sizeof(*v));
-	return arch_atomic64_read(v);
+	kmsan_check_memory(&v, sizeof(v));
+	return INIT_S64(arch_atomic64_read(v));
 }
 
 static __always_inline void atomic_set(atomic_t *v, int i)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic_set(v, i);
 }
 
 static __always_inline void atomic64_set(atomic64_t *v, s64 i)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic64_set(v, i);
 }
 
 static __always_inline int atomic_xchg(atomic_t *v, int i)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_xchg(v, i);
+	kmsan_check_memory(&v, sizeof(void*));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_xchg(v, i));
 }
 
 static __always_inline s64 atomic64_xchg(atomic64_t *v, s64 i)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_xchg(v, i);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_xchg(v, i));
 }
 
 static __always_inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_cmpxchg(v, old, new);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_check_memory(&old, sizeof(old));
+	kmsan_check_memory(&new, sizeof(new));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_cmpxchg(v, old, new));
 }
 
 static __always_inline s64 atomic64_cmpxchg(atomic64_t *v, s64 old, s64 new)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_cmpxchg(v, old, new);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_check_memory(&old, sizeof(old));
+	kmsan_check_memory(&new, sizeof(new));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_cmpxchg(v, old, new));
 }
 
 #ifdef arch_atomic_try_cmpxchg
@@ -70,7 +93,11 @@ static __always_inline bool atomic_try_cmpxchg(atomic_t *v, int *old, int new)
 {
 	kasan_check_write(v, sizeof(*v));
 	kasan_check_read(old, sizeof(*old));
-	return arch_atomic_try_cmpxchg(v, old, new);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_check_memory(&old, sizeof(old));
+	kmsan_check_memory(&new, sizeof(new));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic_try_cmpxchg(v, old, new));
 }
 #endif
 
@@ -80,7 +107,11 @@ static __always_inline bool atomic64_try_cmpxchg(atomic64_t *v, s64 *old, s64 ne
 {
 	kasan_check_write(v, sizeof(*v));
 	kasan_check_read(old, sizeof(*old));
-	return arch_atomic64_try_cmpxchg(v, old, new);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_check_memory(&old, sizeof(old));
+	kmsan_check_memory(&new, sizeof(new));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic64_try_cmpxchg(v, old, new));
 }
 #endif
 
@@ -89,7 +120,11 @@ static __always_inline bool atomic64_try_cmpxchg(atomic64_t *v, s64 *old, s64 ne
 static __always_inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_fetch_add_unless(v, a, u);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_check_memory(&a, sizeof(a));
+	kmsan_check_memory(&u, sizeof(u));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_fetch_add_unless(v, a, u));
 }
 #endif
 
@@ -98,7 +133,11 @@ static __always_inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 static __always_inline s64 atomic64_fetch_add_unless(atomic64_t *v, s64 a, s64 u)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_fetch_add_unless(v, a, u);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_check_memory(&a, sizeof(a));
+	kmsan_check_memory(&u, sizeof(u));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_fetch_add_unless(v, a, u));
 }
 #endif
 
@@ -107,6 +146,8 @@ static __always_inline s64 atomic64_fetch_add_unless(atomic64_t *v, s64 a, s64 u
 static __always_inline void atomic_inc(atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic_inc(v);
 }
 #endif
@@ -116,6 +157,8 @@ static __always_inline void atomic_inc(atomic_t *v)
 static __always_inline void atomic64_inc(atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic64_inc(v);
 }
 #endif
@@ -125,6 +168,8 @@ static __always_inline void atomic64_inc(atomic64_t *v)
 static __always_inline void atomic_dec(atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic_dec(v);
 }
 #endif
@@ -134,6 +179,8 @@ static __always_inline void atomic_dec(atomic_t *v)
 static __always_inline void atomic64_dec(atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic64_dec(v);
 }
 #endif
@@ -141,60 +188,90 @@ static __always_inline void atomic64_dec(atomic64_t *v)
 static __always_inline void atomic_add(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic_add(i, v);
 }
 
 static __always_inline void atomic64_add(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic64_add(i, v);
 }
 
 static __always_inline void atomic_sub(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic_sub(i, v);
 }
 
 static __always_inline void atomic64_sub(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic64_sub(i, v);
 }
 
 static __always_inline void atomic_and(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic_and(i, v);
 }
 
 static __always_inline void atomic64_and(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic64_and(i, v);
 }
 
 static __always_inline void atomic_or(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic_or(i, v);
 }
 
 static __always_inline void atomic64_or(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic64_or(i, v);
 }
 
 static __always_inline void atomic_xor(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic_xor(i, v);
 }
 
 static __always_inline void atomic64_xor(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
 	arch_atomic64_xor(i, v);
 }
 
@@ -203,7 +280,9 @@ static __always_inline void atomic64_xor(s64 i, atomic64_t *v)
 static __always_inline int atomic_inc_return(atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_inc_return(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_inc_return(v));
 }
 #endif
 
@@ -212,7 +291,9 @@ static __always_inline int atomic_inc_return(atomic_t *v)
 static __always_inline s64 atomic64_inc_return(atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_inc_return(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_inc_return(v));
 }
 #endif
 
@@ -221,7 +302,9 @@ static __always_inline s64 atomic64_inc_return(atomic64_t *v)
 static __always_inline int atomic_dec_return(atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_dec_return(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_dec_return(v));
 }
 #endif
 
@@ -230,7 +313,9 @@ static __always_inline int atomic_dec_return(atomic_t *v)
 static __always_inline s64 atomic64_dec_return(atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_dec_return(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_dec_return(v));
 }
 #endif
 
@@ -239,7 +324,9 @@ static __always_inline s64 atomic64_dec_return(atomic64_t *v)
 static __always_inline bool atomic64_inc_not_zero(atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_inc_not_zero(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic64_inc_not_zero(v));
 }
 #endif
 
@@ -248,7 +335,9 @@ static __always_inline bool atomic64_inc_not_zero(atomic64_t *v)
 static __always_inline s64 atomic64_dec_if_positive(atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_dec_if_positive(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_dec_if_positive(v));
 }
 #endif
 
@@ -257,7 +346,9 @@ static __always_inline s64 atomic64_dec_if_positive(atomic64_t *v)
 static __always_inline bool atomic_dec_and_test(atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_dec_and_test(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic_dec_and_test(v));
 }
 #endif
 
@@ -266,7 +357,9 @@ static __always_inline bool atomic_dec_and_test(atomic_t *v)
 static __always_inline bool atomic64_dec_and_test(atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_dec_and_test(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic64_dec_and_test(v));
 }
 #endif
 
@@ -275,7 +368,9 @@ static __always_inline bool atomic64_dec_and_test(atomic64_t *v)
 static __always_inline bool atomic_inc_and_test(atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_inc_and_test(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic_inc_and_test(v));
 }
 #endif
 
@@ -284,92 +379,136 @@ static __always_inline bool atomic_inc_and_test(atomic_t *v)
 static __always_inline bool atomic64_inc_and_test(atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_inc_and_test(v);
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic64_inc_and_test(v));
 }
 #endif
 
 static __always_inline int atomic_add_return(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_add_return(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_add_return(i, v));
 }
 
 static __always_inline s64 atomic64_add_return(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_add_return(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_add_return(i, v));
 }
 
 static __always_inline int atomic_sub_return(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_sub_return(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_sub_return(i, v));
 }
 
 static __always_inline s64 atomic64_sub_return(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_sub_return(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_sub_return(i, v));
 }
 
 static __always_inline int atomic_fetch_add(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_fetch_add(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_fetch_add(i, v));
 }
 
 static __always_inline s64 atomic64_fetch_add(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_fetch_add(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_fetch_add(i, v));
 }
 
 static __always_inline int atomic_fetch_sub(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_fetch_sub(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_fetch_sub(i, v));
 }
 
 static __always_inline s64 atomic64_fetch_sub(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_fetch_sub(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_fetch_sub(i, v));
 }
 
 static __always_inline int atomic_fetch_and(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_fetch_and(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_fetch_and(i, v));
 }
 
 static __always_inline s64 atomic64_fetch_and(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_fetch_and(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_fetch_and(i, v));
 }
 
 static __always_inline int atomic_fetch_or(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_fetch_or(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_fetch_or(i, v));
 }
 
 static __always_inline s64 atomic64_fetch_or(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_fetch_or(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_fetch_or(i, v));
 }
 
 static __always_inline int atomic_fetch_xor(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_fetch_xor(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_INT(arch_atomic_fetch_xor(i, v));
 }
 
 static __always_inline s64 atomic64_fetch_xor(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_fetch_xor(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_S64(arch_atomic64_fetch_xor(i, v));
 }
 
 #ifdef arch_atomic_sub_and_test
@@ -377,7 +516,10 @@ static __always_inline s64 atomic64_fetch_xor(s64 i, atomic64_t *v)
 static __always_inline bool atomic_sub_and_test(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_sub_and_test(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic_sub_and_test(i, v));
 }
 #endif
 
@@ -386,7 +528,10 @@ static __always_inline bool atomic_sub_and_test(int i, atomic_t *v)
 static __always_inline bool atomic64_sub_and_test(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_sub_and_test(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic64_sub_and_test(i, v));
 }
 #endif
 
@@ -395,7 +540,10 @@ static __always_inline bool atomic64_sub_and_test(s64 i, atomic64_t *v)
 static __always_inline bool atomic_add_negative(int i, atomic_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic_add_negative(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic_add_negative(i, v));
 }
 #endif
 
@@ -404,63 +552,124 @@ static __always_inline bool atomic_add_negative(int i, atomic_t *v)
 static __always_inline bool atomic64_add_negative(s64 i, atomic64_t *v)
 {
 	kasan_check_write(v, sizeof(*v));
-	return arch_atomic64_add_negative(i, v);
+	kmsan_check_memory(&i, sizeof(i));
+	kmsan_check_memory(&v, sizeof(v));
+	kmsan_unpoison_shadow(v, sizeof(*v));
+	return INIT_BOOL(arch_atomic64_add_negative(i, v));
 }
 #endif
 
 #define xchg(ptr, new)							\
 ({									\
 	typeof(ptr) __ai_ptr = (ptr);					\
+	typeof(new) __ai_new = (new);					\
 	kasan_check_write(__ai_ptr, sizeof(*__ai_ptr));			\
-	arch_xchg(__ai_ptr, (new));					\
+	kmsan_check_memory(&__ai_ptr, sizeof(__ai_ptr));		\
+	kmsan_check_memory(&__ai_new, sizeof(__ai_new));		\
+	kmsan_unpoison_shadow((void*)__ai_ptr, sizeof(*__ai_ptr));		\
+arch_xchg(__ai_ptr, __ai_new);					\
 })
 
 #define cmpxchg(ptr, old, new)						\
 ({									\
 	typeof(ptr) __ai_ptr = (ptr);					\
+	typeof(old) __ai_old = (old);					\
+	typeof(new) __ai_new = (new);					\
 	kasan_check_write(__ai_ptr, sizeof(*__ai_ptr));			\
-	arch_cmpxchg(__ai_ptr, (old), (new));				\
+	kmsan_check_memory(&__ai_ptr, sizeof(__ai_ptr));		\
+	kmsan_check_memory(&__ai_old, sizeof(__ai_old));		\
+	kmsan_check_memory(&__ai_new, sizeof(__ai_new));		\
+	kmsan_unpoison_shadow((void*)__ai_ptr, sizeof(*__ai_ptr));		\
+	arch_cmpxchg(__ai_ptr, __ai_old, __ai_new);			\
 })
 
 #define sync_cmpxchg(ptr, old, new)					\
 ({									\
 	typeof(ptr) __ai_ptr = (ptr);					\
+	typeof(old) __ai_old = (old);					\
+	typeof(new) __ai_new = (new);					\
 	kasan_check_write(__ai_ptr, sizeof(*__ai_ptr));			\
-	arch_sync_cmpxchg(__ai_ptr, (old), (new));			\
+	kmsan_check_memory(&__ai_ptr, sizeof(__ai_ptr));		\
+	kmsan_check_memory(&__ai_old, sizeof(__ai_old));		\
+	kmsan_check_memory(&__ai_new, sizeof(__ai_new));		\
+	kmsan_unpoison_shadow((void*)__ai_ptr, sizeof(*__ai_ptr));		\
+	arch_sync_cmpxchg(__ai_ptr, __ai_old, __ai_new);		\
 })
 
 #define cmpxchg_local(ptr, old, new)					\
 ({									\
 	typeof(ptr) __ai_ptr = (ptr);					\
+	typeof(old) __ai_old = (old);					\
+	typeof(new) __ai_new = (new);					\
 	kasan_check_write(__ai_ptr, sizeof(*__ai_ptr));			\
-	arch_cmpxchg_local(__ai_ptr, (old), (new));			\
+	kmsan_check_memory(&__ai_ptr, sizeof(__ai_ptr));		\
+	kmsan_check_memory(&__ai_old, sizeof(__ai_old));		\
+	kmsan_check_memory(&__ai_new, sizeof(__ai_new));		\
+	kmsan_unpoison_shadow((void*)__ai_ptr, sizeof(*__ai_ptr));		\
+	arch_cmpxchg_local(__ai_ptr, __ai_old, __ai_new);		\
 })
 
 #define cmpxchg64(ptr, old, new)					\
 ({									\
 	typeof(ptr) __ai_ptr = (ptr);					\
+	typeof(old) __ai_old = (old);					\
+	typeof(new) __ai_new = (new);					\
 	kasan_check_write(__ai_ptr, sizeof(*__ai_ptr));			\
-	arch_cmpxchg64(__ai_ptr, (old), (new));				\
+	kmsan_check_memory(&__ai_ptr, sizeof(__ai_ptr));		\
+	kmsan_check_memory(&__ai_old, sizeof(__ai_old));		\
+	kmsan_check_memory(&__ai_new, sizeof(__ai_new));		\
+	kmsan_unpoison_shadow((void*)__ai_ptr, sizeof(*__ai_ptr));		\
+	arch_cmpxchg64(__ai_ptr, __ai_old, __ai_new);			\
 })
 
 #define cmpxchg64_local(ptr, old, new)					\
 ({									\
 	typeof(ptr) __ai_ptr = (ptr);					\
+	typeof(old) __ai_old = (old);					\
+	typeof(new) __ai_new = (new);					\
 	kasan_check_write(__ai_ptr, sizeof(*__ai_ptr));			\
-	arch_cmpxchg64_local(__ai_ptr, (old), (new));			\
+	kmsan_check_memory(&__ai_ptr, sizeof(__ai_ptr));		\
+	kmsan_check_memory(&__ai_old, sizeof(__ai_old));		\
+	kmsan_check_memory(&__ai_new, sizeof(__ai_new));		\
+	kmsan_unpoison_shadow((void*)__ai_ptr, sizeof(*__ai_ptr));		\
+	arch_cmpxchg64_local(__ai_ptr, __ai_old, __ai_new);		\
 })
 
 #define cmpxchg_double(p1, p2, o1, o2, n1, n2)				\
 ({									\
 	typeof(p1) __ai_p1 = (p1);					\
+	typeof(p2) __ai_p2 = (p2);					\
+	typeof(o1) __ai_o1 = (o1);					\
+	typeof(o2) __ai_o2 = (o2);					\
+	typeof(n1) __ai_n1 = (n1);					\
+	typeof(n2) __ai_n2 = (n2);					\
 	kasan_check_write(__ai_p1, 2 * sizeof(*__ai_p1));		\
-	arch_cmpxchg_double(__ai_p1, (p2), (o1), (o2), (n1), (n2));	\
+	kmsan_check_memory(&__ai_p1, sizeof(__ai_p1));			\
+	kmsan_check_memory(&__ai_p2, sizeof(__ai_p2));			\
+	kmsan_check_memory(&__ai_o1, sizeof(__ai_o1));			\
+	kmsan_check_memory(&__ai_o2, sizeof(__ai_o2));			\
+	kmsan_check_memory(&__ai_n1, sizeof(__ai_n1));			\
+	kmsan_check_memory(&__ai_n2, sizeof(__ai_n2));			\
+	kmsan_unpoison_shadow((void*)__ai_p1, 2 * sizeof(*__ai_p1));		\
+	arch_cmpxchg_double(__ai_p1, __ai_p2, __ai_o1, __ai_o2, __ai_n1, __ai_n2);	\
 })
 
 #define cmpxchg_double_local(p1, p2, o1, o2, n1, n2)				\
 ({										\
 	typeof(p1) __ai_p1 = (p1);						\
+	typeof(p2) __ai_p2 = (p2);						\
+	typeof(o1) __ai_o1 = (o1);						\
+	typeof(o2) __ai_o2 = (o2);						\
+	typeof(n1) __ai_n1 = (n1);						\
+	typeof(n2) __ai_n2 = (n2);						\
 	kasan_check_write(__ai_p1, 2 * sizeof(*__ai_p1));			\
+	kmsan_check_memory(&__ai_p1, sizeof(__ai_p1));				\
+	kmsan_check_memory(&__ai_p2, sizeof(__ai_p2));				\
+	kmsan_check_memory(&__ai_o1, sizeof(__ai_o1));				\
+	kmsan_check_memory(&__ai_o2, sizeof(__ai_o2));				\
+	kmsan_check_memory(&__ai_n1, sizeof(__ai_n1));				\
+	kmsan_check_memory(&__ai_n2, sizeof(__ai_n2));				\
+	kmsan_unpoison_shadow((void*)__ai_p1, 2 * sizeof(*__ai_p1));			\
 	arch_cmpxchg_double_local(__ai_p1, (p2), (o1), (o2), (n1), (n2));	\
 })
 
