@@ -2,6 +2,10 @@
 #define pr_fmt(fmt) "kcov: " fmt
 
 #define DISABLE_BRANCH_PROFILING
+
+/* We don't instrument this file, so let's not check atomics in it. */
+#define KMSAN_CHECK_ATOMIC_PARAMS 0
+
 #include <linux/atomic.h>
 #include <linux/compiler.h>
 #include <linux/errno.h>
@@ -24,6 +28,7 @@
 
 /* Number of 64-bit words written per one comparison: */
 #define KCOV_WORDS_PER_CMP 4
+
 
 /*
  * kcov descriptor (one per opened debugfs file).
