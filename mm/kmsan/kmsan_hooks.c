@@ -151,7 +151,7 @@ void kmsan_vmap(struct vm_struct *area,
 		pgprot_t prot, void *caller)
 {
 	struct vm_struct *shadow, *origin;
-	struct page **s_pages, **o_pages;
+	struct page **s_pages = NULL, **o_pages = NULL;
 	unsigned long irq_flags, size;
 	int i;
 
