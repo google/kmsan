@@ -26,7 +26,6 @@
 #include <linux/stacktrace.h>
 #include <linux/types.h>
 #include <asm/page.h>	// for clear_page()
-#include <asm/cpu_entry_area.h>  // for CPU_ENTRY_AREA_MAP_SIZE
 #include <linux/vmalloc.h>
 
 #include <linux/mmzone.h>
@@ -728,44 +727,6 @@ static bool is_module_addr(const void *vaddr)
 	return true;
 }
 
-// Taken from arch/x86/mm/physaddr.h
-// TODO(glider): do we need it?
-static inline int my_phys_addr_valid(resource_size_t addr)
-{
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-	return !(addr >> boot_cpu_data.x86_phys_bits);
-#else
-	return 1;
-#endif
-}
-
-// Taken from arch/x86/mm/physaddr.c
-// TODO(glider): do we need it?
-static bool my_virt_addr_valid(unsigned long x)
-{
-	unsigned long y = x - __START_KERNEL_map;
-
-	/* use the carry flag to determine if x was < __START_KERNEL_map */
-	if (unlikely(x > y)) {
-		x = y + phys_base;
-
-		if (y >= KERNEL_IMAGE_SIZE)
-			return false;
-	} else {
-		x = y + (__START_KERNEL_map - PAGE_OFFSET);
-
-		/* carry flag will be set if starting x was >= PAGE_OFFSET */
-		if ((x > y) || !my_phys_addr_valid(x))
-			return false;
-	}
-
-	return pfn_valid(x >> PAGE_SHIFT);
-}
-
-bool is_cpu_entry_area_addr(u64 addr)
-{
-	return (addr >= CPU_ENTRY_AREA_BASE) && (addr < CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE);
-}
 
 void *get_cea_shadow_or_null(const void *addr)
 {
