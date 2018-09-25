@@ -10,7 +10,6 @@
  *
  */
 
-
 #include "kmsan.h"
 #include <linux/gfp.h>
 #include <linux/mm.h>
@@ -94,150 +93,6 @@ typedef struct {
 	void* o;
 } shadow_origin_ptr_t;
 
-
-// Taken from arch/x86/mm/physaddr.h
-// TODO(glider): do we need it?
-static inline int my_phys_addr_valid(resource_size_t addr)
-{
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-	return !(addr >> boot_cpu_data.x86_phys_bits);
-#else
-	return 1;
-#endif
-}
-
-// Taken from arch/x86/mm/physaddr.c
-// TODO(glider): do we need it?
-static bool my_virt_addr_valid(unsigned long x)
-{
-	unsigned long y = x - __START_KERNEL_map;
-
-	/* use the carry flag to determine if x was < __START_KERNEL_map */
-	if (unlikely(x > y)) {
-		x = y + phys_base;
-
-		if (y >= KERNEL_IMAGE_SIZE)
-			return false;
-	} else {
-		x = y + (__START_KERNEL_map - PAGE_OFFSET);
-
-		/* carry flag will be set if starting x was >= PAGE_OFFSET */
-		if ((x > y) || !my_phys_addr_valid(x))
-			return false;
-	}
-
-	return pfn_valid(x >> PAGE_SHIFT);
-}
-
-// TODO(glider): do we want to inline this into kmsan_instr.c?
-// TODO(glider): either delete kmsan_get_shadow_address() or refactor.
-/* kmsan_get_shadow_address_noruntime() must not be called from within runtime. */
-inline
-void *kmsan_get_shadow_address_inline(u64 addr, size_t size, bool checked)
-{
-	struct page *page, *next_page;
-	unsigned long offset, shadow_size;
-	void *ret;
-	depot_stack_handle_t origin;
-	unsigned long irq_flags;
-
-	// TODO(glider): refactor this code.
-	if (!my_virt_addr_valid(addr)) {
-		// TODO(glider): Trinity is able to trigger the check below with size=14240.
-		ENTER_RUNTIME(irq_flags);
-		page = vmalloc_to_page_or_null(addr);
-		if (page) {
-			LEAVE_RUNTIME(irq_flags);
-			goto next;
-		}
-		ret = get_cea_shadow_or_null(addr);
-		if (ret) {
-			LEAVE_RUNTIME(irq_flags);
-			return ret;
-		}
-		kmsan_pr_err("kmsan_get_shadow_address_inline(%px, %d, %d)\n", addr, size, checked);
-		if (checked) {
-			BUG();
-		} else {
-			LEAVE_RUNTIME(irq_flags);
-			return NULL;
-		}
-	}
-
-
-	page = virt_to_page(addr);
-	if (!page)
-		return NULL;
-next:
-	if (!(page->shadow)) {
-		ENTER_RUNTIME(irq_flags);
-		oops_in_progress = 1;
-		kmsan_pr_err("not allocated shadow for addr %px (page %px)\n", addr, page);
-		BUG();
-		LEAVE_RUNTIME(irq_flags);
-	}
-	offset = addr % PAGE_SIZE;
-
-	if ((offset + size - 1 > PAGE_SIZE)) {
-		/* The access overflows the current page and touches the next
-		 * one. Make sure the shadow pages are also consequent.
-		 */
-		if (!metadata_is_contiguous(addr, size, /*is_origin*/false)) {
-			return NULL;
-		}
-	}
-	ret = page_address(page->shadow) + offset;
-	return ret;
-}
-
-/* kmsan_get_origin_address_noruntime() must not be called from within runtime. */
-inline
-void *kmsan_get_origin_address_inline(u64 addr, size_t size)
-{
-	struct page *page, *next_page;
-	unsigned long offset, shadow_size;
-	void *ret;
-	depot_stack_handle_t origin;
-	unsigned long irq_flags;
-	size_t pad;
-
-	// TODO(glider): For some reason vmalloc'ed addresses aren't considered valid.
-	if (!IS_ALIGNED(addr, 4)) {
-		pad = addr % 4;
-		addr -= pad;
-		size += pad;
-	}
-	// TODO(glider): refactor this code.
-	if (!my_virt_addr_valid(addr)) {
-		// TODO(glider): Trinity is able to trigger the check below with size=14240.
-		// No point in increasing the dummy origin size further.
-		ENTER_RUNTIME(irq_flags);
-		page = vmalloc_to_page_or_null(addr);
-		if (page) {
-			LEAVE_RUNTIME(irq_flags);
-			goto next;
-		}
-		ret = get_cea_origin_or_null(addr);
-		if (ret) {
-			LEAVE_RUNTIME(irq_flags);
-			return ret;
-		}
-		WARN(1, "kmsan_get_origin_address_inline(%px, %d)\n", addr, size);
-		BUG();
-	}
-
-
-	page = virt_to_page(addr);
-next:
-	if (!page || !(page->origin)) {
-		kmsan_pr_err("not allocated origin for addr %px (page %px)\n", addr, page);
-		BUG();
-	}
-	offset = addr % PAGE_SIZE;
-
-	ret = page_address(page->origin) + offset;
-	return ret;
-}
 
 #include <linux/highmem.h>
 static noinline
@@ -585,7 +440,7 @@ void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 unu
 	while (size_copy) {
 		page_offset = addr_copy % PAGE_SIZE;
 		to_fill = min_num(PAGE_SIZE - page_offset, size_copy);
-		shadow_start = kmsan_get_shadow_address_inline(addr_copy, to_fill, true);
+		shadow_start = kmsan_get_shadow_address(addr_copy, to_fill, true, /*is_store*/true);
 		if (!shadow_start) {
 			current->kmsan.is_reporting = true;
 			kmsan_pr_err("WARNING: not poisoning %d bytes starting at %px, because the shadow is NULL\n", to_fill, addr_copy);
