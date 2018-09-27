@@ -26,6 +26,8 @@ void kmsan_thread_create(struct task_struct *task)
 {
 	unsigned long irq_flags;
 
+	if (!task)
+		return;
 	ENTER_RUNTIME(irq_flags);
 	do_kmsan_thread_create(task);
 	LEAVE_RUNTIME(irq_flags);
