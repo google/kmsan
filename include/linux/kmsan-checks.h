@@ -17,19 +17,23 @@
 // Helper to initialize the return value.
 __attribute__((no_sanitize("kernel-memory")))
 static noinline int INIT_INT(int value) {
-  return value;
+	return value;
 }
 
 __attribute__((no_sanitize("kernel-memory")))
 static noinline s64 INIT_S64(s64 value) {
-  return value;
+	return value;
 }
 
 __attribute__((no_sanitize("kernel-memory")))
 static noinline bool INIT_BOOL(bool value) {
-  return value;
+	return value;
 }
 
+__attribute__((no_sanitize("kernel-memory")))
+static noinline void *INIT_PTR(void *value) {
+	return value;
+}
 
 void kmsan_poison_shadow(void *address, size_t size, gfp_t flags);
 void kmsan_unpoison_shadow(void *address, size_t size);
@@ -41,13 +45,17 @@ void kmsan_leave_runtime(unsigned long *flags);
 
 #else
 static inline int INIT_INT(int value) {
-  return value;
+	return value;
 }
 static inline s64 INIT_S64(s64 value) {
-  return value;
+	return value;
 }
 static inline bool INIT_BOOL(bool value) {
-  return value;
+	return value;
+}
+
+static inline void *INIT_PTR(void *value) {
+	return value;
 }
 
 static inline void kmsan_poison_shadow(void *address, size_t size, gfp_t flags) {}
