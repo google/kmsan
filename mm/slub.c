@@ -285,17 +285,26 @@ static void prefetch_freepointer(const struct kmem_cache *s, void *object)
 	prefetch(object + s->offset);
 }
 
+/* When running under KMSAN, get_freepointer_safe() may return an uninitialized
+ * pointer value in the case the current thread loses the race for the next
+ * memory chunk in the freelist. In that case this_cpu_cmpxchg_double() in
+ * slab_alloc_node() will fail, so the uninitialized value won't be used, but
+ * KMSAN will still check all arguments of cmpxchg because of imperfect
+ * handling of inline assembly.
+ * To work around this problem, use INIT_PTR() to force initialize the return
+ * value of get_freepointer_safe().
+ */
 static inline void *get_freepointer_safe(struct kmem_cache *s, void *object)
 {
 	unsigned long freepointer_addr;
 	void *p;
 
 	if (!debug_pagealloc_enabled())
-		return get_freepointer(s, object);
+		return INIT_PTR(get_freepointer(s, object));
 
 	freepointer_addr = (unsigned long)object + s->offset;
 	probe_kernel_read(&p, (void **)freepointer_addr, sizeof(p));
-	return freelist_ptr(s, p, freepointer_addr);
+	return INIT_PTR(freelist_ptr(s, p, freepointer_addr));
 }
 
 static inline void set_freepointer(struct kmem_cache *s, void *object, void *fp)
