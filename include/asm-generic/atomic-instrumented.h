@@ -24,7 +24,7 @@
 #define KMSAN_CHECK_PARAM(name)	\
 	do {							\
 		if (KMSAN_CHECK_ATOMIC_PARAMS) 			\
-			kmsan_check_memory(&(name), sizeof(name));	\
+			kmsan_check_memory((void*)&(name), sizeof(name));	\
 	} while (0)
 
 static __always_inline int atomic_read(const atomic_t *v)
