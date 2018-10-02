@@ -178,6 +178,24 @@ void noinline init_kmsan_vmap_vunmap_test(void)
 			__free_page(pages[i]);
 }
 
+void noinline init_vmalloc(void)
+{
+	char *buf;
+	int npages = 8, i;
+
+	pr_info("-----------------------------\n");
+	pr_info("pages initialized via vmap (no reports)\n");
+	buf = vmalloc(PAGE_SIZE * npages);
+	buf[0] = 1;
+	memset(buf, 0xfe, PAGE_SIZE * npages);
+	CHECK(buf[0]);
+	for (i = 0; i < npages; i++) {
+		kmsan_check_memory(&buf[PAGE_SIZE * i], PAGE_SIZE);
+	}
+	vfree(buf);
+}
+
+
 static noinline int __init kmsan_tests_init(void)
 {
 	uninit_kmalloc_test();
@@ -188,7 +206,10 @@ static noinline int __init kmsan_tests_init(void)
 	init_stack_var_test();
 	uninit_kmsan_check_memory_test();
 	init_kmsan_vmap_vunmap_test();
+	init_vmalloc();
 	return -EAGAIN;
 }
+
+
 module_init(kmsan_tests_init);
 MODULE_LICENSE("GPL");
