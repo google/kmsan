@@ -926,9 +926,8 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 		else
 			kmsan_pr_err("Bytes %d-%d of %d are uninitialized\n", off_first, off_last, size);
 	}
-	if (address) {
-		kmsan_pr_err("Memory access starts at %px\n", address);
-	}
+	if (address)
+		kmsan_pr_err("Memory access of size %d starts at %px\n", size, address);
 	kmsan_pr_err("==================================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irqrestore(&report_lock, flags);
@@ -943,44 +942,61 @@ inline
 void kmsan_internal_check_memory(const void *addr, size_t size, int reason)
 {
 	unsigned long irq_flags;
-	char *shadow;
+	unsigned char *shadow_page = (unsigned char *)-1;
 	depot_stack_handle_t origin = 0, prev_origin = 0;
-	size_t i, prev_start = -1;
+	size_t i, prev_start = -1, tail_size;
+	u64 addr64 = (u64)addr;
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	ENTER_RUNTIME(irq_flags);
-	shadow = kmsan_get_shadow_address(addr, size, /*checked*/true, /*is_store*/false);
-	if (!shadow) {
-		// TODO(glider): do we need to report an error here?
-		LEAVE_RUNTIME(irq_flags);
-		return;
-	}
 	for (i = 0; i < size; i++) {
-		if (!shadow[i]) {
-			if (prev_start != -1)
+		/* Shadow pages aren't necessarily contiguous, e.g. for a vmalloc()'ed region. */
+		if ((shadow_page == (unsigned char *)-1) || ((addr64 + i) % PAGE_SIZE == 0)) {
+			if (shadow_page == (unsigned char *)-1) {
+				tail_size = min_num(size, PAGE_SIZE - (addr64 % PAGE_SIZE));
+			} else {
+				tail_size = min_num(size - i, PAGE_SIZE);
+			}
+			ENTER_RUNTIME(irq_flags);
+			shadow_page = kmsan_get_shadow_address(addr64 + i, tail_size, /*checked*/true, /*is_store*/false);
+			shadow_page = ALIGN_DOWN((u64)shadow_page, PAGE_SIZE);
+			LEAVE_RUNTIME(irq_flags);
+		}
+		if (!shadow_page)
+			/* TODO(glider): make sure the page is untracked. */
+			continue;
+		if (!shadow_page[(addr64 + i) % PAGE_SIZE]) {
+			if (prev_start != -1) {
+				ENTER_RUNTIME(irq_flags);
 				kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, /*deep*/true, reason);
+				LEAVE_RUNTIME(irq_flags);
+			}
 			prev_origin = 0;
 			prev_start = -1;
 			continue;
 		}
 		// Not checking for the second time.
-		origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr + i, size, /*checked*/false, /*is_store*/false);
+		ENTER_RUNTIME(irq_flags);
+		origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr64 + i, min_num(sizeof(depot_stack_handle_t), size - i), /*checked*/false, /*is_store*/false);
+		LEAVE_RUNTIME(irq_flags);
 		if (prev_start == -1) {
 			prev_start = i;
 			prev_origin = origin;
 			continue;
 		}
 		if (origin != prev_origin) {
+			ENTER_RUNTIME(irq_flags);
 			kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, /*deep*/true, reason);
+			LEAVE_RUNTIME(irq_flags);
 			prev_origin = origin;
 			prev_start = i;
 		}
 	}
 	if (prev_origin) {
+		ENTER_RUNTIME(irq_flags);
 		kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, size - 1, /*deep*/true, reason);
+		LEAVE_RUNTIME(irq_flags);
 	}
-	LEAVE_RUNTIME(irq_flags);
 }
 
 void kmsan_check_memory(const void *addr, size_t size)
