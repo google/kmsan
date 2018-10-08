@@ -1428,7 +1428,8 @@ static inline struct kvm_mmu_page *page_header(hpa_t shadow_page)
 
 static inline u16 kvm_read_ldt(void)
 {
-	u16 ldt;
+	// TODO(glider): suppressing a false positive.
+	u16 ldt = 0;
 	asm("sldt %0" : "=g"(ldt));
 	return ldt;
 }
