@@ -1507,6 +1507,7 @@ static void __vunmap(const void *addr, int deallocate_pages)
 		return;
 
 	area = find_vmap_area((unsigned long)addr)->vm;
+	kmsan_vunmap(addr, area, deallocate_pages);
 	if (unlikely(!area)) {
 		WARN(1, KERN_ERR "Trying to vfree() nonexistent vm area (%p)\n",
 				addr);
@@ -1614,7 +1615,6 @@ void vunmap(const void *addr)
 	might_sleep();
 	if (addr)
 		__vunmap(addr, 0);
-	kmsan_vunmap(addr);
 }
 EXPORT_SYMBOL(vunmap);
 
@@ -1706,11 +1706,9 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 
 	if (map_vm_area(area, prot, pages))
 		goto fail;
-#if CONFIG_KMSAN
-	area->is_kmsan_tracked = false;
-	area->shadow = NULL;
-	area->origin = NULL;
-#endif
+	if (!kmsan_vmalloc_area_node(area, alloc_mask, nested_gfp, highmem_mask, prot, node))
+		goto fail;
+
 	return area->addr;
 
 fail:
