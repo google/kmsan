@@ -94,7 +94,8 @@ void kmsan_vprintk_func(const char *fmt, va_list args);
 void kmsan_vmap(struct vm_struct *area,
 		struct page **pages, unsigned int count, unsigned long flags,
 		pgprot_t prot, void *caller);
-void kmsan_vunmap(const void *addr);
+void kmsan_vunmap(const void *addr, struct vm_struct *area, int deallocate_pages);
+bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_flags, gfp_t nested_gfp, gfp_t highmem_mask, pgprot_t prot, int node);
 
 void kmsan_softirq_enter(void);
 void kmsan_softirq_exit(void);
@@ -142,7 +143,11 @@ static inline void kmsan_vprintk_func(const char *fmt, va_list args) {}
 static inline void kmsan_vmap(struct vm_struct *area,
 		struct page **pages, unsigned int count, unsigned long flags,
 		pgprot_t prot, void *caller) {}
-static inline void kmsan_vunmap(const void *addr) {}
+static inline void kmsan_vunmap(const void *addr, struct vm_struct *area, int deallocate_pages) {}
+static inline bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_flags, gfp_t nested_gfp, gfp_t highmem_mask, pgprot_t prot, int node)
+{
+	return true;
+}
 
 static inline void kmsan_softirq_enter(void) {}
 static inline void kmsan_softirq_exit(void) {}

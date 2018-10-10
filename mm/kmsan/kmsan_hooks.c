@@ -1,6 +1,8 @@
 /*
  * KMSAN hooks for kernel subsystems.
  *
+ * These functions handle creation of KMSAN metadata for memory allocations.
+ *
  * Copyright (C) 2018 Google, Inc
  * Author: Alexander Potapenko <glider@google.com>
  *
@@ -9,6 +11,7 @@
  * published by the Free Software Foundation.
  *
  */
+
 
 
 #include <linux/gfp.h>
@@ -20,6 +23,14 @@
 #include "kmsan.h"
 
 /* TODO(glider): do we need to export these symbols? */
+
+/*
+ * The functions may call back to instrumented code, which, in turn, may call
+ * these hooks again. To avoid re-entrancy, we use __GFP_NO_KMSAN_SHADOW.
+ * Instrumented functions shouldn't be called under
+ * ENTER_RUNTIME()/LEAVE_RUNTIME(), because this will lead to skipping
+ * effects of functions like memset() inside instrumented code.
+ */
 
 /* Called from kernel/kthread.c, kernel/fork.c */
 void kmsan_thread_create(struct task_struct *task)
@@ -120,7 +131,7 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 
 	if (unlikely(ptr == NULL))
 		return;
-	if (IN_RUNTIME())
+	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
 	if (flags & __GFP_ZERO) {
@@ -147,6 +158,61 @@ void kmsan_kfree_large(const void *ptr)
 	LEAVE_RUNTIME(irq_flags);
 }
 
+bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_mask, gfp_t nested_gfp, gfp_t highmem_mask, pgprot_t prot, int node)
+{
+	struct page **s_pages, **o_pages;
+	struct vm_struct *s_area, *o_area;
+	size_t area_size = get_vm_area_size(area);
+	unsigned int nr_pages = area->nr_pages;
+	unsigned int array_size = nr_pages * sizeof(struct page *);
+	unsigned long irq_flags;
+	int i;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return true;
+	if (alloc_mask & __GFP_NO_KMSAN_SHADOW)
+		return true;
+
+	s_area = get_vm_area(area_size, /*flags*/0);
+	o_area = get_vm_area(area_size, /*flags*/0);
+
+	if (array_size > PAGE_SIZE) {
+		s_pages = __vmalloc_node_flags_caller(array_size, node, nested_gfp|highmem_mask|__GFP_NO_KMSAN_SHADOW, (void*)area->caller);
+		o_pages = __vmalloc_node_flags_caller(array_size, node, nested_gfp|highmem_mask|__GFP_NO_KMSAN_SHADOW, (void*)area->caller);
+	} else {
+		s_pages = kmalloc_node(array_size, nested_gfp | __GFP_NO_KMSAN_SHADOW, node);
+		o_pages = kmalloc_node(array_size, nested_gfp | __GFP_NO_KMSAN_SHADOW, node);
+	}
+	if (!s_pages || !o_pages) {
+		goto fail;
+	}
+
+	for (i = 0; i < area->nr_pages; i++) {
+		s_pages[i] = area->pages[i]->shadow;
+		o_pages[i] = area->pages[i]->origin;
+	}
+
+	s_area->pages = s_pages;
+	o_area->pages = o_pages;
+
+	if (map_vm_area(s_area, prot, s_pages))
+		goto fail;
+	if (map_vm_area(o_area, prot, o_pages))
+		goto fail;
+	area->shadow = s_area;
+	area->origin = o_area;
+
+	area->is_kmsan_tracked = true;
+	return true;
+
+fail:
+	remove_vm_area(s_area->addr);
+	remove_vm_area(o_area->addr);
+	kfree(s_area);
+	kfree(o_area);
+	return false;
+}
+
 /* Called from mm/vmalloc.c */
 void kmsan_vmap(struct vm_struct *area,
 		struct page **pages, unsigned int count, unsigned long flags,
@@ -159,6 +225,8 @@ void kmsan_vmap(struct vm_struct *area,
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
+	if (flags & __GFP_NO_KMSAN_SHADOW)
+		return;
 
 	size = (unsigned long)count << PAGE_SHIFT;
 	// It's important to call get_vm_area_caller() (which calls kmalloc())
@@ -166,12 +234,12 @@ void kmsan_vmap(struct vm_struct *area,
 	// Calling kmalloc() may potentially allocate a new slab without
 	// corresponding shadow pages. Accesses to any subsequent allocations
 	// from that slab will crash the kernel.
-	shadow = get_vm_area_caller(size, flags, caller);
-	origin = get_vm_area_caller(size, flags, caller);
-	s_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL);
+	shadow = get_vm_area_caller(size, flags | __GFP_NO_KMSAN_SHADOW, caller);
+	origin = get_vm_area_caller(size, flags | __GFP_NO_KMSAN_SHADOW, caller);
+	s_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL | __GFP_NO_KMSAN_SHADOW);
 	if (!s_pages)
 		goto err_free;
-	o_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL);
+	o_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL | __GFP_NO_KMSAN_SHADOW);
 	for (i = 0; i < count; i++) {
 		if (!pages[i]->is_kmsan_tracked_page)
 			goto err_free;
@@ -179,11 +247,10 @@ void kmsan_vmap(struct vm_struct *area,
 		o_pages[i] = pages[i]->origin;
 	}
 	// Don't enter the runtime when allocating memory with kmalloc().
-	ENTER_RUNTIME(irq_flags);
 	if (map_vm_area(shadow, prot, s_pages) ||
-	    map_vm_area(origin, prot, o_pages))
+	    map_vm_area(origin, prot, o_pages)) {
 		goto err_free;
-	LEAVE_RUNTIME(irq_flags);
+	}
 
 	shadow->pages = s_pages;
 	shadow->nr_pages = count;
@@ -207,7 +274,7 @@ err_free:
 }
 
 /* Called from mm/vmalloc.c */
-void kmsan_vunmap(const void *addr)
+void kmsan_vunmap(const void *addr, struct vm_struct *area, int deallocate_pages)
 {
 	unsigned long irq_flags;
 	struct vm_struct *vms, *shadow, *origin;
@@ -216,10 +283,8 @@ void kmsan_vunmap(const void *addr)
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 
-	ENTER_RUNTIME(irq_flags);
-	vms = find_vm_area(addr);
 	if (!vms || !vms->is_kmsan_tracked)
-		goto leave;
+		return;
 	shadow = vms->shadow;
 	origin = vms->origin;
 
@@ -235,8 +300,6 @@ void kmsan_vunmap(const void *addr)
 	}
 	kfree(shadow->pages);
 	kfree(origin->pages);
-leave:
-	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_vunmap);
 
