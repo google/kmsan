@@ -78,7 +78,7 @@ void kmsan_nmi_enter(void)
 	bool in_nmi = this_cpu_read(kmsan_in_nmi);
 
 	BUG_ON(in_nmi);
-	BUG_ON(!(preempt_count() & NMI_MASK));
+	BUG_ON(preempt_count() & NMI_MASK);
 	kmsan_context_enter();
 	this_cpu_write(kmsan_in_nmi, true);
 }
@@ -89,7 +89,7 @@ void kmsan_nmi_exit(void)
 	bool in_nmi = this_cpu_read(kmsan_in_nmi);
 
 	BUG_ON(!in_nmi);
-	BUG_ON(!(preempt_count() & NMI_MASK));
+	BUG_ON(preempt_count() & NMI_MASK);
 	kmsan_context_exit();
 	this_cpu_write(kmsan_in_nmi, false);
 
