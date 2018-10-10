@@ -183,9 +183,8 @@ bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_mask, gfp_t nes
 		s_pages = kmalloc_node(array_size, nested_gfp | __GFP_NO_KMSAN_SHADOW, node);
 		o_pages = kmalloc_node(array_size, nested_gfp | __GFP_NO_KMSAN_SHADOW, node);
 	}
-	if (!s_pages || !o_pages) {
+	if (!s_pages || !o_pages)
 		goto fail;
-	}
 
 	for (i = 0; i < area->nr_pages; i++) {
 		s_pages[i] = area->pages[i]->shadow;
@@ -236,10 +235,16 @@ void kmsan_vmap(struct vm_struct *area,
 	// from that slab will crash the kernel.
 	shadow = get_vm_area_caller(size, flags | __GFP_NO_KMSAN_SHADOW, caller);
 	origin = get_vm_area_caller(size, flags | __GFP_NO_KMSAN_SHADOW, caller);
-	s_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL | __GFP_NO_KMSAN_SHADOW);
+	/* TODO(glider): __GFP_NO_KMSAN_SHADOW below indicates that kmalloc won't be
+	 * calling KMSAN hooks again, but it cannot guarantee the allocation
+	 * will be performed from an untracked page (we would need a separate
+	 * kmalloc cache for that). To make sure the pages are unpoisoned, we also
+	 * allocate with __GFP_ZERO.
+	 */
+	s_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL | __GFP_NO_KMSAN_SHADOW | __GFP_ZERO);
 	if (!s_pages)
 		goto err_free;
-	o_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL | __GFP_NO_KMSAN_SHADOW);
+	o_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL | __GFP_NO_KMSAN_SHADOW | __GFP_ZERO);
 	for (i = 0; i < count; i++) {
 		if (!pages[i]->is_kmsan_tracked_page)
 			goto err_free;
