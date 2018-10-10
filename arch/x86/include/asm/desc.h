@@ -222,11 +222,13 @@ static inline void native_load_idt(const struct desc_ptr *dtr)
 static inline void native_store_gdt(struct desc_ptr *dtr)
 {
 	asm volatile("sgdt %0":"=m" (*dtr));
+	kmsan_unpoison_shadow(dtr, sizeof(struct desc_ptr));
 }
 
 static inline void store_idt(struct desc_ptr *dtr)
 {
 	asm volatile("sidt %0":"=m" (*dtr));
+	kmsan_unpoison_shadow(dtr, sizeof(struct desc_ptr));
 }
 
 /*
