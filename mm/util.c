@@ -413,6 +413,7 @@ void *kvmalloc_node(size_t size, gfp_t flags, int node)
 			kmalloc_flags |= __GFP_NORETRY;
 	}
 
+#if 0
 	ret = kmalloc_node(size, kmalloc_flags, node);
 
 	/*
@@ -421,7 +422,7 @@ void *kvmalloc_node(size_t size, gfp_t flags, int node)
 	 */
 	if (ret || size <= PAGE_SIZE)
 		return ret;
-
+#endif
 	return __vmalloc_node_flags_caller(size, node, flags,
 			__builtin_return_address(0));
 }
