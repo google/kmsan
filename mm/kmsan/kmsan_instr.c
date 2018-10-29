@@ -174,6 +174,16 @@ leave:
 	return ret;
 }
 
+bool is_bad_asm_addr(u64 addr, u64 size, bool is_store)
+{
+	if (addr < TASK_SIZE) {
+		return true;
+	}
+	if (!kmsan_get_shadow_or_null(addr, size))
+		return true;
+	return false;
+}
+
 shadow_origin_ptr_t __msan_metadata_ptr_for_load_n(u64 addr, u64 size)
 {
 	return msan_get_shadow_origin_ptr(addr, size, /*store*/false);
@@ -204,6 +214,45 @@ DECLARE_METADATA_PTR_GETTER(2);
 DECLARE_METADATA_PTR_GETTER(4);
 DECLARE_METADATA_PTR_GETTER(8);
 
+
+void __msan_instrument_asm_load(u64 addr, u64 size)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready)
+		return;
+	if (IN_RUNTIME())
+		return;
+	// It's unlikely that the assembly will touch more than 32 bytes.
+	if (size > 32)
+		size = 8;
+	if (is_bad_asm_addr(addr, size, /*is_store*/false))
+		return;
+	ENTER_RUNTIME(irq_flags);
+	kmsan_internal_check_memory(addr, size, REASON_ANY);
+	//kmsan_internal_unpoison_shadow(addr, size);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(__msan_instrument_asm_load);
+
+void __msan_instrument_asm_store(u64 addr, u64 size)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready)
+		return;
+	if (IN_RUNTIME())
+		return;
+	// It's unlikely that the assembly will touch more than 32 bytes.
+	if (size > 32)
+		size = 8;
+	if (is_bad_asm_addr(addr, size, /*is_store*/true))
+		return;
+	ENTER_RUNTIME(irq_flags);
+	kmsan_internal_unpoison_shadow(addr, size);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(__msan_instrument_asm_store);
 
 void *__msan_memmove(void *dst, void *src, u64 n)
 {
