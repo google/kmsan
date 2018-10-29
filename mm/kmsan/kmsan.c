@@ -1044,6 +1044,48 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 	return true;
 }
 
+/* TODO(glider): all other shadow getters are broken, so let's write another
+ * one. The semantic is pretty straightforward: either return a valid shadow
+ * pointer or NULL. The caller must BUG_ON on NULL if he wants to.
+ * The return value of this function should not depend on whether we're in the
+ * runtime or not.
+ */
+void *kmsan_get_shadow_or_null(u64 addr, size_t size)
+{
+	struct page *page;
+	void *ret;
+	unsigned long offset;
+
+	if (!my_virt_addr_valid(addr)) {
+		page = vmalloc_to_page_or_null(addr);
+		if (page)
+			goto next;
+		ret = get_cea_shadow_or_null(addr);
+		if (ret)
+			return ret;
+	}
+	page = virt_to_page_or_null(addr);
+	if (!page)
+		return NULL;
+next:
+	if (!page->is_kmsan_tracked_page || !page->shadow)
+		return NULL;
+	offset = addr % PAGE_SIZE;
+
+	if (offset + size - 1 > PAGE_SIZE) {
+		/* The access overflows the current page and touches the
+		 * subsequent ones. Make sure the shadow pages are also
+		 * consequent.
+		 */
+		if (!metadata_is_contiguous(addr, size, /*is_origin*/false)) {
+			return NULL;
+		}
+
+	}
+	ret = page_address(page->shadow) + offset;
+	return ret;
+}
+
 // TODO(glider): do we want to inline this into kmsan_instr.c?
 inline
 void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_store)
@@ -1084,12 +1126,16 @@ next:
 	if (!page->is_kmsan_tracked_page)
 		return kmsan_dummy_shadow(is_store);
 	if (!page->shadow) {
-		oops_in_progress = 1;
-		current->kmsan.is_reporting = true;
-		kmsan_pr_err("Not allocated shadow for addr %px (page %px)\n", addr, page);
-		kmsan_pr_err("Attempted to access %d bytes\n", size);
-		BUG();
-		current->kmsan.is_reporting = false;
+		if (checked) {
+			oops_in_progress = 1;
+			current->kmsan.is_reporting = true;
+			kmsan_pr_err("Not allocated shadow for addr %px (page %px)\n", addr, page);
+			kmsan_pr_err("Attempted to access %d bytes\n", size);
+			BUG();
+			current->kmsan.is_reporting = false;
+		} else {
+			WARN(1, "kmsan_get_shadow_address(%px, %d, %d)\n", addr, size, checked);
+		}
 	}
 	offset = addr % PAGE_SIZE;
 
