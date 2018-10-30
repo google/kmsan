@@ -88,92 +88,6 @@ void kmsan_wipe_params_shadow_origin()
 }
 EXPORT_SYMBOL(kmsan_wipe_params_shadow_origin);
 
-typedef struct {
-	void* s;
-	void* o;
-} shadow_origin_ptr_t;
-
-
-#include <linux/highmem.h>
-static noinline
-shadow_origin_ptr_t msan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
-{
-	shadow_origin_ptr_t ret;
-	void *shadow, *origin;
-	unsigned long irq_flags;
-	struct page *page, *next_page;
-	unsigned long offset;
-	size_t pad;
-
-	if (store) {
-		ret.s = dummy_shadow_store_page;
-		ret.o = dummy_origin_store_page;
-	} else {
-		ret.s = dummy_shadow_load_page;
-		ret.o = dummy_origin_load_page;
-	}
-	if (!kmsan_ready || IN_RUNTIME()) {
-		return ret;
-	}
-	if (size > PAGE_SIZE) {
-		WARN(1, "size too big in msan_get_shadow_origin_ptr(%px, %d, %d)\n", addr, size, store);
-		//BUG();
-		ret.s = NULL;
-		ret.o = NULL;
-		return ret;
-	}
-
-	if (!my_virt_addr_valid(addr)) {
-		ENTER_RUNTIME(irq_flags);
-		page = vmalloc_to_page_or_null(addr);
-		if (page) {
-			LEAVE_RUNTIME(irq_flags);
-			goto next;
-		}
-		shadow = get_cea_shadow_or_null(addr);
-		origin = get_cea_origin_or_null(addr);
-		if (shadow && origin) {
-			ret.s = shadow;
-			ret.o = origin;
-		}
-		LEAVE_RUNTIME(irq_flags);
-		return ret;
-	}
-	page = virt_to_page(addr);
-next:
-	if ((!page) || (!(page->shadow))) {
-		return ret;
-	}
-	offset = addr % PAGE_SIZE;
-	if ((offset + size - 1 > PAGE_SIZE)) {
-		/* The access overflows the current page and touches the next
-		 * one. Make sure the shadow pages are also consequent.
-		 */
-		if (!metadata_is_contiguous(addr, size, /*is_origin*/false)) {
-			return ret;
-		}
-	}
-	shadow = page_address(page->shadow) + offset;
-	if (!shadow)
-		goto leave;
-	ret.s = shadow;
-
-	// TODO(glider): For some reason vmalloc'ed addresses aren't considered valid.
-	if (!IS_ALIGNED(addr, 4)) {
-		pad = addr % 4;
-		addr -= pad;
-	}
-
-	offset = addr % PAGE_SIZE;
-	// Don't check origins, shadow should've checked already.
-	origin = page_address(page->origin) + offset;
-	// origin cannot be NULL, because shadow is already non-NULL.
-	BUG_ON(!origin);
-	ret.o = origin;
-leave:
-	return ret;
-}
-
 bool is_bad_asm_addr(u64 addr, u64 size, bool is_store)
 {
 	if (addr < TASK_SIZE) {
@@ -186,26 +100,26 @@ bool is_bad_asm_addr(u64 addr, u64 size, bool is_store)
 
 shadow_origin_ptr_t __msan_metadata_ptr_for_load_n(u64 addr, u64 size)
 {
-	return msan_get_shadow_origin_ptr(addr, size, /*store*/false);
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_load_n);
 
 shadow_origin_ptr_t __msan_metadata_ptr_for_store_n(u64 addr, u64 size)
 {
-	return msan_get_shadow_origin_ptr(addr, size, /*store*/true);
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
 
 #define DECLARE_METADATA_PTR_GETTER(size)	\
 shadow_origin_ptr_t __msan_metadata_ptr_for_load_##size(u64 addr)	\
 {		\
-	return msan_get_shadow_origin_ptr(addr, size, /*store*/false);	\
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);	\
 }		\
 EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);			\
 		\
 shadow_origin_ptr_t __msan_metadata_ptr_for_store_##size(u64 addr)	\
 {									\
-	return msan_get_shadow_origin_ptr(addr, size, /*store*/true);	\
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);	\
 }									\
 EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size);
 
