@@ -179,7 +179,7 @@ bool is_bad_asm_addr(u64 addr, u64 size, bool is_store)
 	if (addr < TASK_SIZE) {
 		return true;
 	}
-	if (!kmsan_get_shadow_or_null(addr, size))
+	if (!kmsan_get_metadata_or_null(addr, size, /*is_origin*/false))
 		return true;
 	return false;
 }
@@ -269,19 +269,18 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 	if (!kmsan_ready)
 		return result;
 
-	ENTER_RUNTIME(irq_flags);
-	// TODO(glider): due to a hack kmsan_get_shadow_address() may return NULL
-	// for addresses in vmalloc space.
-	// Or maybe it's enough to just skip copying invalid addresses?
 
 	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = (void*)kmsan_get_shadow_address((u64)dst, n, /*checked*/false, /*is_store*/true);
-	if (shadow_dst)
-		kmsan_memmove_shadow(dst, src, n);
-	else
-		kmsan_pr_err("__msan_memmove(%px, %px, %d): skipping shadow\n", dst, src, n);
-	// TODO(glider): origins.
-	// We may want to chain every |src| origin with the current stack.
+	shadow_dst = (void*)kmsan_get_metadata_or_null((u64)dst, n, /*is_origin*/false);
+
+	if (!shadow_dst)
+		// Can happen e.g. if the memory is untracked.
+		return result;
+
+	ENTER_RUNTIME(irq_flags);
+	kmsan_memmove_shadow(dst, src, n);
+	// TODO(glider): we may want to chain every |src| origin with the
+	// current stack.
 	kmsan_memmove_origins((u64)dst, (u64)src, n);
 	LEAVE_RUNTIME(irq_flags);
 
@@ -319,19 +318,18 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 	if (!kmsan_ready)
 		return result;
 
-	ENTER_RUNTIME(irq_flags);
 
 	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = kmsan_get_shadow_address((u64)dst, n, /*checked*/false, /*is_store*/true);
-	// TODO(glider): due to a hack kmsan_get_shadow_address() may return NULL
-	// for addresses in vmalloc space.
-	// Or maybe it's enough to just skip copying invalid addresses?
-	if (shadow_dst)
-		kmsan_memcpy_shadow(dst, src, n);
-	else
-		kmsan_pr_err("__msan_memcpy(%px, %px, %d): skipping shadow\n", dst, src, n);
-	// TODO(glider): origins
-	// We may want to chain every |src| origin with the current stack.
+	shadow_dst = kmsan_get_metadata_or_null((u64)dst, n, /*is_origin*/true);
+	if (!shadow_dst)
+		// Can happen e.g. if the memory is untracked.
+		return result;
+
+	// TODO(glider): do we need ENTER_RUNTIME/LEAVE_RUNTIME here?
+	ENTER_RUNTIME(irq_flags);
+	kmsan_memcpy_shadow(dst, src, n);
+	// TODO(glider): we may want to chain every |src| origin with the
+	// current stack.
 	kmsan_memcpy_origins((u64)dst, (u64)src, n);
 leave:
 	LEAVE_RUNTIME(irq_flags);
@@ -389,32 +387,6 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 }
 EXPORT_SYMBOL(__msan_chain_origin);
 
-inline void kmsan_internal_memset_shadow_inline(u64 address, int b, size_t size)
-{
-	void *shadow_start;
-	u64 page_offset;
-	size_t to_fill;
-
-	if (!kmsan_ready) {
-		// No need to fill the dummy shadow.
-		return;
-	}
-
-	while (size) {
-		page_offset = address % PAGE_SIZE;
-		to_fill = min_num(PAGE_SIZE - page_offset, size);
-		shadow_start = kmsan_get_shadow_address(address, to_fill, /*checked*/true, /*is_store*/true);
-		if (!shadow_start) {
-			current->kmsan.is_reporting = true;
-			kmsan_pr_err("WARNING: not poisoning %d bytes starting at %px, because the shadow is NULL\n", to_fill, address);
-			current->kmsan.is_reporting = false;
-			BUG();
-		}
-		__memset(shadow_start, b, to_fill);
-		address += to_fill;
-		size -= to_fill;
-	}
-}
 
 inline
 void kmsan_write_aligned_origin_inline(const void *var, size_t size, u32 origin)
@@ -446,14 +418,10 @@ inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
 		to_fill = (PAGE_SIZE - page_offset > size) ? size : PAGE_SIZE - page_offset;
 		to_fill = ALIGN(to_fill, 4);	// at least 4 bytes
 		BUG_ON(!to_fill);
-		// Don't check
-		origin_start = kmsan_get_origin_address_noruntime(address, to_fill, false);
-		if (!origin_start) {
-			current->kmsan.is_reporting = true;
-			kmsan_pr_err("WARNING: not setting origing for %d bytes starting at %px, because the origin is NULL\n", to_fill, address);
-			current->kmsan.is_reporting = false;
-			BUG();
-		}
+		origin_start = kmsan_get_metadata_or_null(address, to_fill, /*is_origin*/true);
+		if (!origin_start)
+			// Can happen e.g. if the memory is untracked.
+			continue;
 		kmsan_write_aligned_origin_inline(origin_start, to_fill, origin);
 		address += to_fill;
 		size -= to_fill;
@@ -483,19 +451,14 @@ void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 unu
 		return;
 	if (IN_RUNTIME())
 		return;
-	///inlining this:
-        ///kmsan_internal_memset_shadow_inline((u64)address, -1, (size_t)size);
 
 	while (size_copy) {
 		page_offset = addr_copy % PAGE_SIZE;
 		to_fill = min_num(PAGE_SIZE - page_offset, size_copy);
-		shadow_start = kmsan_get_shadow_address(addr_copy, to_fill, true, /*is_store*/true);
-		if (!shadow_start) {
-			current->kmsan.is_reporting = true;
-			kmsan_pr_err("WARNING: not poisoning %d bytes starting at %px, because the shadow is NULL\n", to_fill, addr_copy);
-			current->kmsan.is_reporting = false;
-			BUG();
-		}
+		shadow_start = kmsan_get_metadata_or_null(addr_copy, to_fill, /*is_origin*/false);
+		if (!shadow_start)
+			// Can happen e.g. if the memory is untracked.
+			continue;
 		__memset(shadow_start, -1, to_fill);
 		addr_copy += to_fill;
 		size_copy -= to_fill;
