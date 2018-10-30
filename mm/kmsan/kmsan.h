@@ -37,6 +37,12 @@ enum KMSAN_BUG_REASON
 	REASON_COPY_TO_USER = 1,
 };
 
+typedef struct {
+	void* s;
+	void* o;
+} shadow_origin_ptr_t;
+shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store);
+
 #define min_num(x,y) ((x) < (y) ? x : y)
 
 

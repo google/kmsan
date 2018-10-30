@@ -607,7 +607,7 @@ void kmsan_set_origin(u64 address, int size, u32 origin)
 		address -= pad;
 		size += pad;
 	}
-	BUG_ON(!IS_ALIGNED(address, 4));
+
 	while (size > 0) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = (PAGE_SIZE - page_offset > size) ? size : PAGE_SIZE - page_offset;
@@ -1049,12 +1049,18 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
  * The return value of this function should not depend on whether we're in the
  * runtime or not.
  */
-inline
+__always_inline
 void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin)
 {
 	struct page *page;
 	void *ret;
-	unsigned long offset;
+	u64 pad, offset;
+
+	if (is_origin && !IS_ALIGNED(addr, 4)) {
+		pad = addr % 4;
+		addr -= pad;
+		size += pad;
+	}
 
 	if (!my_virt_addr_valid(addr)) {
 		page = vmalloc_to_page_or_null(addr);
@@ -1081,11 +1087,88 @@ next:
 		 */
 		if (!metadata_is_contiguous(addr, size, is_origin))
 			return NULL;
-
 	}
 	ret = page_address(is_origin ? page->origin : page->shadow) + offset;
 	return ret;
 }
+
+noinline
+shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
+{
+	shadow_origin_ptr_t ret;
+	struct page *page;
+	u64 pad, offset, o_offset;
+	u64 o_addr = addr;
+	u64 o_size = size;
+	void *shadow, *origin;
+
+	if (size > PAGE_SIZE) {
+		WARN(1, "size too big in kmsan_get_shadow_origin_ptr(%px, %d, %d)\n", addr, size, store);
+		//BUG();
+		ret.s = NULL;
+		ret.o = NULL;
+		return ret;
+	}
+	if (store) {
+		ret.s = dummy_shadow_store_page;
+		ret.o = dummy_origin_store_page;
+	} else {
+		ret.s = dummy_shadow_load_page;
+		ret.o = dummy_origin_load_page;
+	}
+	if (!kmsan_ready || IN_RUNTIME()) {
+		return ret;
+	}
+
+	if (!IS_ALIGNED(addr, 4)) {
+		pad = addr % 4;
+		o_addr -= pad;
+		o_size += pad;
+	}
+
+	if (!my_virt_addr_valid(addr)) {
+		page = vmalloc_to_page_or_null(addr);
+		if (page)
+			goto next;
+		if (shadow = get_cea_shadow_or_null(addr)) {
+			ret.s = shadow;
+			ret.o = get_cea_origin_or_null(o_addr);
+			return ret;
+		}
+	}
+	page = virt_to_page_or_null(addr);
+	if (!page)
+		return ret;
+next:
+        if (!page->shadow || !page->origin)
+		return ret;
+	if (!page->is_kmsan_tracked_page)
+		return ret;
+	offset = addr % PAGE_SIZE;
+	o_offset = o_addr % PAGE_SIZE;
+
+	if (offset + size - 1 > PAGE_SIZE) {
+		/* The access overflows the current page and touches the
+		 * subsequent ones. Make sure the shadow/origin pages are also
+		 * consequent.
+		 */
+		if (!metadata_is_contiguous(addr, size, /*is_origin*/false))
+			return ret;
+	}
+
+	shadow = page_address(page->shadow) + offset;
+	if (!shadow)
+		return ret;
+	ret.s = shadow;
+
+	origin = page_address(page->origin) + o_offset;
+	// origin cannot be NULL, because shadow is already non-NULL.
+	BUG_ON(!origin);
+	ret.o = origin;
+	return ret;
+}
+EXPORT_SYMBOL(kmsan_get_shadow_origin_ptr);
+
 
 inline
 void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_store)
@@ -1108,13 +1191,6 @@ void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_stor
 {
 	void *origin;
 	u64 offset, pad;
-
-	if (!IS_ALIGNED(addr, 4)) {
-		pad = addr % 4;
-		addr -= pad;
-		size += pad;
-	}
-	offset = (addr % PAGE_SIZE);
 
 	origin = kmsan_get_metadata_or_null(addr, size, /*is_origin*/true);
 
