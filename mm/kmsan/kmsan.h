@@ -64,7 +64,7 @@ enum KMSAN_BUG_REASON
 		restart_nmi();		\
 		local_irq_restore(irq_flags);	\
 		preempt_enable(); } while(0)
-void *kmsan_get_shadow_or_null(u64 addr, size_t size);
+void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin);
 void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_store);
 void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked);
 void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_store);
