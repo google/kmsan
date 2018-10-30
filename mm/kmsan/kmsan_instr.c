@@ -407,12 +407,7 @@ void __msan_unpoison_alloca(void *address, u64 size)
 EXPORT_SYMBOL(__msan_unpoison_alloca);
 
 // Compiler API
-// TODO(glider): __msan_warning_32() is deprecated. The new name is
-// __msan_warning().
-void __msan_warning(u32 origin) __attribute__((alias("__msan_warning_32")));
-EXPORT_SYMBOL(__msan_warning);
-
-void __msan_warning_32(u32 origin)
+void __msan_warning(u32 origin)
 {
 	void *caller;
 	unsigned long irq_flags;
@@ -427,7 +422,7 @@ void __msan_warning_32(u32 origin)
 			/*off_first*/0, /*off_last*/0, /*deep*/false, REASON_ANY);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(__msan_warning_32);
+EXPORT_SYMBOL(__msan_warning);
 
 // Per-task getters.
 kmsan_context_state *__msan_get_context_state(void)
