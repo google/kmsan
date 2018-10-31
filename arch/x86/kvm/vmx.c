@@ -2109,8 +2109,7 @@ static inline void __invvpid(unsigned long ext, u16 vpid, gva_t gva)
 	u64 rsvd : 48;
 	u64 gva;
     } operand = { vpid, 0, gva };
-    // TODO(glider): suppressing a false positive.
-    bool error = false;
+    bool error;
 
     asm volatile (__ex("invvpid %2, %1") CC_SET(na)
 		  : CC_OUT(na) (error) : "r"(ext), "m"(operand));
@@ -2122,8 +2121,7 @@ static inline void __invept(unsigned long ext, u64 eptp, gpa_t gpa)
 	struct {
 		u64 eptp, gpa;
 	} operand = {eptp, gpa};
-	// TODO(glider): suppressing a false positive.
-	bool error = false;
+	bool error;
 
 	asm volatile (__ex("invept %2, %1") CC_SET(na)
 		      : CC_OUT(na) (error) : "r"(ext), "m"(operand));
@@ -2143,8 +2141,7 @@ static struct shared_msr_entry *find_msr_entry(struct vcpu_vmx *vmx, u32 msr)
 static void vmcs_clear(struct vmcs *vmcs)
 {
 	u64 phys_addr = __pa(vmcs);
-	// TODO(glider): suppressing a false positive.
-	bool error = false;
+	bool error;
 
 	asm volatile (__ex("vmclear %1") CC_SET(na)
 		      : CC_OUT(na) (error) : "m"(phys_addr));
@@ -2165,8 +2162,7 @@ static inline void loaded_vmcs_init(struct loaded_vmcs *loaded_vmcs)
 static void vmcs_load(struct vmcs *vmcs)
 {
 	u64 phys_addr = __pa(vmcs);
-	// TODO(glider): suppressing a false positive.
-	bool error = false;
+	bool error;
 
 	if (static_branch_unlikely(&enable_evmcs))
 		return evmcs_load(phys_addr);
@@ -2398,8 +2394,7 @@ static noinline void vmwrite_error(unsigned long field, unsigned long value)
 
 static __always_inline void __vmcs_writel(unsigned long field, unsigned long value)
 {
-	// TODO(glider): suppressing a false positive.
-	bool error = false;
+	bool error;
 
 	asm volatile (__ex("vmwrite %2, %1") CC_SET(na)
 		      : CC_OUT(na) (error) : "r"(field), "rm"(value));
