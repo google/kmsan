@@ -17,8 +17,7 @@
 extern inline unsigned long native_save_fl(void);
 extern inline unsigned long native_save_fl(void)
 {
-	/// TODO(glider): false positive here.
-	unsigned long flags = 0;
+	unsigned long flags;
 
 	/*
 	 * "=rm" is safe here, because "pop" adjusts the stack before

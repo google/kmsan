@@ -124,8 +124,7 @@ do {							\
 
 static inline unsigned long long native_read_msr(unsigned int msr)
 {
-	// TODO(glider): suppressing a false positive.
-	unsigned long long val = 0;
+	unsigned long long val;
 
 	val = __rdmsr(msr);
 

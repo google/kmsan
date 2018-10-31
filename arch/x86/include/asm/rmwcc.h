@@ -27,8 +27,7 @@ cc_label:								\
 
 #define __GEN_RMWcc(fullop, var, cc, clobbers, ...)			\
 do {									\
-        /* TODO(glider): false positive */  \
-	bool c = 0;								\
+	bool c;								\
 	asm volatile (fullop CC_SET(cc)					\
 			: [counter] "+m" (var), CC_OUT(cc) (c)		\
 			: __VA_ARGS__ : clobbers);			\
