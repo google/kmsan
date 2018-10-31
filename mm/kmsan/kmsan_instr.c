@@ -75,7 +75,6 @@ void kmsan_wipe_params_shadow_origin()
 		return;
 	if (IN_RUNTIME())
 		return;
-	ENTER_RUNTIME(irq_flags);
 	__memset(cstate->param_origin_tls, 0, KMSAN_PARAM_SIZE);
 	__memset(cstate->param_tls, 0, KMSAN_PARAM_SIZE);
 	__memset(cstate->va_arg_tls, 0, KMSAN_PARAM_SIZE);
@@ -84,7 +83,6 @@ void kmsan_wipe_params_shadow_origin()
 	cstate->retval_origin_tls = 0;
 	cstate->origin_tls = 0;
 	cstate->va_arg_overflow_size_tls = 0;
-	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_wipe_params_shadow_origin);
 
@@ -143,6 +141,7 @@ void __msan_instrument_asm_load(u64 addr, u64 size)
 	if (is_bad_asm_addr(addr, size, /*is_store*/false))
 		return;
 	ENTER_RUNTIME(irq_flags);
+	// kmsan_internal_check_memory() may take locks.
 	kmsan_internal_check_memory(addr, size, REASON_ANY);
 	//kmsan_internal_unpoison_shadow(addr, size);
 	LEAVE_RUNTIME(irq_flags);
@@ -191,12 +190,10 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 		// Can happen e.g. if the memory is untracked.
 		return result;
 
-	ENTER_RUNTIME(irq_flags);
 	kmsan_memmove_shadow(dst, src, n);
 	// TODO(glider): we may want to chain every |src| origin with the
 	// current stack.
 	kmsan_memmove_origins((u64)dst, (u64)src, n);
-	LEAVE_RUNTIME(irq_flags);
 
 	return result;
 }
@@ -239,14 +236,10 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 		// Can happen e.g. if the memory is untracked.
 		return result;
 
-	// TODO(glider): do we need ENTER_RUNTIME/LEAVE_RUNTIME here?
-	ENTER_RUNTIME(irq_flags);
 	kmsan_memcpy_shadow(dst, src, n);
 	// TODO(glider): we may want to chain every |src| origin with the
 	// current stack.
 	kmsan_memcpy_origins((u64)dst, (u64)src, n);
-leave:
-	LEAVE_RUNTIME(irq_flags);
 
 	return result;
 }
@@ -294,6 +287,7 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 	if (!kmsan_ready)
 		return ret;
 
+	// Creating new origins may allocate memory.
 	ENTER_RUNTIME(irq_flags);
 	ret = kmsan_internal_chain_origin(origin, /*full*/true);
 	LEAVE_RUNTIME(irq_flags);
@@ -383,7 +377,7 @@ void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 unu
 	entries[2] = __builtin_return_address(0);
 	entries[3] = kmsan_internal_return_address(1);
 
-	ENTER_RUNTIME(irq_flags);
+	ENTER_RUNTIME(irq_flags);  // depot_save_stack() may allocate memory.
 	handle = depot_save_stack(&trace, GFP_ATOMIC);
 	LEAVE_RUNTIME(irq_flags);
 	// TODO(glider): just a plain origin description isn't enough, let's store the full stack here.
