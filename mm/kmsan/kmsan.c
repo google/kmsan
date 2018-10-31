@@ -107,13 +107,10 @@ kmsan_context_state *task_kmsan_context_state(void)
 		return ret;
 	}
 
-	// TODO(glider): no need to enter/leave runtime?
-	ENTER_RUNTIME(irq_flags);
 	if (!level)
 		ret = &current->kmsan.cstate;
 	else
 		ret = &per_cpu(kmsan_percpu_cstate[level], cpu);
-	LEAVE_RUNTIME(irq_flags);
 	return ret;
 }
 
@@ -807,10 +804,8 @@ void kmsan_clear_user_page(struct page *page)
 	if (!page->is_kmsan_tracked_page)
 		return;
 
-	ENTER_RUNTIME(irq_flags);
 	__memset(page_address(page->shadow), 0, PAGE_SIZE);
 	__memset(page_address(page->origin), 0, PAGE_SIZE);
-	LEAVE_RUNTIME(irq_flags);
 }
 
 // TODO(glider): unite with kmsan_alloc_page()?
