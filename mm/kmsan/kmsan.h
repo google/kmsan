@@ -106,7 +106,7 @@ void do_kmsan_thread_create(struct task_struct *task);
 void kmsan_set_origin(u64 address, int size, u32 origin);
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 			u64 address, int size,
-			int off_first, int off_last, bool deep, int reason);
+			int off_first, int off_last, u64 user_addr, bool deep, int reason);
 
 int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 				unsigned int actual_size, gfp_t flags, int node);
@@ -115,7 +115,7 @@ kmsan_context_state *task_kmsan_context_state(void);
 
 bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin);
 int order_from_size(unsigned long size);
-void kmsan_internal_check_memory(const void *addr, size_t size, int reason);
+void kmsan_internal_check_memory(const void *addr, size_t size, const void *user_addr, int reason);
 
 struct page *vmalloc_to_page_or_null(const void *vaddr);
 struct page *virt_to_page_or_null(const void *vaddr);
