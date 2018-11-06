@@ -549,7 +549,7 @@ void kmsan_copy_to_user(const void *to, const void *from,
 		return;
 	if ((u64)to < TASK_SIZE) {
 		/* This is a user memory access, check it. */
-		kmsan_internal_check_memory(from, to_copy - left,
+		kmsan_internal_check_memory(from, to_copy - left, to,
 						REASON_COPY_TO_USER);
 		return;
 	}
