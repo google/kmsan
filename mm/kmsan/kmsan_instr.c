@@ -142,7 +142,7 @@ void __msan_instrument_asm_load(u64 addr, u64 size)
 		return;
 	ENTER_RUNTIME(irq_flags);
 	// kmsan_internal_check_memory() may take locks.
-	kmsan_internal_check_memory(addr, size, REASON_ANY);
+	kmsan_internal_check_memory(addr, size, /*user_addr*/0, REASON_ANY);
 	//kmsan_internal_unpoison_shadow(addr, size);
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -413,7 +413,7 @@ void __msan_warning(u32 origin)
 	ENTER_RUNTIME(irq_flags);
 	caller = __builtin_return_address(0);
 	kmsan_report(caller, origin, /*address*/0, /*size*/0,
-			/*off_first*/0, /*off_last*/0, /*deep*/false, REASON_ANY);
+			/*off_first*/0, /*off_last*/0, /*user_addr*/0, /*deep*/false, REASON_ANY);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_warning);
