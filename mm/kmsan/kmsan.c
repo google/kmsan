@@ -863,7 +863,7 @@ void save_reporter(void *caller, void **table, int *index)
 // |deep| is a dirty hack to skip an additional frame when calling
 // kmsan_report() from kmsan_copy_to_user().
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
-			u64 address, int size, int off_first, int off_last, bool deep, int reason)
+			u64 address, int size, int off_first, int off_last, u64 user_addr, bool deep, int reason)
 {
 	unsigned long flags;
 	struct stack_trace trace;
@@ -922,6 +922,8 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	}
 	if (address)
 		kmsan_pr_err("Memory access of size %d starts at %px\n", size, address);
+	if (user_addr && reason == REASON_COPY_TO_USER)
+		kmsan_pr_err("Data copied to user address %px\n", user_addr);
 	kmsan_pr_err("==================================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irqrestore(&report_lock, flags);
@@ -933,7 +935,7 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 
 
 inline
-void kmsan_internal_check_memory(const void *addr, size_t size, int reason)
+void kmsan_internal_check_memory(const void *addr, size_t size, const void *user_addr, int reason)
 {
 	unsigned long irq_flags;
 	unsigned char *shadow_page = (unsigned char *)-1;
@@ -962,7 +964,7 @@ void kmsan_internal_check_memory(const void *addr, size_t size, int reason)
 		if (!shadow_page[(addr64 + i) % PAGE_SIZE]) {
 			if (prev_start != -1) {
 				ENTER_RUNTIME(irq_flags);
-				kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, /*deep*/true, reason);
+				kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, user_addr, /*deep*/true, reason);
 				LEAVE_RUNTIME(irq_flags);
 			}
 			prev_origin = 0;
@@ -980,7 +982,7 @@ void kmsan_internal_check_memory(const void *addr, size_t size, int reason)
 		}
 		if (origin != prev_origin) {
 			ENTER_RUNTIME(irq_flags);
-			kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, /*deep*/true, reason);
+			kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, user_addr, /*deep*/true, reason);
 			LEAVE_RUNTIME(irq_flags);
 			prev_origin = origin;
 			prev_start = i;
@@ -988,14 +990,14 @@ void kmsan_internal_check_memory(const void *addr, size_t size, int reason)
 	}
 	if (prev_origin) {
 		ENTER_RUNTIME(irq_flags);
-		kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, size - 1, /*deep*/true, reason);
+		kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, size - 1, user_addr, /*deep*/true, reason);
 		LEAVE_RUNTIME(irq_flags);
 	}
 }
 
 void kmsan_check_memory(const void *addr, size_t size)
 {
-	return kmsan_internal_check_memory(addr, size, REASON_ANY);
+	return kmsan_internal_check_memory(addr, size, /*user_addr*/ 0, REASON_ANY);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
 
