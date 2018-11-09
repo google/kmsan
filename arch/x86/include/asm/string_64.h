@@ -15,7 +15,10 @@ extern void *memcpy(void *to, const void *from, size_t len);
 extern void *__memcpy(void *to, const void *from, size_t len);
 
 #ifndef CONFIG_FORTIFY_SOURCE
-#if (__GNUC__ == 4 && __GNUC_MINOR__ < 3) || __GNUC__ < 4
+#ifdef CONFIG_KMSAN
+extern void *__msan_memcpy(void *to, const void *from, size_t len);
+#define memcpy(dst, src, len) __msan_memcpy(dst, src, len)
+#elif (__GNUC__ == 4 && __GNUC_MINOR__ < 3) || __GNUC__ < 4
 #define memcpy(dst, src, len)					\
 ({								\
 	size_t __len = (len);					\
@@ -79,7 +82,8 @@ char *strcpy(char *dest, const char *src);
 char *strcat(char *dest, const char *src);
 int strcmp(const char *cs, const char *ct);
 
-#if defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)
+#if (defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)) || \
+    (defined(CONFIG_KMSAN) && !defined(__SANITIZE_MEMORY__))
 
 /*
  * For files that not instrumented (e.g. mm/slub.c) we
