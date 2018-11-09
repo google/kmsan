@@ -69,7 +69,7 @@ static struct nvmf_host *nvmf_host_default(void)
 {
 	struct nvmf_host *host;
 
-	host = kzalloc(sizeof(*host), GFP_KERNEL);
+	host = kmalloc(sizeof(*host), GFP_KERNEL);
 	if (!host)
 		return NULL;
 
