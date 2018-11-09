@@ -18,6 +18,7 @@
 #include <linux/uaccess.h>
 #include <linux/capability.h>
 #include <linux/kernel_stat.h>
+#include <linux/kmsan-checks.h>
 #include <linux/gfp.h>
 #include <linux/mm.h>
 #include <linux/swap.h>
@@ -2836,6 +2837,8 @@ filler:
 		page = wait_on_page_read(page);
 		if (IS_ERR(page))
 			return page;
+		// Assume all pages in page cache are initialized.
+		kmsan_unpoison_shadow(page_address(page), PAGE_SIZE);
 		goto out;
 	}
 	if (PageUptodate(page))

@@ -1170,14 +1170,17 @@ static struct buffer_head *__bread_slow(struct buffer_head *bh)
 	lock_buffer(bh);
 	if (buffer_uptodate(bh)) {
 		unlock_buffer(bh);
+		kmsan_unpoison_shadow(bh->b_data, bh->b_size);
 		return bh;
 	} else {
 		get_bh(bh);
 		bh->b_end_io = end_buffer_read_sync;
 		submit_bh(REQ_OP_READ, 0, bh);
 		wait_on_buffer(bh);
-		if (buffer_uptodate(bh))
+		if (buffer_uptodate(bh)) {
+			kmsan_unpoison_shadow(bh->b_data, bh->b_size);
 			return bh;
+		}
 	}
 	brelse(bh);
 	return NULL;
@@ -1320,6 +1323,8 @@ __getblk_gfp(struct block_device *bdev, sector_t block,
 	might_sleep();
 	if (bh == NULL)
 		bh = __getblk_slow(bdev, block, size, gfp);
+	if (bh)
+		kmsan_unpoison_shadow(bh->b_data, bh->b_size);
 	return bh;
 }
 EXPORT_SYMBOL(__getblk_gfp);
