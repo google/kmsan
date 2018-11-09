@@ -4,6 +4,7 @@
 
 /* Keep includes the same across arches.  */
 #include <linux/mm.h>
+#include <linux/kmsan-checks.h>
 
 #define ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE 0
 
@@ -99,6 +100,7 @@ static inline void flush_cache_vunmap(unsigned long start, unsigned long end)
 #ifndef copy_to_user_page
 #define copy_to_user_page(vma, page, vaddr, dst, src, len)	\
 	do { \
+		kmsan_check_memory(src, len); \
 		memcpy(dst, src, len); \
 		flush_icache_user_range(vma, page, vaddr, len); \
 	} while (0)
@@ -106,7 +108,10 @@ static inline void flush_cache_vunmap(unsigned long start, unsigned long end)
 
 #ifndef copy_from_user_page
 #define copy_from_user_page(vma, page, vaddr, dst, src, len) \
-	memcpy(dst, src, len)
+	do { \
+		memcpy(dst, src, len); \
+		kmsan_unpoison_shadow(dst, len); \
+	} while (0)
 #endif
 
 #endif /* __ASM_CACHEFLUSH_H */
