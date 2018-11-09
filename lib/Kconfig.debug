@@ -773,6 +773,8 @@ config DEBUG_STACKOVERFLOW
 
 source "lib/Kconfig.kasan"
 
+source "lib/Kconfig.kmsan"
+
 endmenu # "Memory Debugging"
 
 config ARCH_HAS_KCOV
