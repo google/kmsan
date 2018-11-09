@@ -344,6 +344,7 @@ __FORTIFY_INLINE void *memset(void *p, int c, __kernel_size_t size)
 	return __builtin_memset(p, c, size);
 }
 
+#ifndef CONFIG_KMSAN
 __FORTIFY_INLINE void *memcpy(void *p, const void *q, __kernel_size_t size)
 {
 	size_t p_size = __builtin_object_size(p, 0);
@@ -358,6 +359,7 @@ __FORTIFY_INLINE void *memcpy(void *p, const void *q, __kernel_size_t size)
 		fortify_panic(__func__);
 	return __builtin_memcpy(p, q, size);
 }
+#endif
 
 __FORTIFY_INLINE void *memmove(void *p, const void *q, __kernel_size_t size)
 {
