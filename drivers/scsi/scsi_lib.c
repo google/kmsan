@@ -14,6 +14,7 @@
 #include <linux/blkdev.h>
 #include <linux/completion.h>
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/export.h>
 #include <linux/init.h>
 #include <linux/pci.h>
@@ -296,6 +297,9 @@ int __scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 	ret = rq->result;
  out:
 	blk_put_request(req);
+	// TODO(glider): this is a bit rough.
+	if (data_direction == DMA_FROM_DEVICE)
+		kmsan_unpoison_shadow(buffer, bufflen);
 
 	return ret;
 }
