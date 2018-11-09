@@ -11,11 +11,23 @@
    function. */
 
 #define __HAVE_ARCH_MEMCPY 1
+#if defined(CONFIG_KMSAN)
+#undef memcpy
+/* __msan_memcpy() is defined in compiler.h */
+#define memcpy(dst, src, len) __msan_memcpy(dst, src, len)
+#else
 extern void *memcpy(void *to, const void *from, size_t len);
+#endif
 extern void *__memcpy(void *to, const void *from, size_t len);
 
 #define __HAVE_ARCH_MEMSET
+#if defined(CONFIG_KMSAN)
+extern void *__msan_memset(void *s, int c, size_t n);
+#undef memset
+#define memset(dst, c, len) __msan_memset(dst, c, len)
+#else
 void *memset(void *s, int c, size_t n);
+#endif
 void *__memset(void *s, int c, size_t n);
 
 #define __HAVE_ARCH_MEMSET16
@@ -55,7 +67,13 @@ static inline void *memset64(uint64_t *s, uint64_t v, size_t n)
 }
 
 #define __HAVE_ARCH_MEMMOVE
+#if defined(CONFIG_KMSAN)
+#undef memmove
+void *__msan_memmove(void *dest, const void *src, size_t len);
+#define memmove(dst, src, len) __msan_memmove(dst, src, len)
+#else
 void *memmove(void *dest, const void *src, size_t count);
+#endif
 void *__memmove(void *dest, const void *src, size_t count);
 
 int memcmp(const void *cs, const void *ct, size_t count);
@@ -64,7 +82,8 @@ char *strcpy(char *dest, const char *src);
 char *strcat(char *dest, const char *src);
 int strcmp(const char *cs, const char *ct);
 
-#if defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)
+#if (defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)) || \
+	(defined(CONFIG_KMSAN) && !defined(__SANITIZE_MEMORY__))
 
 /*
  * For files that not instrumented (e.g. mm/slub.c) we
@@ -73,7 +92,9 @@ int strcmp(const char *cs, const char *ct);
 
 #undef memcpy
 #define memcpy(dst, src, len) __memcpy(dst, src, len)
+#undef memmove
 #define memmove(dst, src, len) __memmove(dst, src, len)
+#undef memset
 #define memset(s, c, n) __memset(s, c, n)
 
 #ifndef __NO_FORTIFY
