@@ -6,6 +6,7 @@
  */
 #include <linux/compiler.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 #include <linux/string.h>
 #include <asm/asm.h>
 #include <asm/page.h>
@@ -174,6 +175,7 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0UL), 0ULL, 0UL))
 			ASM_CALL_CONSTRAINT				\
 		     : "0" (ptr), "i" (sizeof(*(ptr))));		\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
+	kmsan_unpoison_shadow(&(x), sizeof(*(ptr)));			\
 	__builtin_expect(__ret_gu, 0);					\
 })
 
@@ -248,6 +250,7 @@ extern void __put_user_8(void);
 	__chk_user_ptr(ptr);					\
 	might_fault();						\
 	__pu_val = x;						\
+	kmsan_check_memory(&(__pu_val), sizeof(*(ptr)));	\
 	switch (sizeof(*(ptr))) {				\
 	case 1:							\
 		__put_user_x(1, __pu_val, ptr, __ret_pu);	\
@@ -270,7 +273,9 @@ extern void __put_user_8(void);
 
 #define __put_user_size(x, ptr, size, label)				\
 do {									\
+	__typeof__(*(ptr)) __pus_val = x;				\
 	__chk_user_ptr(ptr);						\
+	kmsan_check_memory(&(__pus_val), size);				\
 	switch (size) {							\
 	case 1:								\
 		__put_user_goto(x, ptr, "b", "b", "iq", label);	\
@@ -295,7 +300,10 @@ do {									\
  */
 #define __put_user_size_ex(x, ptr, size)				\
 do {									\
+	__typeof__(*(ptr)) __puse_val;					\
 	__chk_user_ptr(ptr);						\
+	__puse_val = x;							\
+	kmsan_check_memory(&(__puse_val), size);				\
 	switch (size) {							\
 	case 1:								\
 		__put_user_asm_ex(x, ptr, "b", "b", "iq");		\
@@ -363,6 +371,7 @@ do {									\
 	default:							\
 		(x) = __get_user_bad();					\
 	}								\
+	kmsan_unpoison_shadow(&(x), size);				\
 } while (0)
 
 #define __get_user_asm(x, addr, err, itype, rtype, ltype, errret)	\
@@ -413,6 +422,7 @@ do {									\
 	default:							\
 		(x) = __get_user_bad();					\
 	}								\
+	kmsan_unpoison_shadow(&(x), size);				\
 } while (0)
 
 #define __get_user_asm_ex(x, addr, itype, rtype, ltype)			\
@@ -428,11 +438,13 @@ do {									\
 #define __put_user_nocheck(x, ptr, size)			\
 ({								\
 	__label__ __pu_label;					\
+	__typeof__(*(ptr)) __pun_val = x;			\
 	int __pu_err = -EFAULT;					\
 	__typeof__(*(ptr)) __pu_val = (x);			\
 	__typeof__(ptr) __pu_ptr = (ptr);			\
 	__typeof__(size) __pu_size = (size);			\
 	__uaccess_begin();					\
+	kmsan_check_memory(&(__pun_val), size);			\
 	__put_user_size(__pu_val, __pu_ptr, __pu_size, __pu_label);	\
 	__pu_err = 0;						\
 __pu_label:							\
