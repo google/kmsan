@@ -179,6 +179,13 @@ void ftrace_likely_update(struct ftrace_likely_data *f, int val,
 
 #include <uapi/linux/types.h>
 
+#ifdef CONFIG_KMSAN
+void *__msan_memcpy(void *dst, const void *src, u64 size);
+#define __DO_MEMCPY(res, p, size) __msan_memcpy(res, p, size)
+#else
+#define __DO_MEMCPY(res, p, size) __builtin_memcpy(res, p, size)
+#endif
+
 #define __READ_ONCE_SIZE						\
 ({									\
 	switch (size) {							\
@@ -188,7 +195,7 @@ void ftrace_likely_update(struct ftrace_likely_data *f, int val,
 	case 8: *(__u64 *)res = *(volatile __u64 *)p; break;		\
 	default:							\
 		barrier();						\
-		__builtin_memcpy((void *)res, (const void *)p, size);	\
+		__DO_MEMCPY((void *)res, (const void *)p, size);	\
 		barrier();						\
 	}								\
 })
@@ -255,6 +262,7 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
  */
 #include <asm/barrier.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 
 #define __READ_ONCE(x, check)						\
 ({									\
