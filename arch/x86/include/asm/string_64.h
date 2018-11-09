@@ -11,7 +11,13 @@
    function. */
 
 #define __HAVE_ARCH_MEMCPY 1
+#if defined(CONFIG_KMSAN)
+#undef memcpy
+/* __msan_memcpy() is defined in compiler.h */
+#define memcpy(dst, src, len) __msan_memcpy(dst, src, len)
+#else
 extern void *memcpy(void *to, const void *from, size_t len);
+#endif
 extern void *__memcpy(void *to, const void *from, size_t len);
 
 #define __HAVE_ARCH_MEMSET
@@ -64,7 +70,8 @@ char *strcpy(char *dest, const char *src);
 char *strcat(char *dest, const char *src);
 int strcmp(const char *cs, const char *ct);
 
-#if defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)
+#if (defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)) || \
+    (defined(CONFIG_KMSAN) && !defined(__SANITIZE_MEMORY__))
 
 /*
  * For files that not instrumented (e.g. mm/slub.c) we
