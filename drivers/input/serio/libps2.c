@@ -8,6 +8,7 @@
 
 
 #include <linux/delay.h>
+#include <linux/kmsan-checks.h>
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
@@ -30,6 +31,7 @@ static int ps2_do_sendbyte(struct ps2dev *ps2dev, u8 byte,
 	int error;
 
 	lockdep_assert_held(&ps2dev->serio->lock);
+	kmsan_check_memory(&byte, 1);
 
 	do {
 		ps2dev->nak = 1;
@@ -294,9 +296,11 @@ int __ps2_command(struct ps2dev *ps2dev, u8 *param, unsigned int command)
 
 	serio_pause_rx(ps2dev->serio);
 
-	if (param)
+	if (param) {
 		for (i = 0; i < receive; i++)
 			param[i] = ps2dev->cmdbuf[(receive - 1) - i];
+		kmsan_unpoison_shadow(param, receive);
+	}
 
 	if (ps2dev->cmdcnt &&
 	    (command != PS2_CMD_RESET_BAT || ps2dev->cmdcnt != 1)) {
