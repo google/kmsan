@@ -142,7 +142,10 @@ static inline int __access_ok(unsigned long addr, unsigned long size)
 
 static inline int __put_user_fn(size_t size, void __user *ptr, void *x)
 {
-	return unlikely(raw_copy_to_user(ptr, x, size)) ? -EFAULT : 0;
+	int n;
+	n = raw_copy_to_user(ptr, x, size);
+	kmsan_copy_to_user(ptr, x, size, n);
+	return unlikely(n) ? -EFAULT : 0;
 }
 
 #define __put_user_fn(sz, u, k)	__put_user_fn(sz, u, k)
@@ -203,7 +206,10 @@ extern int __put_user_bad(void) __attribute__((noreturn));
 #ifndef __get_user_fn
 static inline int __get_user_fn(size_t size, const void __user *ptr, void *x)
 {
-	return unlikely(raw_copy_from_user(x, ptr, size)) ? -EFAULT : 0;
+	int copied, to_copy = size;
+	copied = raw_copy_from_user(x, ptr, size);
+	kmsan_unpoison_shadow(to, to_copy - res);
+	return unlikely(copied) ? -EFAULT : 0;
 }
 
 #define __get_user_fn(sz, u, k)	__get_user_fn(sz, u, k)
