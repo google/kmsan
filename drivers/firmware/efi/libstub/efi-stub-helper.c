@@ -5,7 +5,12 @@
  * implementation files.
  *
  * Copyright 2011 Intel Corporation; author Matt Fleming
+ *
+ *
+ * This file is not linked with KMSAN runtime.
+ * Do not replace memcpy with __memcpy.
  */
+#undef CONFIG_KMSAN
 
 #include <stdarg.h>
 
