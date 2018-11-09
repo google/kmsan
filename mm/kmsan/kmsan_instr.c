@@ -1,0 +1,259 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * KMSAN compiler API.
+ *
+ * Copyright (C) 2017-2019 Google LLC
+ * Author: Alexander Potapenko <glider@google.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ */
+
+#include "kmsan.h"
+#include <linux/gfp.h>
+#include <linux/mm.h>
+
+static bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
+{
+	if ((u64)addr < TASK_SIZE)
+		return true;
+	if (!kmsan_get_metadata(addr, size, META_SHADOW))
+		return true;
+	return false;
+}
+
+struct shadow_origin_ptr __msan_metadata_ptr_for_load_n(void *addr, u64 size)
+{
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);
+}
+EXPORT_SYMBOL(__msan_metadata_ptr_for_load_n);
+
+struct shadow_origin_ptr __msan_metadata_ptr_for_store_n(void *addr, u64 size)
+{
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);
+}
+EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
+
+#define DECLARE_METADATA_PTR_GETTER(size)	\
+struct shadow_origin_ptr __msan_metadata_ptr_for_load_##size(void *addr) \
+{		\
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);	\
+}		\
+EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);			\
+		\
+struct shadow_origin_ptr __msan_metadata_ptr_for_store_##size(void *addr) \
+{									\
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);	\
+}									\
+EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size)
+
+DECLARE_METADATA_PTR_GETTER(1);
+DECLARE_METADATA_PTR_GETTER(2);
+DECLARE_METADATA_PTR_GETTER(4);
+DECLARE_METADATA_PTR_GETTER(8);
+
+void __msan_instrument_asm_store(void *addr, u64 size)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+	/*
+	 * Most of the accesses are below 32 bytes. The two exceptions so far
+	 * are clwb() (64 bytes) and FPU state (512 bytes).
+	 * It's unlikely that the assembly will touch more than 512 bytes.
+	 */
+	if (size > 512)
+		size = 8;
+	if (is_bad_asm_addr(addr, size, /*is_store*/true))
+		return;
+	ENTER_RUNTIME(irq_flags);
+	/* Unpoisoning the memory on best effort. */
+	kmsan_internal_unpoison_shadow(addr, size, /*checked*/false);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(__msan_instrument_asm_store);
+
+void *__msan_memmove(void *dst, const void *src, size_t n)
+{
+	void *result;
+	void *shadow_dst;
+
+	result = __memmove(dst, src, n);
+	if (!n)
+		/* Some people call memmove() with zero length. */
+		return result;
+	if (!kmsan_ready || IN_RUNTIME())
+		return result;
+
+	/* Ok to skip address check here, we'll do it later. */
+	shadow_dst = kmsan_get_metadata(dst, n, META_SHADOW);
+
+	if (!shadow_dst)
+		/* Can happen e.g. if the memory is untracked. */
+		return result;
+
+	kmsan_memmove_metadata(dst, (void *)src, n);
+
+	return result;
+}
+EXPORT_SYMBOL(__msan_memmove);
+
+void *__msan_memmove_nosanitize(void *dst, void *src, u64 n)
+{
+	return __memmove(dst, src, n);
+}
+EXPORT_SYMBOL(__msan_memmove_nosanitize);
+
+void *__msan_memcpy(void *dst, const void *src, u64 n)
+{
+	void *result;
+	void *shadow_dst;
+
+	result = __memcpy(dst, src, n);
+	if (!n)
+		/* Some people call memcpy() with zero length. */
+		return result;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return result;
+
+	/* Ok to skip address check here, we'll do it later. */
+	shadow_dst = kmsan_get_metadata(dst, n, META_SHADOW);
+	if (!shadow_dst)
+		/* Can happen e.g. if the memory is untracked. */
+		return result;
+
+	kmsan_memcpy_metadata(dst, (void *)src, n);
+
+	return result;
+}
+EXPORT_SYMBOL(__msan_memcpy);
+
+void *__msan_memcpy_nosanitize(void *dst, void *src, u64 n)
+{
+	return __memcpy(dst, src, n);
+}
+EXPORT_SYMBOL(__msan_memcpy_nosanitize);
+
+void *__msan_memset(void *dst, int c, size_t n)
+{
+	void *result;
+	unsigned long irq_flags;
+	depot_stack_handle_t new_origin;
+	unsigned int shadow;
+
+	result = __memset(dst, c, n);
+	if (!kmsan_ready || IN_RUNTIME())
+		return result;
+
+	ENTER_RUNTIME(irq_flags);
+	shadow = 0;
+	kmsan_internal_memset_shadow(dst, shadow, n, /*checked*/false);
+	new_origin = 0;
+	kmsan_internal_set_origin(dst, n, new_origin);
+	LEAVE_RUNTIME(irq_flags);
+
+	return result;
+}
+EXPORT_SYMBOL(__msan_memset);
+
+void *__msan_memset_nosanitize(void *dst, int c, size_t n)
+{
+	return __memset(dst, c, n);
+}
+EXPORT_SYMBOL(__msan_memset_nosanitize);
+
+depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
+{
+	depot_stack_handle_t ret = 0;
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return ret;
+
+	/* Creating new origins may allocate memory. */
+	ENTER_RUNTIME(irq_flags);
+	ret = kmsan_internal_chain_origin(origin);
+	LEAVE_RUNTIME(irq_flags);
+	return ret;
+}
+EXPORT_SYMBOL(__msan_chain_origin);
+
+void __msan_poison_alloca(void *address, u64 size, char *descr)
+{
+	depot_stack_handle_t handle;
+	unsigned long entries[4];
+	unsigned long irq_flags;
+	u64 size_copy = size, to_fill;
+	u64 addr_copy = (u64)address;
+	u64 page_offset;
+	void *shadow_start;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+
+	while (size_copy) {
+		page_offset = addr_copy % PAGE_SIZE;
+		to_fill = min(PAGE_SIZE - page_offset, size_copy);
+		shadow_start = kmsan_get_metadata((void *)addr_copy, to_fill,
+						  META_SHADOW);
+		addr_copy += to_fill;
+		size_copy -= to_fill;
+		if (!shadow_start)
+			/* Can happen e.g. if the memory is untracked. */
+			continue;
+		__memset(shadow_start, -1, to_fill);
+	}
+
+	entries[0] = KMSAN_ALLOCA_MAGIC_ORIGIN;
+	entries[1] = (u64)descr;
+	entries[2] = (u64)__builtin_return_address(0);
+	entries[3] = (u64)kmsan_internal_return_address(1);
+
+	/* stack_depot_save() may allocate memory. */
+	ENTER_RUNTIME(irq_flags);
+	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
+	LEAVE_RUNTIME(irq_flags);
+	kmsan_internal_set_origin(address, size, handle);
+}
+EXPORT_SYMBOL(__msan_poison_alloca);
+
+void __msan_unpoison_alloca(void *address, u64 size)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+
+	ENTER_RUNTIME(irq_flags);
+	/* Assuming the shadow exists. */
+	kmsan_internal_unpoison_shadow(address, size, /*checked*/true);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(__msan_unpoison_alloca);
+
+void __msan_warning(u32 origin)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+	ENTER_RUNTIME(irq_flags);
+	kmsan_report(origin, /*address*/0, /*size*/0,
+		/*off_first*/0, /*off_last*/0, /*user_addr*/0, REASON_ANY);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(__msan_warning);
+
+struct kmsan_context_state *__msan_get_context_state(void)
+{
+	struct kmsan_context_state *ret;
+
+	ret = task_kmsan_context_state();
+	BUG_ON(!ret);
+	return ret;
+}
+EXPORT_SYMBOL(__msan_get_context_state);
