@@ -137,18 +137,24 @@
 
 static int copyout(void __user *to, const void *from, size_t n)
 {
+	size_t to_copy = n;
+
 	if (access_ok(to, n)) {
 		kasan_check_read(from, n);
 		n = raw_copy_to_user(to, from, n);
+		kmsan_copy_to_user(to, from, to_copy, n);
 	}
 	return n;
 }
 
 static int copyin(void *to, const void __user *from, size_t n)
 {
+	size_t to_copy = n;
+
 	if (access_ok(from, n)) {
 		kasan_check_write(to, n);
 		n = raw_copy_from_user(to, from, n);
+		kmsan_unpoison_shadow(to, to_copy - n);
 	}
 	return n;
 }
