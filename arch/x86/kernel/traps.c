@@ -647,6 +647,8 @@ struct bad_iret_stack {
 };
 
 asmlinkage __visible notrace
+// Dark magic happening here, let's not touch it.
+__attribute__((no_sanitize("kernel-memory")))
 struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s)
 {
 	/*
