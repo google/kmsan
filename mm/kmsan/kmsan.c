@@ -934,63 +934,68 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 }
 
 
-inline
 void kmsan_internal_check_memory(const void *addr, size_t size, const void *user_addr, int reason)
 {
 	unsigned long irq_flags;
-	unsigned char *shadow_page = (unsigned char *)-1;
-	depot_stack_handle_t origin = 0, prev_origin = 0;
-	size_t i, prev_start = -1, tail_size;
 	u64 addr64 = (u64)addr;
+	unsigned char *shadow = NULL;
+	depot_stack_handle_t *origin = NULL;
+	depot_stack_handle_t cur_origin = 0, new_origin = 0;
+	int cur_off_start = -1;
+	int i, chunk_size, pos;
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	for (i = 0; i < size; i++) {
-		/* Shadow pages aren't necessarily contiguous, e.g. for a vmalloc()'ed region. */
-		if ((shadow_page == (unsigned char *)-1) || ((addr64 + i) % PAGE_SIZE == 0)) {
-			if (shadow_page == (unsigned char *)-1) {
-				tail_size = min_num(size, PAGE_SIZE - (addr64 % PAGE_SIZE));
-			} else {
-				tail_size = min_num(size - i, PAGE_SIZE);
-			}
-			ENTER_RUNTIME(irq_flags);
-			shadow_page = kmsan_get_shadow_address(addr64 + i, tail_size, /*checked*/true, /*is_store*/false);
-			shadow_page = ALIGN_DOWN((u64)shadow_page, PAGE_SIZE);
-			LEAVE_RUNTIME(irq_flags);
-		}
-		if (!shadow_page)
-			/* TODO(glider): make sure the page is untracked. */
-			continue;
-		if (!shadow_page[(addr64 + i) % PAGE_SIZE]) {
-			if (prev_start != -1) {
+	pos = 0;
+	while (pos < size) {
+		chunk_size = min_num(size, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
+		shadow = kmsan_get_metadata_or_null(addr64 + pos, chunk_size, /*is_origin*/false);
+		if (!shadow) {
+			/* This page is untracked. TODO(glider): assert.
+			 * If there were uninitialized bytes before, report them.
+			 */
+			if (cur_origin) {
 				ENTER_RUNTIME(irq_flags);
-				kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, user_addr, /*deep*/true, reason);
+				kmsan_report(_THIS_IP_, cur_origin, addr, size, cur_off_start, pos - 1, user_addr, /*deep*/true, reason);
 				LEAVE_RUNTIME(irq_flags);
 			}
-			prev_origin = 0;
-			prev_start = -1;
+			cur_origin = 0;
+			cur_off_start = -1;
+			pos += chunk_size;
 			continue;
 		}
-		// Not checking for the second time.
-		ENTER_RUNTIME(irq_flags);
-		origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr64 + i, min_num(sizeof(depot_stack_handle_t), size - i), /*checked*/false, /*is_store*/false);
-		LEAVE_RUNTIME(irq_flags);
-		if (prev_start == -1) {
-			prev_start = i;
-			prev_origin = origin;
-			continue;
+		for (i = 0; i < chunk_size; i++) {
+			if (!shadow[i]) {
+				/* This byte is unpoisoned. If there were poisoned bytes before, report them. */
+				if (cur_origin) {
+					ENTER_RUNTIME(irq_flags);
+					kmsan_report(_THIS_IP_, cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, /*deep*/true, reason);
+					LEAVE_RUNTIME(irq_flags);
+				}
+				cur_origin = 0;
+				cur_off_start = -1;
+				continue;
+			}
+			origin = kmsan_get_metadata_or_null(addr64 + pos + i, chunk_size - i, /*is_origin*/true);
+			BUG_ON(!origin);
+			new_origin = *origin;
+			// Encountered new origin - report the previous uninitialized range.
+			if (cur_origin != new_origin) {
+				if (cur_origin) {
+					ENTER_RUNTIME(irq_flags);
+					kmsan_report(_THIS_IP_, cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, /*deep*/true, reason);
+					LEAVE_RUNTIME(irq_flags);
+				}
+				cur_origin = new_origin;
+				cur_off_start = pos + i;
+			}
 		}
-		if (origin != prev_origin) {
-			ENTER_RUNTIME(irq_flags);
-			kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, i - 1, user_addr, /*deep*/true, reason);
-			LEAVE_RUNTIME(irq_flags);
-			prev_origin = origin;
-			prev_start = i;
-		}
+		pos += chunk_size;
 	}
-	if (prev_origin) {
+	BUG_ON(pos != size);
+	if (cur_origin) {
 		ENTER_RUNTIME(irq_flags);
-		kmsan_report(_THIS_IP_, prev_origin, addr, size, prev_start, size - 1, user_addr, /*deep*/true, reason);
+		kmsan_report(_THIS_IP_, cur_origin, addr, size, cur_off_start, pos - 1, user_addr, /*deep*/true, reason);
 		LEAVE_RUNTIME(irq_flags);
 	}
 }
