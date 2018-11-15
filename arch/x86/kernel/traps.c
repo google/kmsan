@@ -647,7 +647,9 @@ struct bad_iret_stack {
 };
 
 asmlinkage __visible notrace
-// Dark magic happening here, let's not touch it.
+/* Dark magic happening here, let's not touch it.
+ * Also avoid copying any metadata by using raw __memmove().
+ */
 __attribute__((no_sanitize("kernel-memory")))
 struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s)
 {
@@ -663,10 +665,10 @@ struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s)
 		(struct bad_iret_stack *)this_cpu_read(cpu_tss_rw.x86_tss.sp0) - 1;
 
 	/* Copy the IRET target to the new stack. */
-	memmove(&new_stack->regs.ip, (void *)s->regs.sp, 5*8);
+	__memmove(&new_stack->regs.ip, (void *)s->regs.sp, 5*8);
 
 	/* Copy the remainder of the stack from the current stack. */
-	memmove(new_stack, s, offsetof(struct bad_iret_stack, regs.ip));
+	__memmove(new_stack, s, offsetof(struct bad_iret_stack, regs.ip));
 
 	BUG_ON(!user_mode(&new_stack->regs));
 	return new_stack;
