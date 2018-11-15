@@ -948,7 +948,7 @@ void kmsan_internal_check_memory(const void *addr, size_t size, const void *user
 		return;
 	pos = 0;
 	while (pos < size) {
-		chunk_size = min_num(size, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
+		chunk_size = min_num(size - pos, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
 		shadow = kmsan_get_metadata_or_null(addr64 + pos, chunk_size, /*is_origin*/false);
 		if (!shadow) {
 			/* This page is untracked. TODO(glider): assert.
