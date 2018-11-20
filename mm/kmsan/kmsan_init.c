@@ -21,7 +21,6 @@ struct start_end_pair {
 };
 
 __initdata struct start_end_pair start_end_pairs[NUM_FUTURE_RANGES];
-/* Next available index. */
 __initdata int future_index = 0;
 
 /* Record a range of memory for which the metadata pages will be created once
@@ -41,10 +40,7 @@ void __init kmsan_record_future_shadow_range(u64 start, u64 end)
 }
 EXPORT_SYMBOL(kmsan_record_future_shadow_range);
 
-extern char __bss_start[];
 extern char __bss_stop[];
-extern char _sdata[];
-extern char _edata[];
 
 /* Allocate metadata pages for kernel sections from __START_KERNEL_map to
  * __bss_stop.
@@ -61,14 +57,6 @@ void kmsan_initialize_shadow_for_text()
 	u64 size = (u64)__bss_stop - start;
 	u64 order = MAX_ORDER - 1;
 	int np;
-
-	/* TODO(glider): remove debug printing. */
-	kmsan_pr_err("__START_KERNEL_map: %px, end (__bss_stop): %px\n",
-		__START_KERNEL_map, __bss_stop);
-	kmsan_pr_err("__bss: %px-%px, __data: %px-%px\n",
-		__bss_start, __bss_stop, _sdata, _edata);
-	kmsan_pr_err("upper start: %px, end: %px\n",
-		__PAGE_OFFSET, size + __PAGE_OFFSET);
 
 	/* Allocate chunks of (PAGE_SIZE << order) bytes to decrease the number
 	 * of stitches.
