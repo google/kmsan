@@ -21,6 +21,9 @@
 #ifndef _LINUX_STACKDEPOT_H
 #define _LINUX_STACKDEPOT_H
 
+#include <linux/gfp.h>
+#include <linux/types.h>
+
 typedef u32 depot_stack_handle_t;
 
 struct stack_trace;
