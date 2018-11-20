@@ -10,6 +10,7 @@
 #
 
 KASAN_SANITIZE			:= n
+# KMSAN doesn't work for i386
 KMSAN_SANITIZE			:= n
 OBJECT_FILES_NON_STANDARD	:= y
 
