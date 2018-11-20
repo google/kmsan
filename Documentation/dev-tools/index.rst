@@ -19,6 +19,7 @@ whole; patches welcome!
    kcov
    gcov
    kasan
+   kmsan
    ubsan
    kmemleak
    gdb-kernel-debugging
