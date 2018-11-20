@@ -5,7 +5,6 @@ KernelMemorySanitizer (KMSAN)
 KMSAN is a detector of uninitialized memory.
 It is based on compiler instrumentation, and is quite similar to the userspace
 MemorySanitizer tool (http://clang.llvm.org/docs/MemorySanitizer.html).
-The goal behind creating it is to make a tool that is both faster and more precise than kmemcheck.
 
 KMSAN and Clang
 ===============
@@ -16,19 +15,11 @@ The kernel instrumentation pass is based on the userspace MemorySanitizer tool
 (http://clang.llvm.org/docs/MemorySanitizer.html). Because of the instrumentation
 complexity it's unlikely that any other compiler will support KMSAN soon.
 
-Right now the instrumentation pass supports only X86 and isn't upstreamed yet.
+Right now the instrumentation pass supports x86_64 only.
 
 How to build
 ============
-This part is subject to change, as we're going to upstream our patches to LLVM and Linux kernel.
-
-First, one needs to check out LLVM r298107, apply ``kmsan-llvm.patch`` to the llvm/ dir and
-``kmsan-clang.patch`` to the llvm/tools/clang/ dir, and build Clang for Linux.
-
-Second, configure and make the kernel using the supplied Clang wrapper::
-
-  make CC=$CLANG_PATH/clang defconfig
-  make CC=`pwd`/clang_wrapper.py 2>&1 | tee build.log
+Please see https://github.com/google/kmsan for the details.
 
 How KMSAN works
 ===============
@@ -112,59 +103,48 @@ If both function arguments are uninitialized, only the origin of the second argu
 
 Origin chaining
 ~~~~~~~~~~~~~~~
-A special mode allows to create a new origin for every memory store. The new origin references both
-its creation stack and the previous origin the memory location had.
-This eases the debugging greatly, but may also cause increased memory consumption. Therefore we limit
-the length of origin chains in the runtime.
-
+To ease the debugging, KMSAN creates a new origin for every memory store.
+The new origin references both its creation stack and the previous origin the memory location had.
+This may cause increased memory consumption, so we limit the length of origin chains in the runtime.
 
 Clang instrumentation API
 -------------------------
 
-(Some of the functions use ``__msan`` prefixes instead of ``__kmsan`` for historical reasons.
-Those are gonna change.)
-
 Shadow manipulation
 ~~~~~~~~~~~~~~~~~~~
-For every memory access the corresponding function is emitted that returns the shadow address of
-that memory. That function also checks if the shadow of the memory in the range [``addr``, ``addr + n``) is
-contiguous and reports an error otherwise::
+For every memory access the compiler emits a call to a function that returns a
+pair of pointers to the shadow and origin addresses of the given memory::
 
-  u64 __kmsan_get_shadow_address_{1,2,4,8,16}(u64 addr)
-  u64 __kmsan_get_shadow_address_n(u64 addr, u64 n)
+  typedef struct {
+    void *s, *o;
+  } shadow_origin_ptr_t
+  shadow_origin_ptr_t __msan_metadata_ptr_for_load_{1,2,4,8}(u64 addr)
+  shadow_origin_ptr_t __msan_metadata_ptr_for_store_{1,2,4,8}(u64 addr)
+  shadow_origin_ptr_t __msan_metadata_ptr_for_load_n(u64 addr)
+  shadow_origin_ptr_t __msan_metadata_ptr_for_store_n(u64 addr)
+
+The function name depends on the memory access size.
+Each such function also checks if the shadow of the memory in the range [``addr``, ``addr + n``)
+is contiguous and reports an error otherwise.
+
+The compiler makes sure that for every loaded value its shadow and origin values are read from memory.
+When a value is stored to memory, its shadow and origin are also stored using the metadata pointers.
 
 Origin tracking
 ~~~~~~~~~~~~~~~
-For every memory load and store KMSAN API functions are also emitted that read the corresponding
-origin values::
-
-  u32 __kmsan_load_origin(u64 addr) -- load the origin for the address
-  void __kmsan_store_origin(u64 addr, u32 origin) -- save the origin for the address
-
 A special function is used to create a new origin value for a local variable and set the origin of that variable to that value::
 
-  void __msan_set_alloca_origin(void *a, u64 size, char *descr, u64 pc) -- create a new origin
+  void __msan_poison_alloca(u64 address, u64 size, char *descr)
 
-Getters for per-task data
+Access to per-task data
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-(These have the ``_tls`` suffixes for historical reasons)
+At the beginning of every instrumented function KMSAN inserts a call to ``__msan_get_context_state()``::
 
-Calls to the following 7 functions are unconditionally inserted at the beginning of every
-instrumented function (this is subject to change in the future). They are used to pass additional
-parameters between instrumented functions preserving the ABI::
+  kmsan_context_state *__msan_get_context_state(void)
 
-  void *__kmsan_get_retval_tls(void) -- callee will store the shadow of the return value here
-  int *__kmsan_get_retval_origin_tls(void) -- callee will store origin of the return value here
-  void **__kmsan_get_param_tls(void) -- shadow array for callee's parameters
-  void **__kmsan_get_va_arg_tls(void) -- shadow array for callee's vararg parameters
-  u32 *__kmsan_get_param_origin_tls(void) -- origin array for callee's parameters
-  u64 *__kmsan_get_va_arg_overflow_size_tls(void) -- TODO(glider): document this properly
-  u32 *__kmsan_get_origin_tls(void) -- store the origin to be reported when calling __msan_warning()
-
-``__kmsan_get_origin_tls()`` is essentially a parameter to ``__msan_warning()``, and should be
-replaced with such.
-
+``kmsan_context_state`` is declared in ``include/linux/kmsan.h``.
+This structure is used by KMSAN to pass parameter shadows and origins between instrumented functions.
 
 String functions
 ~~~~~~~~~~~~~~~~
@@ -183,12 +163,23 @@ Error reporting
 For each pointer dereference and each condition the compiler emits a shadow check that calls
 ``__msan_warning()`` in the case a poisoned value is being used::
 
-  void __msan_warning()
+  void __msan_warning(u32 origin)
 
-Before the call the origin of the poisoned value is stored into ``*__kmsan_get_origin_tls()``. ``__msan_warning()`` reports the use of
-uninitialized value together with the stack trace of the current memory access and the chain of
-stack traces obtained from the origin value (see example report).
+Inline assembly instrumentation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+KMSAN uses the following functions to instrument the inline assembly::
+
+  void __msan_instrument_asm_load(u64 addr, u64 size)
+  void __msan_instrument_asm_store(u64 addr, u64 size)
+
+For each inline assembly input a call to ``__msan_instrument_asm_load()`` is inserted that checks the shadow
+of the memory region [addr, addr+size) and reports an error if it's uninitialized.
+For each inline assembly output a call to ``__msan_instrument_asm_store()`` is added that unpoisons the memory region.
+
+This approach may mask certain errors, but it also helps to avoid a lot of false positives in bitwise operations, atomics etc.
+
+Sometimes the pointers passed into inline assembly don't point to valid memory. In such cases they are ignored at runtime.
 
 Disabling the instrumentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -202,13 +193,20 @@ The code is located in ``mm/kmsan/``.
 
 Metadata allocation
 ~~~~~~~~~~~~~~~~~~~
-The metadata is currently stored in ``struct page``; for each page there are two pointers::
+There are several places in the kernel for which the metadata is stored.
 
-  struct page *shadow;
-  struct page *origin;
+1. Each ``struct page`` instance for which ``is_kmsan_tracked_page`` flag is set,
+contains two pointers to its shadow and origin pages::
+
+  struct page {
+    ...
+    struct page *shadow, *origin;
+    bool is_kmsan_tracked_page;
+    ...
+  };
 
 Every time a ``struct page`` is allocated, the runtime library allocates two additional pages to
-hold its shadow page and origin page. This is done by adding hooks to ``alloc_pages()``/``free_pages()`` in
+hold its shadow and origins. This is done by adding hooks to ``alloc_pages()``/``free_pages()`` in
 ``mm/page_alloc.c``. To avoid allocating the metadata for non-interesting pages (shadow/origin page themselves,
 stackdepot storage etc. the ``__GFP_NO_KMSAN_SHADOW`` flag is used.
 
@@ -218,8 +216,13 @@ the boundary of a memory block, the accesses to shadow/origin memory need to be 
 avoid memory corruption.
 Because the compiler instrumentation for a memory write simply obtains the pointer to the shadow address
 and writes to its contents, it's impossible to split that write on the fly or prevent the page overrun.
-Instead, we check the access size in ``__kmsan_get_shadow_address_X()`` and return a pointer to a fake shadow
-region in the case of an error.
+Instead, we check the access size in ``__msan_metadata_ptr_for_XXX_YYY()`` and return a pointer to a fake
+shadow region in the case of an error::
+
+  char dummy_shadow_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+  char dummy_origin_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+  char dummy_shadow_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+  char dummy_origin_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
 Unfortunately at boot time we need to allocate the shadow and origin memory for the kernel data (``.data``,
 ``.bss`` etc.) and the percpu memory regions, the size of which is not a power of 2. As a result, we have to
@@ -227,8 +230,25 @@ allocate the metadata page by page, so that it is also non-contiguous, while it 
 to access the corresponding kernel memory across page boundaries.
 This can be probably fixed by allocating 1<<N pages at once, splitting them and deallocating the rest.
 
-In addition, it turns out that not every address has a ``struct page`` corresponding to it.
-(TODO(glider): need to check this)
+2. For vmapped regions there're similar records holding shadow and origins::
+
+  struct vm_struct {
+    ...
+    struct vm_struct *shadow, *origin;
+    bool is_kmsan_tracked;
+    ...
+  }
+
+When an array of pages is mapped into a contiguous virtual memory space, their shadow and origin pages
+are similarly mapped into contiguous regions.
+
+3. For CPU entry area there're separate per-CPU arrays that hold its shadow::
+
+  DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
+  DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
+
+When calculating shadow and origin addresses for a given memory address, the runtime checks whether the
+address belongs to the physical page range, the virtual page range or CPU entry area.
 
 Example report
 --------------
@@ -277,30 +297,12 @@ called ``strlen()``, which started reading the buffer byte by byte till it hit t
 Misc details
 ------------
 
-Handling interrupts
+Handling ``pt_regs``
 ~~~~~~~~~~~~~~~~~~~
 
+Many functions receive a ``struct pt_regs`` holding the register state at a certain point.
 Registers don't have (easily calculatable) shadow or origin associated with them.
 We can assume that the registers are always initialized.
-
-KMSAN vs. kmemcheck
-===================
-
-As ``kmemcheck`` maintainers claim, ``kmemcheck`` is prone to false positives.
-In particular, it does not propagate the uninitialized bits through arithmetic operations,
-e.g. doesn't understand when those bits are masked out.
-
-Under ``kmemcheck`` the kernel performs the following steps every time a memory
-access happens:
-
-  * try to access the memory
-  * handle a pagefault and investigate whether there's a bug
-  * temporarily mark the page present
-  * single-step one instruction and generate a debug exception
-  * handle the exception and marks the page hidden again
-  * resume execution
-
-, which is quite slow.
 
 References
 ==========
