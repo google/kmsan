@@ -18,6 +18,7 @@
 #	compressed vmlinux.bin.all + u32 size of vmlinux.bin.all
 
 KASAN_SANITIZE			:= n
+# KMSAN doesn't work for i386
 KMSAN_SANITIZE			:= n
 OBJECT_FILES_NON_STANDARD	:= y
 
