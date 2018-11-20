@@ -174,8 +174,6 @@ void ftrace_likely_update(struct ftrace_likely_data *f, int val,
 #include <uapi/linux/types.h>
 
 #ifdef CONFIG_KMSAN
-// TODO(glider)
-// u64 should be size_t, but we don't know about size_t here.
 void *__msan_memcpy(void *dst, const void *src, u64 size);
 #define __DO_MEMCPY(res, p, size) __msan_memcpy(res, p, size)
 #else
