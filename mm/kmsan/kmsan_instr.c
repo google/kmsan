@@ -143,7 +143,6 @@ void __msan_instrument_asm_load(u64 addr, u64 size)
 	ENTER_RUNTIME(irq_flags);
 	// kmsan_internal_check_memory() may take locks.
 	kmsan_internal_check_memory(addr, size, /*user_addr*/0, REASON_ANY);
-	//kmsan_internal_unpoison_shadow(addr, size);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_instrument_asm_load);
@@ -162,7 +161,8 @@ void __msan_instrument_asm_store(u64 addr, u64 size)
 	if (is_bad_asm_addr(addr, size, /*is_store*/true))
 		return;
 	ENTER_RUNTIME(irq_flags);
-	kmsan_internal_unpoison_shadow(addr, size);
+	// Unpoisoning the memory on best effort.
+	kmsan_internal_unpoison_shadow(addr, size, /*checked*/false);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_instrument_asm_store);
@@ -267,7 +267,7 @@ void *__msan_memset(void *dst, int c, size_t n)
 	///shadow = (unsigned int)(current->kmsan.cstate.param_tls[1]);
 	///origin = (depot_stack_handle_t)(current->kmsan.cstate.param_origin_tls[1]);
 	shadow = 0;
-	kmsan_internal_memset_shadow((u64)dst, shadow, n);
+	kmsan_internal_memset_shadow((u64)dst, shadow, n, /*checked*/false);
 	///new_origin = kmsan_internal_chain_origin(origin, /*full*/true);
 	new_origin = 0;
 	kmsan_set_origin((u64)dst, n, new_origin);
@@ -395,7 +395,8 @@ void __msan_unpoison_alloca(void *address, u64 size)
 		return;
 
 	ENTER_RUNTIME(irq_flags);
-	kmsan_internal_unpoison_shadow(address, size);
+	// We're assuming the shadow exists.
+	kmsan_internal_unpoison_shadow(address, size, /*checked*/true);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_unpoison_alloca);

@@ -97,9 +97,9 @@ extern depot_stack_handle_t kmsan_dummy_retval_origin_tls;
 
 inline depot_stack_handle_t kmsan_save_stack(void);
 inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags);
-void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags);
-void kmsan_internal_unpoison_shadow(void *address, size_t size);
-void kmsan_internal_memset_shadow(u64 address, int b, size_t size);
+void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, bool checked);
+void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);
+void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool checked);
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id, bool full);
 
 void do_kmsan_thread_create(struct task_struct *task);
