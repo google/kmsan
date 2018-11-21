@@ -74,11 +74,11 @@ void kmsan_poison_slab(struct page *page, gfp_t flags)
 	ENTER_RUNTIME(irq_flags);
 	if (flags & __GFP_ZERO) {
 		kmsan_internal_unpoison_shadow(
-			page_address(page), PAGE_SIZE << compound_order(page));
+			page_address(page), PAGE_SIZE << compound_order(page), /*checked*/true);
 	} else {
 		kmsan_internal_poison_shadow(
 			page_address(page), PAGE_SIZE << compound_order(page),
-			flags);
+			flags, /*checked*/true);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -98,11 +98,11 @@ void kmsan_kmalloc(struct kmem_cache *cache, const void *object, size_t size,
 	ENTER_RUNTIME(irq_flags);
 	if (flags & __GFP_ZERO) {
 		// TODO(glider) do we poison by default?
-		kmsan_internal_unpoison_shadow((void *)object, size);
+		kmsan_internal_unpoison_shadow((void *)object, size, /*checked*/true);
 	} else {
 		if (!cache->ctor)
 			kmsan_internal_poison_shadow((void *)object, size,
-							flags);
+							flags, /*checked*/true);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -120,7 +120,7 @@ bool kmsan_slab_free(struct kmem_cache *s, void *object)
 	if (unlikely(s->flags & SLAB_TYPESAFE_BY_RCU))
 		return false;
 	kmsan_internal_poison_shadow((void *)object, s->object_size,
-					GFP_KERNEL);
+					GFP_KERNEL, /*checked*/true);
 	return true;
 }
 
@@ -136,9 +136,9 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 	ENTER_RUNTIME(irq_flags);
 	if (flags & __GFP_ZERO) {
 		// TODO(glider) do we poison by default?
-		kmsan_internal_unpoison_shadow((void *)ptr, size);
+		kmsan_internal_unpoison_shadow((void *)ptr, size, /*checked*/true);
 	} else {
-		kmsan_internal_poison_shadow((void *)ptr, size, flags);
+		kmsan_internal_poison_shadow((void *)ptr, size, flags, /*checked*/true);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -154,7 +154,7 @@ void kmsan_kfree_large(const void *ptr)
 	ENTER_RUNTIME(irq_flags);
 	page = virt_to_page_or_null(ptr);
 	kmsan_internal_poison_shadow(
-		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL);
+		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL, /*checked*/true);
 	LEAVE_RUNTIME(irq_flags);
 }
 
