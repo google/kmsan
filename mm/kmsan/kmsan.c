@@ -144,7 +144,7 @@ void inline do_kmsan_thread_create(struct task_struct *task)
 }
 EXPORT_SYMBOL(do_kmsan_thread_create);
 
-inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size)
+inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool checked)
 {
 	void *shadow_start;
 	u64 page_offset;
@@ -157,23 +157,27 @@ inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size)
 	while (size) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = min_num(PAGE_SIZE - page_offset, size);
-		shadow_start = kmsan_get_shadow_address(address, to_fill, /*checked*/true, /*is_store*/true);
+		shadow_start = kmsan_get_metadata_or_null(address, to_fill, /*is_origin*/false);
 		if (!shadow_start) {
-			current->kmsan.is_reporting = true;
-			kmsan_pr_err("WARNING: not poisoning %d bytes starting at %px, because the shadow is NULL\n", to_fill, address);
-			current->kmsan.is_reporting = false;
-			BUG();
+			if (checked) {
+				current->kmsan.is_reporting = true;
+				kmsan_pr_err("WARNING: not memsetting %d bytes starting at %px, because the shadow is NULL\n", to_fill, address);
+				current->kmsan.is_reporting = false;
+				BUG();
+			}
+			// Otherwise just move on.
+		} else {
+			__memset(shadow_start, b, to_fill);
 		}
-		__memset(shadow_start, b, to_fill);
 		address += to_fill;
 		size -= to_fill;
 	}
 }
 
-void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags)
+void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, bool checked)
 {
 	depot_stack_handle_t handle;
-	kmsan_internal_memset_shadow((u64)address, -1, size);
+	kmsan_internal_memset_shadow((u64)address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags);
 	kmsan_set_origin((u64)address, size, handle);
 }
@@ -187,14 +191,15 @@ void kmsan_poison_shadow(void *address, size_t size, gfp_t flags)
 	if (IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
-	kmsan_internal_poison_shadow(address, size, flags);
+	// The users may want to poison/unpoison random memory.
+	kmsan_internal_poison_shadow(address, size, flags, /*checked*/true);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_poison_shadow);
 
-void kmsan_internal_unpoison_shadow(void *address, size_t size)
+void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked)
 {
-	kmsan_internal_memset_shadow((u64)address, 0, size);
+	kmsan_internal_memset_shadow((u64)address, 0, size, checked);
 	kmsan_set_origin((u64)address, size, 0);
 }
 
@@ -208,7 +213,8 @@ void kmsan_unpoison_shadow(void *address, size_t size)
 		return;
 
 	ENTER_RUNTIME(irq_flags);
-	kmsan_internal_unpoison_shadow(address, size);
+	// The users may want to poison/unpoison random memory.
+	kmsan_internal_unpoison_shadow(address, size, /*checked*/false);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);
@@ -280,9 +286,12 @@ void kmsan_memcpy_shadow(u64 dst, u64 src, size_t n)
 		rem_src = PAGE_SIZE - (src % PAGE_SIZE);
 		rem_dst = PAGE_SIZE - (dst % PAGE_SIZE);
 		to_copy = min_num(n, min_num(rem_src, rem_dst));
-		shadow_dst = kmsan_get_shadow_address(dst, to_copy, /*checked*/true, /*is_store*/true);
-		shadow_src = kmsan_get_shadow_address(src, to_copy, /*checked*/true, /*is_store*/false);
-		__memcpy(shadow_dst, shadow_src, to_copy);
+		shadow_dst = kmsan_get_metadata_or_null(dst, to_copy, /*is_origin*/false);
+		shadow_src = kmsan_get_metadata_or_null(src, to_copy, /*is_origin*/false);
+		// There're too many cases in which shadow_dst or shadow_src can be NULL,
+		// we don't want to bail out on them.
+		if (shadow_dst && shadow_src)
+			__memcpy(shadow_dst, shadow_src, to_copy);
 		dst += to_copy;
 		src += to_copy;
 		n -= to_copy;
@@ -325,9 +334,12 @@ void kmsan_memmove_shadow(u64 dst, u64 src, size_t n)
 		rem_src = src % PAGE_SIZE;
 		rem_dst = dst % PAGE_SIZE;
 		to_copy = min_num(n, min_num(rem_src, rem_dst));
-		shadow_dst = kmsan_get_shadow_address(dst - to_copy, to_copy, /*checked*/true, /*is_store*/true);
-		shadow_src = kmsan_get_shadow_address(src - to_copy, to_copy, /*checked*/true, /*is_store*/false);
-		__memmove(shadow_dst, shadow_src, to_copy);
+		shadow_dst = kmsan_get_metadata_or_null(dst - to_copy, to_copy, /*is_origin*/false);
+		shadow_src = kmsan_get_metadata_or_null(src - to_copy, to_copy, /*is_origin*/false);
+		// There're too many cases in which shadow_dst or shadow_src can be NULL,
+		// we don't want to bail out on them.
+		if (shadow_dst && shadow_src)
+			__memmove(shadow_dst, shadow_src, to_copy);
 		dst -= to_copy;
 		src -= to_copy;
 		n -= to_copy;
