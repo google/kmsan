@@ -76,10 +76,8 @@ void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked);
 void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_store);
 void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked);
 
-void kmsan_memcpy_shadow(u64 dst, u64 src, size_t n);
-void kmsan_memmove_shadow(u64 dst, u64 src, size_t n);
-void kmsan_memcpy_origins(u64 dst, u64 src, size_t n);
-void kmsan_memmove_origins(u64 dst, u64 src, size_t n);
+void kmsan_memcpy_metadata(u64 dst, u64 src, size_t n);
+void kmsan_memmove_metadata(u64 dst, u64 src, size_t n);
 
 extern char dummy_shadow_load_page[PAGE_SIZE];
 extern char dummy_origin_load_page[PAGE_SIZE];
@@ -103,7 +101,7 @@ void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool checked)
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id, bool full);
 
 void do_kmsan_thread_create(struct task_struct *task);
-void kmsan_set_origin(u64 address, int size, u32 origin);
+void kmsan_set_origin(u64 address, int size, u32 origin, bool checked);
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 			u64 address, int size,
 			int off_first, int off_last, u64 user_addr, bool deep, int reason);
