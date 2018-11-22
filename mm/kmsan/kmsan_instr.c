@@ -190,10 +190,7 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 		// Can happen e.g. if the memory is untracked.
 		return result;
 
-	kmsan_memmove_shadow(dst, src, n);
-	// TODO(glider): we may want to chain every |src| origin with the
-	// current stack.
-	kmsan_memmove_origins((u64)dst, (u64)src, n);
+	kmsan_memmove_metadata(dst, src, n);
 
 	return result;
 }
@@ -236,10 +233,7 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 		// Can happen e.g. if the memory is untracked.
 		return result;
 
-	kmsan_memcpy_shadow(dst, src, n);
-	// TODO(glider): we may want to chain every |src| origin with the
-	// current stack.
-	kmsan_memcpy_origins((u64)dst, (u64)src, n);
+	kmsan_memcpy_metadata(dst, src, n);
 
 	return result;
 }
@@ -270,7 +264,7 @@ void *__msan_memset(void *dst, int c, size_t n)
 	kmsan_internal_memset_shadow((u64)dst, shadow, n, /*checked*/false);
 	///new_origin = kmsan_internal_chain_origin(origin, /*full*/true);
 	new_origin = 0;
-	kmsan_set_origin((u64)dst, n, new_origin);
+	kmsan_set_origin((u64)dst, n, new_origin, /*checked*/false);
 	LEAVE_RUNTIME(irq_flags);
 
 	return result;
