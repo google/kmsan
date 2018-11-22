@@ -561,8 +561,7 @@ void kmsan_copy_to_user(const void *to, const void *from,
 	shadow = kmsan_get_shadow_address((u64)to, to_copy - left,
 					/*checked*/true, /*is_store*/false);
 	if (shadow) {
-		kmsan_memcpy_shadow((u64)to, (u64)from, to_copy - left);
-		kmsan_memcpy_origins((u64)to, (u64)from, to_copy - left);
+		kmsan_memcpy_metadata(to, from, to_copy - left);
 	}
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
