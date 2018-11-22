@@ -179,7 +179,7 @@ void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, bool 
 	depot_stack_handle_t handle;
 	kmsan_internal_memset_shadow((u64)address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags);
-	kmsan_set_origin((u64)address, size, handle);
+	kmsan_set_origin((u64)address, size, handle, checked);
 }
 
 void kmsan_poison_shadow(void *address, size_t size, gfp_t flags)
@@ -200,7 +200,7 @@ EXPORT_SYMBOL(kmsan_poison_shadow);
 void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked)
 {
 	kmsan_internal_memset_shadow((u64)address, 0, size, checked);
-	kmsan_set_origin((u64)address, size, 0);
+	kmsan_set_origin((u64)address, size, 0, checked);
 }
 
 void kmsan_unpoison_shadow(void *address, size_t size)
@@ -273,35 +273,6 @@ inline depot_stack_handle_t kmsan_save_stack()
 	return kmsan_save_stack_with_flags(GFP_ATOMIC);
 }
 
-
-void kmsan_memcpy_shadow(u64 dst, u64 src, size_t n)
-{
-	void *shadow_src, *shadow_dst;
-	size_t to_copy, rem_src, rem_dst;
-	if (!n || dst == src)
-		return;
-	BUG_ON(dst + n < dst);
-	BUG_ON(src + n < src);
-	while (n) {
-		rem_src = PAGE_SIZE - (src % PAGE_SIZE);
-		rem_dst = PAGE_SIZE - (dst % PAGE_SIZE);
-		to_copy = min_num(n, min_num(rem_src, rem_dst));
-		shadow_dst = kmsan_get_metadata_or_null(dst, to_copy, /*is_origin*/false);
-		shadow_src = kmsan_get_metadata_or_null(src, to_copy, /*is_origin*/false);
-		// There're too many cases in which shadow_dst or shadow_src can be NULL,
-		// we don't want to bail out on them.
-		if (shadow_dst && shadow_src)
-			__memcpy(shadow_dst, shadow_src, to_copy);
-		dst += to_copy;
-		src += to_copy;
-		n -= to_copy;
-	}
-}
-
-/* TODO(glider): this is crazy. We need to split utility functions into a
- * different file and test them.
- */
-
 /* As with the regular memmove, do the following:
  * - if src and dst don't overlap, use memcpy;
  * - if src and dst overlap:
@@ -314,171 +285,103 @@ void kmsan_memcpy_shadow(u64 dst, u64 src, size_t n)
  *   therefore if this doesn't happen with the kernel memory it can't happen
  *   with the shadow.
  */
-void kmsan_memmove_shadow(u64 dst, u64 src, size_t n)
-{
-	// TODO(glider): must be real memmove.
-	void *shadow_src, *shadow_dst;
-	size_t to_copy, rem_src, rem_dst;
-	if (!n || src == dst)
-		return;
-	if (src > dst) {
-		kmsan_memcpy_shadow(dst, src, n);
-		return;
-	}
-	BUG_ON(dst + n < dst);
-	BUG_ON(src + n < src);
-	/* start with dst+n and src+n, move backwards */
-	dst += n;
-	src += n;
-	while (n) {
-		rem_src = src % PAGE_SIZE;
-		rem_dst = dst % PAGE_SIZE;
-		to_copy = min_num(n, min_num(rem_src, rem_dst));
-		shadow_dst = kmsan_get_metadata_or_null(dst - to_copy, to_copy, /*is_origin*/false);
-		shadow_src = kmsan_get_metadata_or_null(src - to_copy, to_copy, /*is_origin*/false);
-		// There're too many cases in which shadow_dst or shadow_src can be NULL,
-		// we don't want to bail out on them.
-		if (shadow_dst && shadow_src)
-			__memmove(shadow_dst, shadow_src, to_copy);
-		dst -= to_copy;
-		src -= to_copy;
-		n -= to_copy;
-	}
-}
 
-/* TODO(glider): overthink this.
- * Ideally, we want a chained origin for each distinct 4-byte slot.
- * Origins are aligned on 4.
- * When copying 1 <= n <= 3 initialized bytes, we need to check that the
- * remaining 4-n bytes are initialized before overwriting the origin (if they
- * are not, no need to overwrite).
- * 3 cases:
- * 1. |dst| and |src| are 4-aligned. Just copy ALIGN(n, 4) origin bytes from
- *    the corresponding origin pages.
- * 2. |dst| is 4-aligned, |src| is not. We can write to at most
- *    [o(dst), (o(dst+ALIGN(n, 4))) bytes, while the interesting source origins
- *    reside at [o(ALIGN_DOWN(src, 4), o(ALIGN(src + n, 4)) ), which is 4 bytes
- *    longer.
- * ... (TODO)
- * The major problem is that there are cases in which N+1 origin slots
- * correspond to N*4 bytes of the kernel memory, so we need to evict one of the
- * origins.
- */
-void kmsan_memcpy_origins(u64 dst, u64 src, size_t n)
+inline
+void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 {
-	size_t off, rem_src, rem_dst, to_copy;
-	depot_stack_handle_t handle = 0, new_handle = 0;
-	depot_stack_handle_t *h_src, *h_dst;
+	void *shadow_src, *shadow_dst;
+	depot_stack_handle_t *origin_src, *origin_dst, *align_shadow_src;
+	depot_stack_handle_t prev_origin, chained_origin, new_origin;
+	int i, iter, step, src_slots, dst_slots;
+	int rem_src, rem_dst, to_copy;
 	u32 shadow;
-	u32 *shadow_ptr;
+
+	if (is_memmove && (src > dst)) {
+		kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/false);
+		return;
+	}
 
 	if (!n || dst == src)
 		return;
 	BUG_ON(dst + n < dst);
 	BUG_ON(src + n < src);
-
-	off = src % 4;
-	dst = (dst >> 2) << 2;
-	src = src - off;
-	// In the case |src| isn't aligned on 4, it touches the extra 4 origin bytes.
-	// Unfortunately we can't copy more than n bytes.
-	n = ALIGN(src + n, 4) - src;
 	while (n) {
 		rem_src = PAGE_SIZE - (src % PAGE_SIZE);
 		rem_dst = PAGE_SIZE - (dst % PAGE_SIZE);
 		to_copy = min_num(n, min_num(rem_src, rem_dst));
-		h_dst = kmsan_get_origin_address(dst, to_copy, /*checked*/true, /*is_store*/true);
-		h_src = kmsan_get_origin_address(src, to_copy, /*checked*/true, /*is_store*/false);
+		shadow_dst = kmsan_get_metadata_or_null(dst, to_copy, /*is_origin*/false);
+		shadow_src = kmsan_get_metadata_or_null(src, to_copy, /*is_origin*/false);
+		origin_dst = kmsan_get_metadata_or_null(dst, to_copy, /*is_origin*/true);
+		origin_src = kmsan_get_metadata_or_null(src, to_copy, /*is_origin*/true);
 
-		for (int i = 0; i < to_copy/4; i++) {
-			// Make sure we don't copy origins for zero shadow.
-			shadow = (u32)-1;
-			if (to_copy >= 4) {
-				shadow_ptr = kmsan_get_shadow_address(ALIGN(src, 4), 4, /*checked*/true, /*is_store*/false);
-				if (shadow_ptr) {
-					shadow = *shadow_ptr;
-				}
-			}
-			// TODO(glider): need to check that current origin != previous origin.
-			if (*h_src && (*h_src != handle) && shadow) {
-				handle = *h_src;
-				new_handle = kmsan_internal_chain_origin(handle, /*full*/true);
-				if (new_handle) handle = new_handle;
-			}
-			if (!shadow) {
-				*h_dst = 0;
-			} else {
-				*h_dst = handle;
-			}
-			h_src++;
-			h_dst++;
-		}
-		dst += to_copy;
+		src_slots = (ALIGN(src + to_copy, 4) - ALIGN_DOWN(src, 4)) / 4;
+		dst_slots = (ALIGN(dst + to_copy, 4) - ALIGN_DOWN(dst, 4)) / 4;
+		BUG_ON((src_slots < 1) || (dst_slots < 1));
+		BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
+
 		src += to_copy;
+		dst += to_copy;
+		BUG_ON(n < to_copy);
 		n -= to_copy;
-	}
-}
-
-void kmsan_memmove_origins(u64 dst, u64 src, size_t n)
-{
-	size_t off, rem_src, rem_dst, to_copy;
-	depot_stack_handle_t handle = 0, new_handle = 0;
-	depot_stack_handle_t *h_src, *h_dst;
-	u32 shadow;
-	u32 *shadow_ptr;
-
-	if (!n || dst == src)
-		return;
- 	if (src > dst) {
-		kmsan_memcpy_origins(dst, src, n);
-		return;
-	}
-	BUG_ON(dst + n < dst);
-	BUG_ON(src + n < src);
-
-	off = src % 4;
-	dst = (dst >> 2) << 2;
-	src = src - off;
-	// In the case |src| isn't aligned on 4, it touches the extra 4 origin bytes.
-	// Unfortunately we can't copy more than n bytes.
-	n = ALIGN(src + n, 4) - src;
-	dst += n;
-	src += n;
-	while (n) {
-		rem_src = src % PAGE_SIZE;
-		rem_dst = dst % PAGE_SIZE;
-		to_copy = min_num(n, min_num(rem_src, rem_dst));
-		h_dst = kmsan_get_origin_address(dst - to_copy, to_copy, /*checked*/true, /*is_store*/true);
-		h_src = kmsan_get_origin_address(src - to_copy, to_copy, /*checked*/true, /*is_store*/false);
-
-		for (int i = 0; i < to_copy/4; i++) {
-			// Make sure we don't copy origins for zero shadow.
-			shadow = (u32)-1;
-			if (to_copy >= 4) {
-				shadow_ptr = kmsan_get_shadow_address(ALIGN(src, 4), 4, /*checked*/true, /*is_store*/false);
-				if (shadow_ptr) {
-					shadow = *shadow_ptr;
-				}
-			}
-			// TODO(glider): need to check that current origin != previous origin.
-			if (*h_src && (*h_src != handle) && shadow) {
-				handle = *h_src;
-				new_handle = kmsan_internal_chain_origin(handle, /*full*/true);
-				if (new_handle) handle = new_handle;
-			}
-			if (!shadow) {
-				*h_dst = 0;
-			} else {
-				*h_dst = handle;
-			}
-			h_src--;
-			h_dst--;
+		if (!shadow_dst)
+			continue;
+		if (!shadow_src) {
+			// |src| is untracked: zero out destination shadow, ignore the origins.
+			__memset(shadow_dst, 0, to_copy);
+			continue;
+		} else {
+			if (is_memmove)
+				__memmove(shadow_dst, shadow_src, to_copy);
+			else
+				__memcpy(shadow_dst, shadow_src, to_copy);
 		}
-		dst -= to_copy;
-		src -= to_copy;
-		n -= to_copy;
+		BUG_ON(!origin_dst || !origin_src);
+
+		i = is_memmove ? min_num(src_slots, dst_slots) - 1 : 0;
+		iter = is_memmove ? -1 : 1;
+
+		align_shadow_src = ALIGN_DOWN((u64)shadow_src, 4);
+		for (step = 0; step < min_num(src_slots, dst_slots); step++,i+=iter) {
+			shadow = align_shadow_src[i];
+			if (i == 0)
+				// If |src| isn't aligned on 4, don't look at the first |src % 4| bytes of the first shadow slot.
+				shadow = (shadow << (src % 4)) >> (src % 4);
+			if (i == src_slots - 1)
+				// If |src + to_copy| isn't aligned on 4, don't look
+				// at the last |(src + to_copy) % 4| bytes of
+				// the last shadow slot.
+				shadow = (shadow >> ((src + to_copy) % 4)) >> ((src + to_copy) % 4);
+			// Overwrite the origin only if the corresponding shadow is nonempty.
+			if (origin_src[i] && (origin_src[i] != prev_origin) && shadow) {
+				prev_origin = origin_src[i];
+				chained_origin = kmsan_internal_chain_origin(prev_origin, /*full*/true);
+				// kmsan_internal_chain_origin() may return NULL, but we don't want to lose the previous origin value.
+				if (chained_origin)
+					new_origin = chained_origin;
+				else
+					new_origin = prev_origin;
+			}
+			if (shadow) {
+				origin_dst[i] = new_origin;
+			} else {
+				origin_dst[i] = 0;
+			}
+		}
 	}
 }
+
+void kmsan_memcpy_metadata(u64 dst, u64 src, size_t n)
+{
+	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/false);
+}
+
+
+
+void kmsan_memmove_metadata(u64 dst, u64 src, size_t n)
+{
+	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/true);
+}
+
 
 static inline void kmsan_print_origin(depot_stack_handle_t origin)
 {
@@ -559,6 +462,8 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 	// Let us store the chain length in the lowest byte of the magic.
 	// Maybe we can cache the ids somehow to avoid fetching them?
 	depot_fetch_stack(id, &old_trace);
+	if (!old_trace.nr_entries)
+		return id;
 	old_magic = old_trace.entries[0];
 	// TODO(glider): just make the chain magics more similar.
 	if (((old_magic & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) ||
@@ -602,7 +507,7 @@ void kmsan_write_aligned_origin(const void *var, size_t size, u32 origin)
 
 // TODO(glider): writing an initialized byte shouldn't zero out the origin, if
 // the remaining three bytes are uninitialized.
-void kmsan_set_origin(u64 address, int size, u32 origin)
+void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 {
 	void *origin_start;
 	u64 page_offset;
@@ -622,14 +527,17 @@ void kmsan_set_origin(u64 address, int size, u32 origin)
 		to_fill = (PAGE_SIZE - page_offset > size) ? size : PAGE_SIZE - page_offset;
 		to_fill = ALIGN(to_fill, 4);
 		BUG_ON(!to_fill);
-		origin_start = kmsan_get_origin_address(address, to_fill, /*checked*/true, /*is_store*/true);
+		origin_start = kmsan_get_metadata_or_null(address, to_fill, /*origin*/true);
 		if (!origin_start) {
-			current->kmsan.is_reporting = true;
-			kmsan_pr_err("WARNING: not setting origing for %d bytes starting at %px, because the origin is NULL\n", to_fill, address);
-			current->kmsan.is_reporting = false;
-			BUG();
+			if (checked) {
+				current->kmsan.is_reporting = true;
+				kmsan_pr_err("WARNING: not setting origing for %d bytes starting at %px, because the origin is NULL\n", to_fill, address);
+				current->kmsan.is_reporting = false;
+				BUG();
+			}
+		} else {
+			kmsan_write_aligned_origin(origin_start, to_fill, origin);
 		}
-		kmsan_write_aligned_origin(origin_start, to_fill, origin);
 		address += to_fill;
 		size -= to_fill;
 	}
@@ -1025,7 +933,7 @@ EXPORT_SYMBOL(kmsan_check_memory);
 bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 	u64 cur_addr, next_addr, cur_meta_addr, next_meta_addr;
 	struct page *cur_page, *next_page;
-	depot_stack_handle_t origin;
+	depot_stack_handle_t *origin_p;
 	for (cur_addr = addr; next_addr < addr + size;
 			cur_addr = next_addr, next_addr += PAGE_SIZE) {
 		next_addr = cur_addr + PAGE_SIZE;
@@ -1046,9 +954,13 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 				kmsan_pr_err("Access of size %d at %px.\n", size, addr);
 				kmsan_pr_err("Addresses belonging to different ranges are: %px and %px\n", cur_addr, next_addr);
 				kmsan_pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta_addr, fname, next_meta_addr);
-				origin = *(depot_stack_handle_t*)kmsan_get_origin_address(addr, 1, /*checked*/false, /*is_store*/false);
-				kmsan_pr_err("Origin: %px\n", origin);
-				kmsan_print_origin(origin);
+				origin_p = kmsan_get_metadata_or_null(addr, 1, /*is_origin*/true);
+				if (origin_p) {
+					kmsan_pr_err("Origin: %px\n", *origin_p);
+					kmsan_print_origin(*origin_p);
+				} else {
+					kmsan_pr_err("Origin: unavailable\n");
+				}
 				current->kmsan.is_reporting = false;
 				return false;
 			}
