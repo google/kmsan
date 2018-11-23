@@ -71,10 +71,6 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store);
 		local_irq_restore(irq_flags);	\
 		preempt_enable(); } while(0)
 void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin);
-void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_store);
-void *kmsan_get_shadow_address_noruntime(u64 addr, size_t size, bool checked);
-void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_store);
-void *kmsan_get_origin_address_noruntime(u64 addr, size_t size, bool checked);
 
 void kmsan_memcpy_metadata(u64 dst, u64 src, size_t n);
 void kmsan_memmove_metadata(u64 dst, u64 src, size_t n);

@@ -1094,39 +1094,3 @@ next:
 	return ret;
 }
 EXPORT_SYMBOL(kmsan_get_shadow_origin_ptr);
-
-
-inline
-void *kmsan_get_shadow_address(u64 addr, size_t size, bool checked, bool is_store)
-{
-	void *shadow = kmsan_get_metadata_or_null(addr, size, /*is_origin*/false);
-
-	if (shadow)
-		return shadow;
-	if (size <= PAGE_SIZE) {
-		// TODO(glider): shall we report a bug on |checked| here?
-		return kmsan_dummy_shadow(is_store);
-	} else {
-		BUG_ON(checked);
-		return NULL;
-	}
-}
-
-inline
-void *kmsan_get_origin_address(u64 addr, size_t size, bool checked, bool is_store)
-{
-	void *origin;
-	u64 offset, pad;
-
-	origin = kmsan_get_metadata_or_null(addr, size, /*is_origin*/true);
-
-	if (origin)
-		return origin;
-	if (size <= PAGE_SIZE) {
-		// TODO(glider): shall we report a bug on |checked| here?
-		return kmsan_dummy_origin(is_store);
-	} else {
-		BUG_ON(checked);
-		return NULL;
-	}
-}
