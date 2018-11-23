@@ -558,8 +558,7 @@ void kmsan_copy_to_user(const void *to, const void *from,
 	 * syscall.
 	 * Don't check anything, just copy the shadow of the copied bytes.
 	 */
-	shadow = kmsan_get_shadow_address((u64)to, to_copy - left,
-					/*checked*/true, /*is_store*/false);
+	shadow = kmsan_get_metadata_or_null((u64)to, to_copy - left, /*origin*/false);
 	if (shadow) {
 		kmsan_memcpy_metadata(to, from, to_copy - left);
 	}
