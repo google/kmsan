@@ -85,7 +85,6 @@ void kmsan_slab_setup_object(struct kmem_cache *s, void *object);
 void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 			size_t size, void *object);
 
-void kmsan_wipe_params_shadow_origin(void);
 void kmsan_record_future_shadow_range(u64 start, u64 end);
 
 void kmsan_vprintk_func(const char *fmt, va_list args);
@@ -135,7 +134,6 @@ static inline void kmsan_slab_setup_object(
 	struct kmem_cache *s, void *object) {}
 static inline void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 	size_t size, void *object) {}
-static inline void kmsan_wipe_params_shadow_origin(void) {}
 static inline void kmsan_record_future_shadow_range(u64 start, u64 end) {}
 
 static inline void kmsan_vprintk_func(const char *fmt, va_list args) {}
