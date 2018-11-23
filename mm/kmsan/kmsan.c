@@ -56,17 +56,7 @@ char dummy_origin_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
 bool kmsan_ready = false;
 #define KMSAN_STACK_DEPTH 64
-
-#define DUMMY_SHADOW_SIZE (PAGE_SIZE * 2)
-static inline char *kmsan_dummy_shadow(bool is_store)
-{
-	return is_store ? dummy_shadow_store_page : dummy_shadow_load_page;
-}
-
-static inline char *kmsan_dummy_origin(bool is_store)
-{
-	return is_store ? dummy_origin_store_page : dummy_origin_load_page;
-}
+#define MAX_CHAIN_DEPTH 7
 
 // According to Documentation/x86/kernel-stacks, kernel code can run on the
 // following stacks:
@@ -93,7 +83,6 @@ bool is_logbuf_locked(void)
 }
 EXPORT_SYMBOL(is_logbuf_locked);
 
-// TODO(glider): inline?
 kmsan_context_state *task_kmsan_context_state(void)
 {
 	unsigned long irq_flags;
@@ -127,7 +116,7 @@ void kmsan_leave_runtime(unsigned long *flags)
 }
 EXPORT_SYMBOL(kmsan_leave_runtime);
 
-// TODO(glider): switch to page_ext. We need to update the kernel version for that.
+// TODO(glider): switch to page_ext?
 void inline do_kmsan_thread_create(struct task_struct *task)
 {
 	kmsan_thread_state *state = &task->kmsan;
@@ -219,7 +208,6 @@ void kmsan_unpoison_shadow(void *address, size_t size)
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);
 
-
 // TODO(glider): move to lib/
 static inline int in_irqentry_text(unsigned long ptr)
 {
@@ -285,7 +273,6 @@ inline depot_stack_handle_t kmsan_save_stack()
  *   therefore if this doesn't happen with the kernel memory it can't happen
  *   with the shadow.
  */
-
 inline
 void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 {
@@ -375,13 +362,10 @@ void kmsan_memcpy_metadata(u64 dst, u64 src, size_t n)
 	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/false);
 }
 
-
-
 void kmsan_memmove_metadata(u64 dst, u64 src, size_t n)
 {
 	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/true);
 }
-
 
 static inline void kmsan_print_origin(depot_stack_handle_t origin)
 {
@@ -434,7 +418,6 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 	}
 }
 
-#define MAX_CHAIN_DEPTH 7
 depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id, bool full)
 {
 	depot_stack_handle_t handle;
@@ -492,7 +475,6 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 	return handle;
 }
 
-
 inline
 void kmsan_write_aligned_origin(const void *var, size_t size, u32 origin)
 {
@@ -543,13 +525,6 @@ void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 	}
 }
 EXPORT_SYMBOL(kmsan_set_origin);
-
-void enable_reporting()
-{
-	current->kmsan.allow_reporting = true;
-}
-EXPORT_SYMBOL(enable_reporting);
-
 
 int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 		     		unsigned int actual_size, gfp_t flags, int node)
@@ -633,7 +608,6 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 	return 0;
 }
 
-
 static bool is_module_addr(const void *vaddr)
 {
 	if (vaddr < MODULES_VADDR)
@@ -642,7 +616,6 @@ static bool is_module_addr(const void *vaddr)
 		return false;
 	return true;
 }
-
 
 void *get_cea_shadow_or_null(const void *addr)
 {
@@ -690,8 +663,6 @@ struct page *virt_to_page_or_null(const void *vaddr)
 	else
 		return NULL;
 }
-
-
 
 // TODO(glider): this is similar to kmsan_clear_user_page().
 void kmsan_clear_page(void *page_addr)
@@ -755,30 +726,6 @@ int order_from_size(unsigned long size)
 }
 
 DEFINE_SPINLOCK(report_lock);
-#define MAX_REPORTS 12800
-static void *reporters_tbl[MAX_REPORTS];
-static int reporters_index = 0;
-static void *locals_tbl[MAX_REPORTS];
-static int locals_index = 0;
-
-// TODO(glider): thread-unsafe, need a hashmap
-bool reported_already(void *caller, void **table)
-{
-	return false;
-	for (int i = 0; i < MAX_REPORTS; i++)
-		if (table[i] == caller) {
-			return true;
-		}
-	return false;
-}
-
-// Works under report_lock, but thread-unsafe because of reported_already().
-void save_reporter(void *caller, void **table, int *index)
-{
-	if (*index >= MAX_REPORTS)
-		return;
-	table[(*index)++] = caller;
-}
 
 // |deep| is a dirty hack to skip an additional frame when calling
 // kmsan_report() from kmsan_copy_to_user().
@@ -793,8 +740,6 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 		return;
 	if (!current->kmsan.allow_reporting)
 		return;
-	if (reported_already(caller, reporters_tbl))
-		return;
 	if (is_console_locked() || is_logbuf_locked())
 		return;
 
@@ -803,21 +748,10 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 		return;
 
 	depot_fetch_stack(origin, &trace);
-	if ((trace.nr_entries == 4) && trace.entries[0] == KMSAN_ALLOCA_MAGIC_ORIGIN) {
-		// TODO(glider): this is just to skip uniniteresting reports at the prototype stage.
-		// There can be actual bugs with duplicate descriptions.
-		descr = (char*)trace.entries[1];
-		if (descr) {
-			if (reported_already(descr, locals_tbl))
-				return;
-			save_reporter(descr, locals_tbl, &locals_index);
-		}
-	}
 
 	current->kmsan.allow_reporting = false; // TODO(glider)
 	current->kmsan.is_reporting = true;
 	spin_lock_irqsave(&report_lock, flags);
-	save_reporter(caller, reporters_tbl, &reporters_index);
 	kmsan_pr_err("==================================================================\n");
 	// TODO(glider): inline this properly
 	switch (reason) {
@@ -852,7 +786,6 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	current->kmsan.is_reporting = false;
 	current->kmsan.allow_reporting = true;
 }
-
 
 void kmsan_internal_check_memory(const void *addr, size_t size, const void *user_addr, int reason)
 {
@@ -925,8 +858,6 @@ void kmsan_check_memory(const void *addr, size_t size)
 	return kmsan_internal_check_memory(addr, size, /*user_addr*/ 0, REASON_ANY);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
-
-
 
 // TODO(glider): this check shouldn't be performed for origin pages, because
 // they're always accessed after the shadow pages.
