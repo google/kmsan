@@ -14,78 +14,6 @@
 #include <linux/gfp.h>
 #include <linux/mm.h>
 
-// TODO(glider): dummy shadow should be per-task.
-// TODO(glider): ideally, there should be no dummy shadow once we're initialized.
-// I.e. we need to remove IN_RUNTIME checks from the fast path.
-
-void check_param_origin_tls(void)
-{
-	kmsan_context_state *cstate = task_kmsan_context_state();
-	int i;
-	unsigned long flags;
-	return;
-	if (!kmsan_ready)
-		return;
-
-	for (i = 0; i < KMSAN_PARAM_SIZE / sizeof(depot_stack_handle_t); i++) {
-		if (cstate->param_origin_tls[i]) {
-			spin_lock_irqsave(&report_lock, flags);
-			dump_stack();
-			spin_unlock_irqrestore(&report_lock, flags);
-		}
-		cstate->param_origin_tls[i] = 0;
-	}
-	for (i = 0; i < KMSAN_PARAM_SIZE; i++) {
-		cstate->param_tls[i] = 0;
-	}
-}
-
-void check_vararg_meta(void)
-{
-	kmsan_context_state *cstate = task_kmsan_context_state();
-	int i;
-	unsigned long irq_flags, flags;
-
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME() || !current->kmsan.enabled)
-		return;
-	ENTER_RUNTIME(irq_flags);
-
-	for (i = 0; i < KMSAN_PARAM_SIZE; i++) {
-		if (cstate->va_arg_tls[i]) {
-			spin_lock_irqsave(&report_lock, flags);
-			dump_stack();
-			spin_unlock_irqrestore(&report_lock, flags);
-			break;
-		}
-	}
-	LEAVE_RUNTIME(irq_flags);
-}
-
-// TODO(glider): remove this fn?
-// Looks like it's enough to mark syscall entries non-instrumented.
-void kmsan_wipe_params_shadow_origin()
-{
-	int ind, num;
-	unsigned long irq_flags;
-	kmsan_context_state *cstate = task_kmsan_context_state();
-
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
-		return;
-	__memset(cstate->param_origin_tls, 0, KMSAN_PARAM_SIZE);
-	__memset(cstate->param_tls, 0, KMSAN_PARAM_SIZE);
-	__memset(cstate->va_arg_tls, 0, KMSAN_PARAM_SIZE);
-	__memset(cstate->va_arg_origin_tls, 0, KMSAN_PARAM_SIZE);
-	__memset(cstate->retval_tls, 0, RETVAL_SIZE);
-	cstate->retval_origin_tls = 0;
-	cstate->origin_tls = 0;
-	cstate->va_arg_overflow_size_tls = 0;
-}
-EXPORT_SYMBOL(kmsan_wipe_params_shadow_origin);
-
 bool is_bad_asm_addr(u64 addr, u64 size, bool is_store)
 {
 	if (addr < TASK_SIZE) {
@@ -125,7 +53,6 @@ DECLARE_METADATA_PTR_GETTER(1);
 DECLARE_METADATA_PTR_GETTER(2);
 DECLARE_METADATA_PTR_GETTER(4);
 DECLARE_METADATA_PTR_GETTER(8);
-
 
 void __msan_instrument_asm_load(u64 addr, u64 size)
 {
@@ -181,7 +108,6 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 		return result;
 	if (!kmsan_ready)
 		return result;
-
 
 	/* Ok to skip address check here, we'll do it later. */
 	shadow_dst = (void*)kmsan_get_metadata_or_null((u64)dst, n, /*is_origin*/false);
@@ -239,7 +165,6 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 }
 EXPORT_SYMBOL(__msan_memcpy);
 
-
 void *__msan_memset(void *dst, int c, size_t n)
 {
 	void *result;
@@ -289,7 +214,6 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 }
 EXPORT_SYMBOL(__msan_chain_origin);
 
-
 inline
 void kmsan_write_aligned_origin_inline(const void *var, size_t size, u32 origin)
 {
@@ -301,7 +225,6 @@ void kmsan_write_aligned_origin_inline(const void *var, size_t size, u32 origin)
 	for (i = 0; i < size / 4; i++)
 		var_cast[i] = origin;
 }
-
 
 inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
 {
@@ -330,9 +253,7 @@ inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
 	}
 }
 
-
-// TODO(glider): drop the last argument.
-void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/, u64 unused)
+void __msan_poison_alloca(u64 address, u64 size, char *descr/*checked*/)
 {
 	depot_stack_handle_t handle;
 	BUG_ON(size > PAGE_SIZE * 4);
@@ -395,7 +316,6 @@ void __msan_unpoison_alloca(void *address, u64 size)
 }
 EXPORT_SYMBOL(__msan_unpoison_alloca);
 
-// Compiler API
 void __msan_warning(u32 origin)
 {
 	void *caller;
