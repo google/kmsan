@@ -133,7 +133,7 @@ void __init kmsan_initialize_shadow(void)
 						(u64)NODE_DATA(nid) + nd_size);
 	process_future_ranges();
 	/* Assuming current is init_task */
-	do_kmsan_thread_create(current);
+	do_kmsan_task_create(current);
 	kmsan_pr_err("Starting KernelMemorySanitizer\n");
 	kmsan_ready = true;
 }
