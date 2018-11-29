@@ -704,7 +704,7 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	current->kmsan.allow_reporting = true;
 }
 
-void kmsan_internal_check_memory(const void *addr, size_t size, const void *user_addr, int reason)
+void kmsan_internal_check_memory(const volatile void *addr, size_t size, const void *user_addr, int reason)
 {
 	unsigned long irq_flags;
 	u64 addr64 = (u64)addr;
