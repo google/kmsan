@@ -16,16 +16,9 @@ extern bool kmsan_ready;
 
 #ifdef CONFIG_KMSAN
 void __init kmsan_initialize_shadow(void);
-#else
-static inline void __init kmsan_initialize_shadow(void) { }
-#endif
 
-
-#ifdef CONFIG_KMSAN
-
-typedef struct kmsan_thread_s kmsan_thread_state;
+typedef struct kmsan_task_s kmsan_task_state;
 typedef struct kmsan_context_s kmsan_context_state;
-
 
 // TODO(glider): Factor out params, origins etc. into a separate
 // struct kmsan_context_state. Then make those for IRQs and exceptions per-cpu,
@@ -45,7 +38,7 @@ struct kmsan_context_s {
 	depot_stack_handle_t origin_tls;
 };
 
-struct kmsan_thread_s {
+struct kmsan_task_s {
 	bool enabled;
 	bool initialization;
 	bool allow_reporting;
@@ -60,8 +53,7 @@ struct kmsan_thread_s {
 
 extern kmsan_context_state kmsan_dummy_state;
 
-// TODO(glider): rename to kmsan_task_create()
-void kmsan_thread_create(struct task_struct *task);
+void kmsan_task_create(struct task_struct *task);
 void kmsan_task_exit(struct task_struct *task);
 void kmsan_alloc_shadow_for_region(void *start, size_t size);
 void kmsan_prep_pages(struct page *page, unsigned int order);
@@ -100,7 +92,9 @@ void kmsan_softirq_enter(void);
 void kmsan_softirq_exit(void);
 #else
 
-static inline void kmsan_thread_create(struct task_struct *task) {}
+static inline void __init kmsan_initialize_shadow(void) { }
+
+static inline void kmsan_task_create(struct task_struct *task) {}
 static inline void kmsan_task_exit(struct task_struct *task) {}
 static inline void kmsan_alloc_shadow_for_region(void *start, size_t size) {}
 static inline void kmsan_prep_pages(struct page *page, unsigned int order) {}
