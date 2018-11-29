@@ -342,7 +342,7 @@ struct task_struct *__kthread_create_on_node(int (*threadfn)(void *data),
 		set_cpus_allowed_ptr(task, cpu_all_mask);
 	}
 	kfree(create);
-	kmsan_thread_create(task);
+	kmsan_task_create(task);
 	return task;
 }
 
