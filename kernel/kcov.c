@@ -29,7 +29,6 @@
 /* Number of 64-bit words written per one comparison: */
 #define KCOV_WORDS_PER_CMP 4
 
-
 /*
  * kcov descriptor (one per opened debugfs file).
  * State transitions of the descriptor:
