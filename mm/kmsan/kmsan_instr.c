@@ -127,20 +127,6 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 	void *result;
 	void *shadow_dst;
 	unsigned long irq_flags;
-/*
- * There are known cases where kernel code calls memcpy() with overlapping
- * arguments (e.g. when user issues splice for overlapping file regions).
- * So this is disabled for now.
- */
-#if 0
-	if ((dst != src) && (!(((u64)dst + n <= (u64)src) || ((u64)src + n <= (u64)dst)))) {
-		kmsan_pr_err("==================================================================\n");
-		kmsan_pr_err("WARNING: memcpy-param-overlap in %pS\n", kmsan_internal_return_address(1));
-		kmsan_pr_err("__msan_memcpy(%px, %px, %d)\n", dst, src, n);
-		dump_stack();
-		kmsan_pr_err("==================================================================\n");
-	}
-#endif
 
 	result = __memcpy(dst, src, n);
 	if (!n)

@@ -96,7 +96,7 @@ void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);
 void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool checked);
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id, bool full);
 
-void do_kmsan_thread_create(struct task_struct *task);
+void do_kmsan_task_create(struct task_struct *task);
 void kmsan_set_origin(u64 address, int size, u32 origin, bool checked);
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 			u64 address, int size,
