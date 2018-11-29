@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0
-#include <linux/kmsan.h>
 #include <linux/kmsan-checks.h>
 #include <linux/uaccess.h>
 
