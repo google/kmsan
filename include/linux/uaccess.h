@@ -162,24 +162,16 @@ _copy_to_user(void __user *, const void *, unsigned long);
 static __always_inline unsigned long __must_check
 copy_from_user(void *to, const void __user *from, unsigned long n)
 {
-	unsigned long to_copy = n;
-
-	if (likely(check_copy_size(to, n, false))) {
+	if (likely(check_copy_size(to, n, false)))
 		n = _copy_from_user(to, from, n);
-		kmsan_unpoison_shadow(to, to_copy - n);
-	}
 	return n;
 }
 
 static __always_inline unsigned long __must_check
 copy_to_user(void __user *to, const void *from, unsigned long n)
 {
-	unsigned long to_copy = n;
-
-	if (likely(check_copy_size(from, n, true))) {
+	if (likely(check_copy_size(from, n, true)))
 		n = _copy_to_user(to, from, n);
-		kmsan_copy_to_user(to, from, to_copy, n);
-	}
 	return n;
 }
 #ifdef CONFIG_COMPAT
