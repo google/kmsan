@@ -32,6 +32,9 @@
 		flush_icache_user_range(vma, page, vaddr, len); \
 	} while (0)
 #define copy_from_user_page(vma, page, vaddr, dst, src, len) \
-	do { memcpy(dst, src, len); kmsan_unpoison_shadow(dst, len); } while (0)
+	do { \
+		memcpy(dst, src, len); \
+		kmsan_unpoison_shadow(dst, len); \
+	} while (0)
 
 #endif /* __ASM_CACHEFLUSH_H */
