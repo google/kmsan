@@ -12,7 +12,6 @@
 #include <linux/swap.h>
 #include <linux/migrate.h>
 #include <linux/compaction.h>
-#include <linux/kmsan.h>
 #include <linux/mm_inline.h>
 #include <linux/sched/signal.h>
 #include <linux/backing-dev.h>
@@ -87,7 +86,7 @@ static void map_pages(struct list_head *list)
 			list_add(&page->lru, &tmp_list);
 #ifdef CONFIG_KMSAN
 			// TODO(glider): we may lose the metadata when copying
-			// something to these pages. Need to allocated shadow
+			// something to these pages. Need to allocate shadow
 			// and origin pages here instead.
 			page->is_kmsan_tracked_page = false;
 			page->shadow = NULL;

@@ -12,6 +12,7 @@
 
 #include <linux/export.h>
 #include <linux/kernel_stat.h>
+#include <linux/kmsan.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/mm.h>
