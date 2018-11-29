@@ -5,7 +5,7 @@ if HAVE_ARCH_KMSAN
 
 config KMSAN
 	bool "KMSAN: detector of uninitialized memory use"
-	depends on SLUB && !VMAP_STACK
+	depends on SLUB && !VMAP_STACK && !KASAN
 	select STACKDEPOT
 	help
 	  TODO(glider)
