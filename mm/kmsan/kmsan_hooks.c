@@ -33,17 +33,17 @@
  */
 
 /* Called from kernel/kthread.c, kernel/fork.c */
-void kmsan_thread_create(struct task_struct *task)
+void kmsan_task_create(struct task_struct *task)
 {
 	unsigned long irq_flags;
 
 	if (!task)
 		return;
 	ENTER_RUNTIME(irq_flags);
-	do_kmsan_thread_create(task);
+	do_kmsan_task_create(task);
 	LEAVE_RUNTIME(irq_flags);
 }
-EXPORT_SYMBOL(kmsan_thread_create);
+EXPORT_SYMBOL(kmsan_task_create);
 
 /* Helper function to allocate page metadata. */
 int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
@@ -131,7 +131,7 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 void kmsan_task_exit(struct task_struct *task)
 {
 	unsigned long irq_flags;
-	kmsan_thread_state *state = &task->kmsan;
+	kmsan_task_state *state = &task->kmsan;
 	if (!kmsan_ready)
 		return;
 	if (IN_RUNTIME())
