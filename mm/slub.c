@@ -3350,8 +3350,6 @@ init_kmem_cache_node(struct kmem_cache_node *n)
 	atomic_long_set(&n->total_objects, 0);
 	INIT_LIST_HEAD(&n->full);
 #endif
-	// TODO(glider): need finer granularity. Or just instrument init_kmem_cache_node
-	///kmsan_unpoison_shadow(n, sizeof(struct kmem_cache_node));
 }
 
 static inline int alloc_kmem_cache_cpus(struct kmem_cache *s)
