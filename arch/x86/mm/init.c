@@ -86,7 +86,6 @@ static bool __initdata can_use_brk_pgt = true;
  *
  * for detailed information.
  */
-void __initdata kmsan_record_future_shadow_range(u64 start, u64 end);
 __ref void *alloc_low_pages(unsigned int num)
 {
 	unsigned long pfn;
@@ -131,8 +130,8 @@ __ref void *alloc_low_pages(unsigned int num)
 		adr = __va((pfn + i) << PAGE_SHIFT);
 		clear_page(adr);
 	}
-	// TODO(glider): if we don't want to track these pages, pass a bool flag to kmsan_record_future_shadow_range().
-	kmsan_record_future_shadow_range(__va(pfn << PAGE_SHIFT), __va((pfn + num) << PAGE_SHIFT));
+	kmsan_record_future_shadow_range(__va(pfn << PAGE_SHIFT),
+					__va((pfn + num) << PAGE_SHIFT));
 
 	return __va(pfn << PAGE_SHIFT);
 }

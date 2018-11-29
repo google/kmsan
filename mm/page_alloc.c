@@ -75,9 +75,6 @@
 #include <asm/div64.h>
 #include "internal.h"
 
-#undef memset
-#define memset __memset
-
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
 #define MIN_PERCPU_PAGELIST_FRACTION	(8)
@@ -8425,5 +8422,3 @@ bool set_hwpoison_free_buddy_page(struct page *page)
 	return hwpoisoned;
 }
 #endif
-
-#undef memset

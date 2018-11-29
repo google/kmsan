@@ -21,7 +21,8 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/kasan.h>
-#include <linux/kmsan-checks.h>
+#include <linux/kmsan.h>
+#include <linux/kmsan-checks.h> /* INIT_PTR */
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
 #include <linux/mempolicy.h>
@@ -1237,14 +1238,6 @@ out:
 
 static int __init setup_slub_debug(char *str)
 {
-/*
- * TODO(glider): too many potentially false reports from stack unwinding in
- * alloc_debug_processing() when SLUB_DEBUG is enabled.
- */
-#ifdef CONFIG_KMSAN
-	slub_debug = 0;
-	goto out;
-#endif
 	slub_debug = DEBUG_DEFAULT_FLAGS;
 	if (*str++ != '=' || !*str)
 		/*
