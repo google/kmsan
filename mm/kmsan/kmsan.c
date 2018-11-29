@@ -62,7 +62,7 @@ bool kmsan_ready = false;
 // following stacks:
 //  - regular task stack - when executing the task code
 //  - interrupt stack - when handling external hardware interrupts and softirqs
-//  - 
+//  - TODO
 // 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
 // Because interrupts may nest, trying to use a new context for every new interrupt.
 DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);  // [0] for dummy per-CPU context
@@ -117,9 +117,9 @@ void kmsan_leave_runtime(unsigned long *flags)
 EXPORT_SYMBOL(kmsan_leave_runtime);
 
 // TODO(glider): switch to page_ext?
-void inline do_kmsan_thread_create(struct task_struct *task)
+void inline do_kmsan_task_create(struct task_struct *task)
 {
-	kmsan_thread_state *state = &task->kmsan;
+	kmsan_task_state *state = &task->kmsan;
 
 #ifdef CONFIG_VMAP_STACK
 	// TODO(glider): KMSAN isn't currently compatible with CONFIG_VMAP_STACK.
@@ -131,7 +131,6 @@ void inline do_kmsan_thread_create(struct task_struct *task)
 	state->allow_reporting = true;
 	state->is_reporting = false;
 }
-EXPORT_SYMBOL(do_kmsan_thread_create);
 
 inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool checked)
 {
