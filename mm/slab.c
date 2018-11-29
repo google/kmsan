@@ -2066,7 +2066,6 @@ int __kmem_cache_create(struct kmem_cache *cachep, slab_flags_t flags)
 #endif
 
 	kasan_cache_create(cachep, &size, &flags);
-	kmsan_cache_create(cachep, &size, &flags);
 
 	size = ALIGN(size, cachep->align);
 	/*
