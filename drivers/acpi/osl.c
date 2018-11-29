@@ -25,6 +25,7 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/kmsan.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
