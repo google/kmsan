@@ -4,6 +4,7 @@
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/init.h>
+#include <linux/kmsan.h>
 #include <linux/memblock.h>
 #include <linux/percpu.h>
 #include <linux/kexec.h>
@@ -128,14 +129,10 @@ static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
 /*
  * Helpers for first chunk memory allocation
  */
-void kmsan_record_future_shadow_range(u64 start, u64 end);
 static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size, size_t align)
 {
 	void *ret = pcpu_alloc_bootmem(cpu, size, align);
-#ifdef CONFIG_KMSAN
-	pr_err("pcpu_fc_alloc(%d, %px, %px)=%px\n", cpu, size, align, ret);
 	kmsan_record_future_shadow_range(ret, (u64)ret + size);
-#endif
 	return ret;
 }
 
