@@ -14,24 +14,26 @@
 
 #ifdef CONFIG_KMSAN
 
-// Helper to initialize the return value.
+// Helper functions that mark the return value initialized.
+// Note that Clang ignores the inline attribute in the cases when a no_sanitize
+// function is called from an instrumented one.
 __attribute__((no_sanitize("kernel-memory")))
-static noinline int INIT_INT(int value) {
+static inline int INIT_INT(int value) {
 	return value;
 }
 
 __attribute__((no_sanitize("kernel-memory")))
-static noinline s64 INIT_S64(s64 value) {
+static inline s64 INIT_S64(s64 value) {
 	return value;
 }
 
 __attribute__((no_sanitize("kernel-memory")))
-static noinline bool INIT_BOOL(bool value) {
+static inline bool INIT_BOOL(bool value) {
 	return value;
 }
 
 __attribute__((no_sanitize("kernel-memory")))
-static noinline void *INIT_PTR(void *value) {
+static inline void *INIT_PTR(void *value) {
 	return value;
 }
 
