@@ -3,6 +3,10 @@
 # and is generally not a function of system call inputs.
 KCOV_INSTRUMENT		:= n
 
+# Instrumenting lockdep.c with KMSAN may cause deadlocks because of
+# recursive KMSAN runtime calls.
+KMSAN_SANITIZE_lockdep.o := n
+
 obj-y += mutex.o semaphore.o rwsem.o percpu-rwsem.o
 
 # Avoid recursion lockdep -> KCSAN -> ... -> lockdep.
