@@ -185,7 +185,8 @@ ssize_t strscpy(char *dest, const char *src, size_t count)
 	if (count == 0)
 		return -E2BIG;
 
-/* Disable the efficient 8-byte reading under KMSAN to avoid false positives.
+/**
+ * Disable the efficient 8-byte reading under KMSAN to avoid false positives.
  */
 #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && !defined(CONFIG_KMSAN)
 	/*
