@@ -21,9 +21,12 @@
 #define __SANITIZE_ADDRESS__
 #endif
 
-/* define __SANITIZE_MEMORY__ for KMSAN */
+/* KMSAN is a Clang tool, thus putting the defines here */
 #if __has_feature(memory_sanitizer)
-#define __SANITIZE_MEMORY__
+# define __SANITIZE_MEMORY__
+# define __no_sanitize_memory __attribute__((no_sanitize("kernel-memory")))
+#else
+# define __no_sanitize_memory
 #endif
 
 /*
