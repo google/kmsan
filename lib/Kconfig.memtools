@@ -12,6 +12,17 @@ config CC_HAS_KASAN_GENERIC
 config CC_HAS_KASAN_SW_TAGS
 	def_bool $(cc-option, -fsanitize=kernel-hwaddress)
 
+config HAVE_ARCH_KMSAN
+	bool
+
+choice
+	prompt "Compiler-based memory tools"
+	default NO_MEMORY_TOOL
+
+config NO_MEMORY_TOOL
+	bool "No memory tool"
+
+if HAVE_ARCH_KASAN
 config KASAN
 	bool "KASAN: runtime memory debugger"
 	depends on (HAVE_ARCH_KASAN && CC_HAS_KASAN_GENERIC) || \
@@ -79,6 +90,19 @@ config KASAN_SW_TAGS
 
 endchoice
 
+endif # HAVE_ARCH_KASAN
+
+if HAVE_ARCH_KMSAN
+config KMSAN
+	bool "KMSAN: detector of uninitialized memory use"
+	depends on SLUB
+	select STACKDEPOT
+	help
+	  TODO(glider)
+endif # HAVE_ARCH_KMSAN
+endchoice
+
+if HAVE_ARCH_KASAN
 choice
 	prompt "Instrumentation type"
 	depends on KASAN
@@ -141,3 +165,13 @@ config TEST_KASAN
 	  This is a test module doing various nasty things like
 	  out of bounds accesses, use after free. It is useful for testing
 	  kernel debugging features like KASAN.
+endif
+
+if HAVE_ARCH_KMSAN
+config TEST_KMSAN
+	tristate "Module for testing KMSAN for bug detection"
+	depends on m && KMSAN
+	help
+	  TODO(glider)
+
+endif
