@@ -421,7 +421,7 @@ void wake_q_add(struct wake_q_head *head, struct task_struct *task)
 }
 
 // TODO(glider): context switching here.
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 void wake_up_q(struct wake_q_head *head)
 {
 	struct wake_q_node *node = head->first;
@@ -2641,7 +2641,7 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
  * because prev may have moved to another CPU.
  */
 // TODO(glider): |current| changes here.
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 static struct rq *finish_task_switch(struct task_struct *prev)
 	__releases(rq->lock)
 {
@@ -3384,7 +3384,7 @@ again:
  * WARNING: must be called with preemption disabled!
  */
 // TODO(glider): |current| changes here.
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 static void __sched notrace __schedule(bool preempt)
 {
 	struct task_struct *prev, *next;
@@ -3992,7 +3992,7 @@ int task_prio(const struct task_struct *p)
  * Return: 1 if the CPU is currently idle. 0 otherwise.
  */
 // TODO(glider): nothing to see here.
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 int idle_cpu(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -5918,7 +5918,7 @@ static struct kmem_cache *task_group_cache __read_mostly;
 DECLARE_PER_CPU(cpumask_var_t, load_balance_mask);
 DECLARE_PER_CPU(cpumask_var_t, select_idle_mask);
 
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 void __init sched_init(void)
 {
 	int i, j;
@@ -6094,7 +6094,7 @@ static inline int preempt_count_equals(int preempt_offset)
 }
 
 // TODO(glider): the args are most certainly initialized.
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 void __might_sleep(const char *file, int line, int preempt_offset)
 {
 	/*
