@@ -183,9 +183,10 @@ Sometimes the pointers passed into inline assembly don't point to valid memory. 
 
 Disabling the instrumentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-A function can be marked with ``__attribute__((no_sanitize("kernel-memory")))``.
+A function can be marked with ``__no_sanitize_memory``.
 Doing so doesn't remove KMSAN instrumentation from it, however it makes the compiler ignore the
 uninitialized values coming from the function's inputs, and initialize the function's outputs.
+Functions marked with this attribute can't be inlined into functions not marked with it, and vice versa.
 
 Runtime library
 ---------------
