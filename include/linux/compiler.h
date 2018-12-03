@@ -199,19 +199,21 @@ void __read_once_size(const volatile void *p, void *res, int size)
 	__READ_ONCE_SIZE;
 }
 
-#ifdef CONFIG_KASAN
+#if defined(CONFIG_KASAN)
 /*
  * We can't declare function 'inline' because __no_sanitize_address confilcts
  * with inlining. Attempt to inline it may cause a build failure.
  * 	https://gcc.gnu.org/bugzilla/show_bug.cgi?id=67368
  * '__maybe_unused' allows us to avoid defined-but-not-used warnings.
  */
-# define __no_kasan_or_inline __no_sanitize_address notrace __maybe_unused
+# define __no_memory_tool_or_inline __no_sanitize_address notrace __maybe_unused
+#elif defined(CONFIG_KMSAN)
+# define __no_memory_tool_or_inline __no_sanitize_memory notrace __maybe_unused
 #else
-# define __no_kasan_or_inline __always_inline
+# define __no_memory_tool_or_inline __always_inline
 #endif
 
-static __no_kasan_or_inline
+static __no_memory_tool_or_inline
 void __read_once_size_nocheck(const volatile void *p, void *res, int size)
 {
 	__READ_ONCE_SIZE;
@@ -274,7 +276,7 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
  */
 #define READ_ONCE_NOCHECK(x) __READ_ONCE(x, 0)
 
-static __no_kasan_or_inline
+static __no_memory_tool_or_inline
 unsigned long read_word_at_a_time(const void *addr)
 {
 	kasan_check_read(addr, 1);
