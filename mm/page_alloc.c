@@ -3082,7 +3082,7 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
  * pages for the stack depot, it may call rmqueue() again, which will result
  * in a deadlock.
  */
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 static inline
 struct page *rmqueue(struct zone *preferred_zone,
 			struct zone *zone, unsigned int order,

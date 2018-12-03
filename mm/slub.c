@@ -3806,7 +3806,7 @@ static int __init setup_slub_min_objects(char *str)
 
 __setup("slub_min_objects=", setup_slub_min_objects);
 
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 void *__kmalloc(size_t size, gfp_t flags)
 {
 	struct kmem_cache *s;
