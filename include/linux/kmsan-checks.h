@@ -17,22 +17,22 @@
 // Helper functions that mark the return value initialized.
 // Note that Clang ignores the inline attribute in the cases when a no_sanitize
 // function is called from an instrumented one.
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 static inline int INIT_INT(int value) {
 	return value;
 }
 
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 static inline s64 INIT_S64(s64 value) {
 	return value;
 }
 
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 static inline bool INIT_BOOL(bool value) {
 	return value;
 }
 
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 static inline void *INIT_PTR(void *value) {
 	return value;
 }
