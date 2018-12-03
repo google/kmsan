@@ -51,6 +51,13 @@
 #define __no_sanitize_undefined
 #endif
 
+#if __has_feature(memory_sanitizer)
+#define __SANITIZE_MEMORY__
+#define __no_sanitize_memory __attribute__((no_sanitize("kernel-memory")))
+#else
+#define __no_sanitize_memory
+#endif
+
 /*
  * Support for __has_feature(coverage_sanitizer) was added in Clang 13 together
  * with no_sanitize("coverage"). Prior versions of Clang support coverage
