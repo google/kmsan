@@ -45,6 +45,12 @@
 		__attribute__((no_sanitize("undefined")))
 #else
 #define __no_sanitize_undefined
+
+#if __has_feature(memory_sanitizer)
+# define __SANITIZE_MEMORY__
+# define __no_sanitize_memory __attribute__((no_sanitize("kernel-memory")))
+#else
+# define __no_sanitize_memory
 #endif
 
 /*
