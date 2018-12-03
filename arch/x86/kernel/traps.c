@@ -631,7 +631,7 @@ NOKPROBE_SYMBOL(do_int3);
  * user mode. The actual stack switch is done in entry_64.S
  */
 /* This function switches the registers - don't instrument it with KMSAN! */
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 asmlinkage __visible notrace struct pt_regs *sync_regs(struct pt_regs *eregs)
 {
 	struct pt_regs *regs = (struct pt_regs *)this_cpu_read(cpu_current_top_of_stack) - 1;
@@ -650,7 +650,7 @@ asmlinkage __visible notrace
 /* Dark magic happening here, let's not touch it.
  * Also avoid copying any metadata by using raw __memmove().
  */
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s)
 {
 	/*

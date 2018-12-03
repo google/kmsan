@@ -1044,7 +1044,7 @@ static void local_apic_timer_interrupt(void)
  *   interrupt as well. Thus we cannot inline the local irq ... ]
  */
 // TODO(glider): |regs| is uninitialized, so is |*regs|.
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 __visible void __irq_entry smp_apic_timer_interrupt(struct pt_regs *regs)
 {
 	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
