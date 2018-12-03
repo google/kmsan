@@ -1,8 +1,18 @@
 config HAVE_ARCH_KASAN
 	bool
 
-if HAVE_ARCH_KASAN
+config HAVE_ARCH_KMSAN
+	bool
 
+
+choice
+	prompt "Compiler-based memory tools"
+	default NO_MEMORY_TOOL
+
+config NO_MEMORY_TOOL
+	bool "No memory tool"
+
+if HAVE_ARCH_KASAN
 config KASAN
 	bool "KASan: runtime memory debugger"
 	depends on (SLUB && SYSFS) || (SLAB && !DEBUG_SLAB)
@@ -21,6 +31,19 @@ config KASAN
 	  Currently CONFIG_KASAN doesn't work with CONFIG_DEBUG_SLAB
 	  (the resulting kernel does not boot).
 
+endif
+
+if HAVE_ARCH_KMSAN
+config KMSAN
+	bool "KMSAN: detector of uninitialized memory use"
+	depends on SLUB
+	select STACKDEPOT
+	help
+	  TODO(glider)
+endif # HAVE_ARCH_KMSAN
+endchoice
+
+if HAVE_ARCH_KASAN
 config KASAN_EXTRA
 	bool "KAsan: extra checks"
 	depends on KASAN && DEBUG_KERNEL && !COMPILE_TEST
@@ -73,5 +96,14 @@ config TEST_KASAN
 	  This is a test module doing various nasty things like
 	  out of bounds accesses, use after free. It is useful for testing
 	  kernel debugging features like kernel address sanitizer.
+
+endif
+
+if HAVE_ARCH_KMSAN
+config TEST_KMSAN
+	tristate "Module for testing KMSAN for bug detection"
+	depends on m && KMSAN
+	help
+	  TODO(glider)
 
 endif
