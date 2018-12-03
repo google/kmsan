@@ -771,9 +771,7 @@ config DEBUG_STACKOVERFLOW
 
 	  If in doubt, say "N".
 
-source "lib/Kconfig.kasan"
-
-source "lib/Kconfig.kmsan"
+source "lib/Kconfig.memtools"
 
 endmenu # "Memory Debugging"
 
