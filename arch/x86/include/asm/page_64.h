@@ -48,7 +48,7 @@ void clear_page_erms(void *page);
 #ifdef CONFIG_KMSAN
 void kmsan_clear_page(void *page_addr);
 #endif
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 static inline void clear_page(void *page)
 {
 	// alternative_call_2() changes |page|.

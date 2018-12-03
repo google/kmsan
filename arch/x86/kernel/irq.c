@@ -231,7 +231,7 @@ u64 arch_irq_stat(void)
  * handlers).
  */
 // TODO(glider)
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs;
