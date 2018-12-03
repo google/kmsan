@@ -1561,7 +1561,7 @@ trace_page_fault_entries(unsigned long address, struct pt_regs *regs,
  * exception_{enter,exit}() contains all sorts of tracepoints.
  */
 dotraplinkage void notrace
-__attribute__((no_sanitize("kernel-memory")))
+__no_sanitize_memory
 do_page_fault(struct pt_regs *regs, unsigned long error_code)
 {
 	unsigned long address = read_cr2(); /* Get the faulting address */
