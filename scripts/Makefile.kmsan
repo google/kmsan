@@ -1,7 +1,6 @@
 ifdef CONFIG_KMSAN
 
-# Too many unused functions in include/linux/kmsan-checks.h
-CFLAGS_KMSAN := -fsanitize=kernel-memory -Wno-unused-function -mllvm -msan-handle-asm-conservative=1
+CFLAGS_KMSAN := -fsanitize=kernel-memory
 
 ifeq ($(call cc-option, $(CFLAGS_KMSAN) -Werror),)
    ifneq ($(CONFIG_COMPILE_TEST),y)
