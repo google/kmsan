@@ -618,7 +618,10 @@ NOKPROBE_SYMBOL(do_int3);
  * Help handler running on a per-cpu (IST or entry trampoline) stack
  * to switch to the normal thread stack if the interrupted code was in
  * user mode. The actual stack switch is done in entry_64.S
+ *
+ * This function switches the registers - don't instrument it with KMSAN!
  */
+__no_sanitize_memory
 asmlinkage __visible notrace struct pt_regs *sync_regs(struct pt_regs *eregs)
 {
 	struct pt_regs *regs = (struct pt_regs *)this_cpu_read(cpu_current_top_of_stack) - 1;
@@ -634,6 +637,11 @@ struct bad_iret_stack {
 };
 
 asmlinkage __visible notrace
+/*
+ * Dark magic happening here, let's not instrument this function.
+ * Also avoid copying any metadata by using raw __memmove().
+ */
+__no_sanitize_memory
 struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s)
 {
 	/*
@@ -648,10 +656,10 @@ struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s)
 		(struct bad_iret_stack *)this_cpu_read(cpu_tss_rw.x86_tss.sp0) - 1;
 
 	/* Copy the IRET target to the new stack. */
-	memmove(&new_stack->regs.ip, (void *)s->regs.sp, 5*8);
+	__memmove(&new_stack->regs.ip, (void *)s->regs.sp, 5*8);
 
 	/* Copy the remainder of the stack from the current stack. */
-	memmove(new_stack, s, offsetof(struct bad_iret_stack, regs.ip));
+	__memmove(new_stack, s, offsetof(struct bad_iret_stack, regs.ip));
 
 	BUG_ON(!user_mode(&new_stack->regs));
 	return new_stack;
