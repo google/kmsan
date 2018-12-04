@@ -13,7 +13,6 @@
 #include <linux/spinlock.h>
 #include <linux/kprobes.h>
 #include <linux/kdebug.h>
-#include <linux/kmsan-checks.h>
 #include <linux/sched/debug.h>
 #include <linux/nmi.h>
 #include <linux/debugfs.h>
