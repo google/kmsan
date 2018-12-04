@@ -20,8 +20,9 @@ export WORLD=`pwd`
 
 ### Build Clang
 ```
-# Starting from r341646 any Clang revision should work.
-R=341646
+# Starting from r341646 any Clang revision should work, but due to changed default flag values
+# a version >= r348261 is recommended.
+R=348261
 svn co -r $R http://llvm.org/svn/llvm-project/llvm/trunk llvm
 cd llvm
 (cd tools && svn co -r $R http://llvm.org/svn/llvm-project/cfe/trunk clang)
