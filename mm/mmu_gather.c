@@ -53,7 +53,7 @@ void arch_tlb_gather_mmu(struct mmu_gather *tlb, struct mm_struct *mm,
 	 * chains. This is technically correct, but consumes too much memory.
 	 * Unpoisoning the whole structure will prevent creating such chains.
 	 */
-	kmsan_unpoison_shadow(tlb, sizeof(struct mmu_gather));
+	kmsan_unpoison_shadow(tlb, sizeof(*tlb));
 	tlb->mm = mm;
 
 	/* Is it from 0 to ~0? */
