@@ -31,7 +31,6 @@ KASAN_SANITIZE_paravirt.o				:= n
 # Work around reboot loop.
 KMSAN_SANITIZE_head$(BITS).o				:= n
 KMSAN_SANITIZE_nmi.o					:= n
-KMSAN_SANITIZE_unwind_frame.o				:= n
 
 OBJECT_FILES_NON_STANDARD_relocate_kernel_$(BITS).o	:= y
 OBJECT_FILES_NON_STANDARD_test_nx.o			:= y
