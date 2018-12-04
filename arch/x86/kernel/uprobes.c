@@ -8,6 +8,7 @@
  *	Jim Keniston
  */
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/sched.h>
 #include <linux/ptrace.h>
 #include <linux/uprobes.h>
@@ -994,9 +995,13 @@ int arch_uprobe_post_xol(struct arch_uprobe *auprobe, struct pt_regs *regs)
 int arch_uprobe_exception_notify(struct notifier_block *self, unsigned long val, void *data)
 {
 	struct die_args *args = data;
-	struct pt_regs *regs = args->regs;
+	struct pt_regs *regs;
 	int ret = NOTIFY_DONE;
 
+	kmsan_unpoison_shadow(args, sizeof(*args));
+	regs = args->regs;
+	if (regs)
+		kmsan_unpoison_shadow(regs, sizeof(*regs));
 	/* We are only interested in userspace traps */
 	if (regs && !user_mode(regs))
 		return NOTIFY_DONE;
