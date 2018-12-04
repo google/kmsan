@@ -12,9 +12,6 @@
 #include <asm/stacktrace.h>
 #include <asm/unwind.h>
 
-// |addr| is almost always uninitialized.
-// KMSAN creates new origins when writing it.
-__no_sanitize_memory
 static int save_stack_address(struct stack_trace *trace, unsigned long addr,
 			      bool nosched)
 {
