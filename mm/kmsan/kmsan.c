@@ -242,6 +242,7 @@ inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
 		.skip = 0
 	};
 
+	kmsan_internal_unpoison_shadow(&trace, sizeof(trace), /*checked*/false);
 	save_stack_trace(&trace);
 	filter_irq_stacks(&trace);
 	if (trace.nr_entries != 0 &&
