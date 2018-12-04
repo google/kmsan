@@ -98,6 +98,7 @@ void unwind_module_init(struct module *mod, void *orc_ip, size_t orc_ip_size,
  * since the other task could be running on another CPU and could have poisoned
  * the stack in the meantime.
  */
+#ifndef CONFIG_KMSAN
 #define READ_ONCE_TASK_STACK(task, x)			\
 ({							\
 	unsigned long val;				\
@@ -107,6 +108,9 @@ void unwind_module_init(struct module *mod, void *orc_ip, size_t orc_ip_size,
 		val = READ_ONCE_NOCHECK(x);		\
 	val;						\
 })
+#else
+#define READ_ONCE_TASK_STACK(task, x) READ_ONCE_NOCHECK(x)
+#endif
 
 static inline bool task_on_another_cpu(struct task_struct *task)
 {
