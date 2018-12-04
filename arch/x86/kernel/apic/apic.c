@@ -1047,7 +1047,6 @@ static void local_apic_timer_interrupt(void)
 __no_sanitize_memory
 __visible void __irq_entry smp_apic_timer_interrupt(struct pt_regs *regs)
 {
-	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
 	/*
