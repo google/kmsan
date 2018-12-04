@@ -1010,10 +1010,10 @@ int arch_uprobe_exception_notify(struct notifier_block *self, unsigned long val,
 	struct pt_regs *regs;
 	int ret = NOTIFY_DONE;
 
-	kmsan_unpoison_shadow(args, sizeof(struct die_args));
+	kmsan_unpoison_shadow(args, sizeof(*args));
 	regs = args->regs;
 	if (regs)
-		kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
+		kmsan_unpoison_shadow(regs, sizeof(*regs));
 	/* We are only interested in userspace traps */
 	if (regs && !user_mode(regs))
 		return NOTIFY_DONE;
