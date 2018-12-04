@@ -119,3 +119,8 @@ void kmsan_ist_exit(u64 shift_ist)
 	kmsan_context_exit();
 }
 EXPORT_SYMBOL(kmsan_ist_exit);
+
+void kmsan_unpoison_pt_regs(struct pt_regs *regs)
+{
+	kmsan_internal_unpoison_shadow(regs, sizeof(*regs), /*checked*/true);
+}
