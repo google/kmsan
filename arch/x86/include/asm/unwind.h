@@ -94,9 +94,10 @@ void unwind_module_init(struct module *mod, void *orc_ip, size_t orc_ip_size,
 #endif
 
 /*
- * This disables KASAN checking when reading a value from another task's stack,
- * since the other task could be running on another CPU and could have poisoned
- * the stack in the meantime.
+ * This disables KASAN/KMSAN checking when reading a value from another task's
+ * stack, since the other task could be running on another CPU and could have
+ * poisoned the stack in the meantime. Frame pointers are uninitialized by
+ * default, so for KMSAN we mark the return value initialized unconditionally.
  */
 #define READ_ONCE_TASK_STACK(task, x)			\
 ({							\
@@ -105,7 +106,7 @@ void unwind_module_init(struct module *mod, void *orc_ip, size_t orc_ip_size,
 		val = READ_ONCE(x);			\
 	else						\
 		val = READ_ONCE_NOCHECK(x);		\
-	val;						\
+	KMSAN_INIT_VALUE(val);				\
 })
 
 static inline bool task_on_another_cpu(struct task_struct *task)
