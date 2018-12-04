@@ -226,9 +226,8 @@ static void vring_unmap_one(const struct vring_virtqueue *vq,
 	}
 	// Unmapping DMA memory after a transfer from device requires this
 	// memory to be unpoisoned.
-	if (flags & VRING_DESC_F_WRITE) {
+	if (flags & VRING_DESC_F_WRITE)
 		kmsan_unpoison_shadow(desc->addr, desc->len);
-	}
 }
 
 static int vring_mapping_error(const struct vring_virtqueue *vq,
