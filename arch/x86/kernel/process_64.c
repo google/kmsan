@@ -500,6 +500,9 @@ void compat_start_thread(struct pt_regs *regs, u32 new_ip, u32 new_sp)
  * Kprobes not supported here. Set the probe on schedule instead.
  * Function graph tracer not supported too.
  */
+// TODO(glider): __switch_to() does weird things with tasks, don't report anything here.
+// (also avoid touching the KMSAN state)
+__no_sanitize_memory
 __visible __notrace_funcgraph struct task_struct *
 __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 {
