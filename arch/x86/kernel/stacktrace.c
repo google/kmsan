@@ -40,12 +40,6 @@ static void noinline __save_stack_trace(struct stack_trace *trace,
 	struct unwind_state state;
 	unsigned long addr;
 
-#ifdef CONFIG_KMSAN
-	/* PCs read off the stacks are frequently considered uninit. */
-	bool allow_reporting = current->kmsan.allow_reporting;
-	current->kmsan.allow_reporting = false;
-#endif
-
 	if (regs)
 		save_stack_address(trace, regs->ip, nosched);
 
@@ -58,10 +52,6 @@ static void noinline __save_stack_trace(struct stack_trace *trace,
 
 	if (trace->nr_entries < trace->max_entries)
 		trace->entries[trace->nr_entries++] = ULONG_MAX;
-
-#ifdef CONFIG_KMSAN
-	current->kmsan.allow_reporting = allow_reporting;
-#endif
 }
 
 /*
