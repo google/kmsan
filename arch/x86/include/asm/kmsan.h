@@ -90,6 +90,12 @@
 	KMSAN_POP_REGS				\
 /**/
 
+#define KMSAN_UNPOISON_PT_REGS			\
+	KMSAN_PUSH_REGS				\
+	call	kmsan_unpoison_pt_regs;		\
+	KMSAN_POP_REGS				\
+/**/
+
 
 #else /* ifdef CONFIG_KMSAN */
 
@@ -103,6 +109,7 @@
 #define KMSAN_SYSCALL_EXIT
 #define KMSAN_IST_ENTER(shift_ist)
 #define KMSAN_IST_EXIT(shift_ist)
+#define KMSAN_UNPOISON_PT_REGS
 
 #endif /* ifdef CONFIG_KMSAN */
 #endif /* ifndef _ASM_X86_KMSAN_H */
