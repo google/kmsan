@@ -286,7 +286,8 @@ static void prefetch_freepointer(const struct kmem_cache *s, void *object)
 	prefetch(object + s->offset);
 }
 
-/* When running under KMSAN, get_freepointer_safe() may return an uninitialized
+/*
+ * When running under KMSAN, get_freepointer_safe() may return an uninitialized
  * pointer value in the case the current thread loses the race for the next
  * memory chunk in the freelist. In that case this_cpu_cmpxchg_double() in
  * slab_alloc_node() will fail, so the uninitialized value won't be used, but
@@ -2786,7 +2787,6 @@ void *kmem_cache_alloc(struct kmem_cache *s, gfp_t gfpflags)
 	trace_kmem_cache_alloc(_RET_IP_, ret, s->object_size,
 				s->size, gfpflags);
 
-	// If there's a ctor, we've poisoned that memory before calling it.
 	kmsan_kmalloc(s, ret, s->object_size, gfpflags);
 
 	return ret;
@@ -2799,7 +2799,6 @@ void *kmem_cache_alloc_trace(struct kmem_cache *s, gfp_t gfpflags, size_t size)
 	void *ret = slab_alloc(s, gfpflags, _RET_IP_);
 	trace_kmalloc(_RET_IP_, ret, size, s->size, gfpflags);
 	ret = kasan_kmalloc(s, ret, size, gfpflags);
-	// If there's a ctor, we've poisoned that memory before calling it.
 	kmsan_kmalloc(s, ret, size, gfpflags);
 
 	return ret;
@@ -2830,7 +2829,6 @@ void *kmem_cache_alloc_node_trace(struct kmem_cache *s,
 			   size, s->size, gfpflags, node);
 
 	ret = kasan_kmalloc(s, ret, size, gfpflags);
-	// If there's a ctor, we've poisoned that memory before calling it.
 	kmsan_kmalloc(s, ret, size, gfpflags);
 
 	return ret;
@@ -3825,7 +3823,6 @@ void *__kmalloc(size_t size, gfp_t flags)
 	trace_kmalloc(_RET_IP_, ret, size, s->size, flags);
 
 	ret = kasan_kmalloc(s, ret, size, flags);
-	// If there's a ctor, we've poisoned that memory before calling it.
 	kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
@@ -3871,7 +3868,6 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 	trace_kmalloc_node(_RET_IP_, ret, size, s->size, flags, node);
 
 	ret = kasan_kmalloc(s, ret, size, flags);
-	// If there's a ctor, we've poisoned that memory before calling it.
 	kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
