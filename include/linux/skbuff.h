@@ -2133,10 +2133,9 @@ static inline void *skb_put_data(struct sk_buff *skb, const void *data,
 {
 	void *tmp = skb_put(skb, len);
 
+	/* Unpoison the input buffer. */
+	kmsan_unpoison_shadow((void*)data, len);
 	memcpy(tmp, data, len);
-	// Unpoison the data received from the network device.
-	// TODO(glider): skb_put() unpoisons |tmp| already.
-	kmsan_unpoison_shadow(tmp, len);
 
 	return tmp;
 }
@@ -2144,10 +2143,9 @@ static inline void *skb_put_data(struct sk_buff *skb, const void *data,
 static inline void skb_put_u8(struct sk_buff *skb, u8 val)
 {
 	u8 *tmp = (u8 *)skb_put(skb, 1);
+	/* Unpoison |val|. */
+	kmsan_unpoison_shadow(&val, 1);
 	*tmp = val;
-	// Unpoison the data received from the network device.
-	// TODO(glider): skb_put() unpoisons |tmp| already.
-	kmsan_unpoison_shadow(tmp, 1);
 }
 
 void *skb_push(struct sk_buff *skb, unsigned int len);
