@@ -238,7 +238,6 @@ __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
 	struct irq_desc * desc;
 	unsigned vector;
 
-	kmsan_unpoison_shadow(regs, sizeof(struct pt_regs));
 	old_regs = set_irq_regs(regs);
 	/* high bit used in ret_from_ code  */
 	vector = ~regs->orig_ax;
