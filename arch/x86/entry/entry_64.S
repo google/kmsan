@@ -584,6 +584,7 @@ common_interrupt:
 	addq	$-0x80, (%rsp)			/* Adjust vector to [-256, -1] range */
 	call	interrupt_entry
 	UNWIND_HINT_REGS indirect=1
+	KMSAN_UNPOISON_PT_REGS
 	call	do_IRQ	/* rdi points to pt_regs */
 	/* 0(%rsp): old RSP */
 ret_from_intr:
@@ -784,6 +785,7 @@ ENTRY(\sym)
 .Lcommon_\sym:
 	call	interrupt_entry
 	UNWIND_HINT_REGS indirect=1
+	KMSAN_UNPOISON_PT_REGS
 	call	\do_sym	/* rdi points to pt_regs */
 	jmp	ret_from_intr
 END(\sym)
@@ -934,6 +936,7 @@ ENTRY(\sym)
 	KMSAN_IST_ENTER(\shift_ist)
 	.endif
 
+	KMSAN_UNPOISON_PT_REGS
 	call	\do_sym
 
 	.if \shift_ist != -1
@@ -966,6 +969,7 @@ ENTRY(\sym)
 	xorl	%esi, %esi			/* no error code */
 	.endif
 
+	KMSAN_UNPOISON_PT_REGS
 	call	\do_sym
 
 	jmp	error_exit
@@ -1415,6 +1419,7 @@ ENTRY(nmi)
 	KMSAN_NMI_ENTER
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
+	KMSAN_UNPOISON_PT_REGS
 	call	do_nmi
 	KMSAN_NMI_EXIT
 
@@ -1630,6 +1635,7 @@ end_repeat_nmi:
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
+	KMSAN_UNPOISON_PT_REGS
 	call	do_nmi
 	KMSAN_NMI_EXIT
 
