@@ -220,6 +220,16 @@
 #endif
 
 /*
+ * Optional: only supported since clang >= 7.0.2
+ */
+#if __has_attribute(__no_sanitize_memory__)
+/* We're using Clang. __no_sanitize_memory is defined in include/compiler-clang.h. */
+#else
+/* GCC and other compilers don't implement KMSAN. */
+# define __no_sanitize_memory
+#endif
+
+/*
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Type-Attributes.html#index-packed-type-attribute
  * clang: https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html#index-packed-variable-attribute
  */
