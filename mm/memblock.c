@@ -11,7 +11,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/kmsan.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/bitops.h>
@@ -1437,7 +1436,6 @@ done:
 		 * address which is not looked up by kmemleak.
 		 */
 		kmemleak_alloc(ptr, size, 0, 0);
-	kmsan_record_future_shadow_range((u64)ptr, ((u64)ptr)+size);
 
 	return ptr;
 }
