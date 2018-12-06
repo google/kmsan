@@ -14,6 +14,7 @@
 
 #include <asm/cpu_entry_area.h>
 #include <linux/mm.h>
+#include <linux/memblock.h>
 
 #define NUM_FUTURE_RANGES 128
 struct start_end_pair {
@@ -32,13 +33,25 @@ static __initdata bool ranges_processed = false;
  */
 void __init kmsan_record_future_shadow_range(u64 start, u64 end)
 {
+	///pr_err("kmsan_record_future_shadow_range(%px, %px)\n", start, end);
+	///dump_stack();
 	BUG_ON(future_index == NUM_FUTURE_RANGES);
 	BUG_ON(ranges_processed);
+	BUG_ON((start >= end) || !start || !end);
+	return;
 	start_end_pairs[future_index].start = start;
 	start_end_pairs[future_index].end = end;
 	future_index++;
 }
 EXPORT_SYMBOL(kmsan_record_future_shadow_range);
+
+void __init kmsan_record_real_future_shadow_range(u64 start, u64 end)
+{
+	start_end_pairs[future_index].start = start;
+	start_end_pairs[future_index].end = end;
+	future_index++;
+}
+
 
 extern char __bss_stop[];
 
@@ -127,7 +140,14 @@ void __init process_future_ranges(void)
 void __init kmsan_initialize_shadow(void)
 {
 	int nid;
+	u64 i;
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
+	phys_addr_t p_start, p_end;
+
+	for_each_reserved_mem_region(i, &p_start, &p_end) {
+		///pr_err("reserved region: %px--%px\n", phys_to_virt(p_start), phys_to_virt(p_end+1));
+		kmsan_record_real_future_shadow_range(phys_to_virt(p_start), phys_to_virt(p_end+1));
+	}
 
 	kmsan_initialize_shadow_for_text();
 	/*
@@ -135,7 +155,7 @@ void __init kmsan_initialize_shadow(void)
 	 * sizeof(pg_data_t).
 	 */
 	for_each_online_node(nid)
-		kmsan_record_future_shadow_range((u64)NODE_DATA(nid),
+		kmsan_record_real_future_shadow_range((u64)NODE_DATA(nid),
 						(u64)NODE_DATA(nid) + nd_size);
 	process_future_ranges();
 	/* Assuming current is init_task */
