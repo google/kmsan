@@ -20,20 +20,20 @@ struct start_end_pair {
 	u64 start, end;
 };
 
-__initdata struct start_end_pair start_end_pairs[NUM_FUTURE_RANGES];
-__initdata int future_index = 0;
+static __initdata struct start_end_pair start_end_pairs[NUM_FUTURE_RANGES];
+static __initdata int future_index = 0;
+static __initdata bool ranges_processed = false;
 
-/* Record a range of memory for which the metadata pages will be created once
+/*
+ * Record a range of memory for which the metadata pages will be created once
  * the page allocator becomes available.
  * This is thread-unsafe and should only be called before bringing up
  * secondary CPUs.
  */
 void __init kmsan_record_future_shadow_range(u64 start, u64 end)
 {
-	if (future_index == NUM_FUTURE_RANGES) {
-		BUG();
-		return;
-	}
+	BUG_ON(future_index == NUM_FUTURE_RANGES);
+	BUG_ON(ranges_processed);
 	start_end_pairs[future_index].start = start;
 	start_end_pairs[future_index].end = end;
 	future_index++;
@@ -42,7 +42,8 @@ EXPORT_SYMBOL(kmsan_record_future_shadow_range);
 
 extern char __bss_stop[];
 
-/* Allocate metadata pages for kernel sections from __START_KERNEL_map to
+/*
+ * Allocate metadata pages for kernel sections from __START_KERNEL_map to
  * __bss_stop.
  * TODO(glider): try to use memblock_alloc() to reserve some phys space for the
  * addresses.
@@ -58,7 +59,8 @@ void kmsan_initialize_shadow_for_text()
 	u64 order = MAX_ORDER - 1;
 	int np;
 
-	/* Allocate chunks of (PAGE_SIZE << order) bytes to decrease the number
+	/*
+	 * Allocate chunks of (PAGE_SIZE << order) bytes to decrease the number
 	 * of stitches.
 	 * TODO(glider): Ideally, every single section should have consequent
 	 * shadow memory range.
@@ -74,7 +76,8 @@ void kmsan_initialize_shadow_for_text()
 		upper = virt_to_page_or_null((char*)addr + __PAGE_OFFSET);
 		BUG_ON(page != upper);
 		for (np = 0; np < 1 << order; np++) {
-			/* TODO(glider): may we use a single page for both
+			/*
+			 * TODO(glider): may we use a single page for both
 			 * upper and lower mappings?
 			 * Depends on whether ffff880000000000 and
 			 * ffffffff80000000 are the same.
@@ -113,9 +116,11 @@ void __init process_future_ranges(void)
 	for (; i < future_index; i++)
 		kmsan_alloc_meta_for_range(start_end_pairs[i].start,
 						start_end_pairs[i].end);
+	ranges_processed = true;
 }
 
-/* Initialize the shadow for existing mappings during kernel initialization.
+/*
+ * Initialize the shadow for existing mappings during kernel initialization.
  * These include kernel text/data sections, NODE_DATA and future ranges
  * registered while creating other data (e.g. percpu).
  */
@@ -125,7 +130,8 @@ void __init kmsan_initialize_shadow(void)
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
 
 	kmsan_initialize_shadow_for_text();
-	/* TODO(glider): alloc_node_data() in arch/x86/mm/numa.c uses
+	/*
+	 * TODO(glider): alloc_node_data() in arch/x86/mm/numa.c uses
 	 * sizeof(pg_data_t).
 	 */
 	for_each_online_node(nid)
