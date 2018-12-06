@@ -1,5 +1,7 @@
 #ifndef _LINUX_KMSAN_CHECKS_H
 #define _LINUX_KMSAN_CHECKS_H
+
+#include <linux/bug.h>
 #include <linux/types.h>
 
 
@@ -17,25 +19,48 @@
 // Helper functions that mark the return value initialized.
 // Note that Clang ignores the inline attribute in the cases when a no_sanitize
 // function is called from an instrumented one.
+
 __no_sanitize_memory
-static inline int INIT_INT(int value) {
+static inline unsigned char KMSAN_INIT_1(unsigned char value) {
 	return value;
 }
 
 __no_sanitize_memory
-static inline s64 INIT_S64(s64 value) {
+static inline unsigned short KMSAN_INIT_2(unsigned short value) {
 	return value;
 }
 
 __no_sanitize_memory
-static inline bool INIT_BOOL(bool value) {
+static inline unsigned int KMSAN_INIT_4(unsigned int value) {
 	return value;
 }
 
 __no_sanitize_memory
-static inline void *INIT_PTR(void *value) {
+static inline unsigned long KMSAN_INIT_8(unsigned long value) {
 	return value;
 }
+
+#define KMSAN_INIT_VALUE(val)		\
+	({				\
+		typeof(val) __ret;	\
+		switch (sizeof(val)) {	\
+		case 1:						\
+			__ret = (typeof(val))KMSAN_INIT_1(val);	\
+			break;					\
+		case 2:						\
+			__ret = (typeof(val))KMSAN_INIT_2(val);	\
+			break;					\
+		case 4:						\
+			__ret = (typeof(val))KMSAN_INIT_4(val);	\
+			break;					\
+		case 8:						\
+			__ret = (typeof(val))KMSAN_INIT_8(val);	\
+			break;					\
+		default:					\
+			BUG();					\
+		}						\
+		__ret;						\
+	}) /**/
 
 void kmsan_poison_shadow(void *address, size_t size, gfp_t flags);
 void kmsan_unpoison_shadow(void *address, size_t size);
@@ -46,19 +71,8 @@ void kmsan_enter_runtime(unsigned long *flags);
 void kmsan_leave_runtime(unsigned long *flags);
 
 #else
-static inline int INIT_INT(int value) {
-	return value;
-}
-static inline s64 INIT_S64(s64 value) {
-	return value;
-}
-static inline bool INIT_BOOL(bool value) {
-	return value;
-}
 
-static inline void *INIT_PTR(void *value) {
-	return value;
-}
+#define KMSAN_INIT_VALUE(value) (value)
 
 static inline void kmsan_poison_shadow(void *address, size_t size, gfp_t flags) {}
 static inline void kmsan_unpoison_shadow(void *address, size_t size) {}
