@@ -1990,15 +1990,12 @@ EXPORT_SYMBOL_GPL(vprintk_default);
  *
  * See the vsnprintf() documentation for format string extensions over C99.
  */
-// TODO(glider): move to header.
-extern void kmsan_vprintk_func(const char *fmt, va_list args);
 asmlinkage __visible int printk(const char *fmt, ...)
 {
 	va_list args;
 	int r;
 
 	va_start(args, fmt);
-	kmsan_vprintk_func(fmt, args);
 	r = vprintk_func(fmt, args);
 	va_end(args);
 
