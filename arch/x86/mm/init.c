@@ -1,7 +1,6 @@
 #include <linux/gfp.h>
 #include <linux/initrd.h>
 #include <linux/ioport.h>
-#include <linux/kmsan.h>
 #include <linux/swap.h>
 #include <linux/memblock.h>
 #include <linux/swapfile.h>
@@ -130,8 +129,6 @@ __ref void *alloc_low_pages(unsigned int num)
 		adr = __va((pfn + i) << PAGE_SHIFT);
 		clear_page(adr);
 	}
-	///kmsan_record_future_shadow_range(__va(pfn << PAGE_SHIFT),
-	///				__va((pfn + num) << PAGE_SHIFT));
 
 	return __va(pfn << PAGE_SHIFT);
 }
