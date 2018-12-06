@@ -22,7 +22,7 @@
 #include <linux/seq_file.h>
 #include <linux/kasan.h>
 #include <linux/kmsan.h>
-#include <linux/kmsan-checks.h> /* INIT_PTR */
+#include <linux/kmsan-checks.h> /* KMSAN_INIT_VALUE */
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
 #include <linux/mempolicy.h>
@@ -293,7 +293,7 @@ static void prefetch_freepointer(const struct kmem_cache *s, void *object)
  * slab_alloc_node() will fail, so the uninitialized value won't be used, but
  * KMSAN will still check all arguments of cmpxchg because of imperfect
  * handling of inline assembly.
- * To work around this problem, use INIT_PTR() to force initialize the return
+ * To work around this problem, use KMSAN_INIT_VALUE() to force initialize the return
  * value of get_freepointer_safe().
  */
 static inline void *get_freepointer_safe(struct kmem_cache *s, void *object)
@@ -302,11 +302,11 @@ static inline void *get_freepointer_safe(struct kmem_cache *s, void *object)
 	void *p;
 
 	if (!debug_pagealloc_enabled())
-		return INIT_PTR(get_freepointer(s, object));
+		return KMSAN_INIT_VALUE(get_freepointer(s, object));
 
 	freepointer_addr = (unsigned long)object + s->offset;
 	probe_kernel_read(&p, (void **)freepointer_addr, sizeof(p));
-	return INIT_PTR(freelist_ptr(s, p, freepointer_addr));
+	return KMSAN_INIT_VALUE(freelist_ptr(s, p, freepointer_addr));
 }
 
 static inline void set_freepointer(struct kmem_cache *s, void *object, void *fp)
