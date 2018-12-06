@@ -598,20 +598,6 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 }
 EXPORT_SYMBOL(kmsan_copy_page_meta);
 
-/* Called from kernel/printk/printk.c */
-void kmsan_vprintk_func(const char *fmt, va_list args)
-{
-	const char *cur_p = fmt;
-	char cur;
-
-	while ((cur = *cur_p)) {
-		if (cur == '%') {
-			// TODO(glider): this is inaccurate.
-			// Okay, this is actually doing nothing.
-		}
-		cur_p++;
-	}
-}
 
 /* Called from include/linux/uaccess.h, include/linux/uaccess.h */
 void kmsan_copy_to_user(const void *to, const void *from,
