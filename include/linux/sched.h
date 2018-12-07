@@ -1109,7 +1109,7 @@ struct task_struct {
 #endif
 
 #ifdef CONFIG_KMSAN
-	kmsan_task_state              kmsan;
+	kmsan_task_state		kmsan;
 #endif
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
