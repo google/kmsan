@@ -257,7 +257,7 @@ config GENERIC_ISA_DMA
 
 config GENERIC_CSUM
 	bool
-	default y if KMSAN
+	default y if KMSAN || KASAN
 	default n
 
 config GENERIC_BUG
