@@ -21,7 +21,7 @@
  *	Jim Keniston
  */
 #include <linux/kernel.h>
-#include <linux/kmsan.h>
+#include <linux/kmsan-checks.h>
 #include <linux/sched.h>
 #include <linux/ptrace.h>
 #include <linux/uprobes.h>
