@@ -17,7 +17,6 @@
 #include <linux/kallsyms.h>
 #include <linux/spinlock.h>
 #include <linux/kprobes.h>
-#include <linux/kmsan.h>
 #include <linux/uaccess.h>
 #include <linux/kdebug.h>
 #include <linux/kgdb.h>
