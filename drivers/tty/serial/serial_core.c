@@ -578,7 +578,6 @@ static void uart_flush_chars(struct tty_struct *tty)
 // TODO(glider): avoid calling __msan_warning() within the UART critical
 // section, as it will cause a deadlock.
 // Instead, check the arguments upon function entry.
-__attribute__((no_sanitize("kernel-address")))
 static int uart_write(struct tty_struct *tty,
 					const unsigned char *buf, int count)
 {
