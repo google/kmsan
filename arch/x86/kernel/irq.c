@@ -5,7 +5,6 @@
 #include <linux/cpu.h>
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
-#include <linux/kmsan-checks.h>
 #include <linux/of.h>
 #include <linux/seq_file.h>
 #include <linux/smp.h>
@@ -231,17 +230,12 @@ u64 arch_irq_stat(void)
  * SMP cross-CPU interrupts have their own specific
  * handlers).
  */
-// TODO(glider)
-__no_sanitize_memory
 __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
 {
-	struct pt_regs *old_regs;
+	struct pt_regs *old_regs = set_irq_regs(regs);
 	struct irq_desc * desc;
-	unsigned vector;
-
-	old_regs = set_irq_regs(regs);
 	/* high bit used in ret_from_ code  */
-	vector = ~regs->orig_ax;
+	unsigned vector = ~regs->orig_ax;
 
 	entering_irq();
 
