@@ -162,7 +162,8 @@ inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool c
 	}
 }
 
-void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, bool checked)
+void kmsan_internal_poison_shadow(const volatile void *address, size_t size,
+				gfp_t flags, bool checked)
 {
 	depot_stack_handle_t handle;
 	kmsan_internal_memset_shadow((u64)address, -1, size, checked);
@@ -170,7 +171,7 @@ void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, bool 
 	kmsan_set_origin((u64)address, size, handle, checked);
 }
 
-void kmsan_poison_shadow(void *address, size_t size, gfp_t flags)
+void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
 {
 	unsigned long irq_flags;
 
@@ -185,13 +186,13 @@ void kmsan_poison_shadow(void *address, size_t size, gfp_t flags)
 }
 EXPORT_SYMBOL(kmsan_poison_shadow);
 
-void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked)
+void kmsan_internal_unpoison_shadow(const volatile void *address, size_t size, bool checked)
 {
 	kmsan_internal_memset_shadow((u64)address, 0, size, checked);
 	kmsan_set_origin((u64)address, size, 0, checked);
 }
 
-void kmsan_unpoison_shadow(void *address, size_t size)
+void kmsan_unpoison_shadow(const volatile void *address, size_t size)
 {
 	unsigned long irq_flags;
 
