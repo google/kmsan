@@ -594,9 +594,7 @@ void kmsan_clear_page(void *page_addr)
 	page = vmalloc_to_page_or_null(page_addr);
 	if (!page)
 		page = virt_to_page_or_null(page_addr);
-	if (!page || !page->is_kmsan_tracked_page)
-		return;
-	if (!page->shadow)
+	if (!page || !page->shadow)
 		return;
 	__memset(page_address(page->shadow), 0, PAGE_SIZE);
 	BUG_ON(!page->origin);
@@ -611,7 +609,7 @@ void kmsan_clear_user_page(struct page *page)
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	if (!page->is_kmsan_tracked_page)
+	if (!page->shadow)
 		return;
 
 	__memset(page_address(page->shadow), 0, PAGE_SIZE);
@@ -852,8 +850,6 @@ void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin)
 next:
         if (!page->shadow || !page->origin)
 		return NULL;
-	if (!page->is_kmsan_tracked_page)
-		return NULL;
 	offset = addr % PAGE_SIZE;
 
 	if (offset + size - 1 > PAGE_SIZE) {
@@ -917,8 +913,6 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 		return ret;
 next:
         if (!page->shadow || !page->origin)
-		return ret;
-	if (!page->is_kmsan_tracked_page)
 		return ret;
 	offset = addr % PAGE_SIZE;
 	o_offset = o_addr % PAGE_SIZE;
