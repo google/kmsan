@@ -276,7 +276,6 @@ bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_mask, gfp_t nes
 	area->shadow = s_area;
 	area->origin = o_area;
 
-	area->is_kmsan_tracked = true;
 	return true;
 
 fail:
@@ -334,13 +333,14 @@ void kmsan_vmap(struct vm_struct *area,
 
 	shadow->pages = s_pages;
 	shadow->nr_pages = count;
-	shadow->is_kmsan_tracked = false;
+	shadow->shadow = NULL;
+	shadow->origin = NULL;
 	origin->pages = o_pages;
 	origin->nr_pages = count;
-	origin->is_kmsan_tracked = false;
+	origin->shadow = NULL;
+	origin->origin = NULL;
 	area->shadow = shadow;
 	area->origin = origin;
-	area->is_kmsan_tracked = true;
 	return;
 err_free:
 	if (s_pages)
@@ -363,7 +363,7 @@ void kmsan_vunmap(const void *addr, struct vm_struct *area, int deallocate_pages
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 
-	if (!vms || !vms->is_kmsan_tracked)
+	if (!vms || !vms->shadow)
 		return;
 	shadow = vms->shadow;
 	origin = vms->origin;
