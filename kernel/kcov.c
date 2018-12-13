@@ -2,10 +2,6 @@
 #define pr_fmt(fmt) "kcov: " fmt
 
 #define DISABLE_BRANCH_PROFILING
-
-/* We don't instrument this file, so let's not check atomics in it. */
-#define KMSAN_CHECK_ATOMIC_PARAMS 0
-
 #include <linux/atomic.h>
 #include <linux/compiler.h>
 #include <linux/errno.h>
