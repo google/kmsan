@@ -42,7 +42,6 @@ struct vm_struct {
 	const void		*caller;
 #ifdef CONFIG_KMSAN
 	struct vm_struct	*shadow, *origin;
-	bool			is_kmsan_tracked;
 #endif
 };
 
