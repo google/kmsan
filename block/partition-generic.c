@@ -664,7 +664,7 @@ unsigned char *read_dev_sector(struct block_device *bdev, sector_t n, Sector *p)
 			goto fail;
 		p->v = page;
 		retval = (unsigned char *)page_address(page) +  ((n & ((1 << (PAGE_SHIFT - 9)) - 1)) << 9);
-		// Unpoison sector-sized chunk of memory coming from the device.
+		/* Unpoison sector-sized chunk of memory coming from the device. */
 		kmsan_unpoison_shadow(retval, 512);
 		return retval;
 fail:
