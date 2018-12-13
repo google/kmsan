@@ -985,6 +985,7 @@ static void _extract_crng(struct crng_state *crng,
 	if (arch_get_random_long(&v))
 		crng->state[14] ^= v;
 	chacha20_block(&crng->state[0], out);
+	kmsan_unpoison_shadow(out, CHACHA20_BLOCK_SIZE);
 	if (crng->state[12] == 0)
 		crng->state[13]++;
 	spin_unlock_irqrestore(&crng->lock, flags);
@@ -1000,7 +1001,6 @@ static void extract_crng(__u8 out[CHACHA_BLOCK_SIZE])
 	if (crng == NULL)
 #endif
 		crng = &primary_crng;
-	kmsan_unpoison_shadow(crng->state, sizeof(crng->state));
 	_extract_crng(crng, out);
 }
 
