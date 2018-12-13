@@ -88,7 +88,6 @@ static void map_pages(struct list_head *list)
 			// TODO(glider): we may lose the metadata when copying
 			// something to these pages. Need to allocate shadow
 			// and origin pages here instead.
-			page->is_kmsan_tracked_page = false;
 			page->shadow = NULL;
 			page->origin = NULL;
 #endif
