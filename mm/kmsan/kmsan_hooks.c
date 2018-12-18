@@ -523,7 +523,6 @@ void kmsan_acpi_unmap(void *vaddr, unsigned long size)
 	unsigned long irq_flags;
 	int order;
 	int pages, i;
-	return;
 
 	if (IN_RUNTIME())
 		return;
