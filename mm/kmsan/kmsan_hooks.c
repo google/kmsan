@@ -125,9 +125,8 @@ void kmsan_task_exit(struct task_struct *task)
 {
 	unsigned long irq_flags;
 	kmsan_task_state *state = &task->kmsan;
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
+
+	if (!kmsan_ready || IN_RUNTIME())
 		return;
 
 	ENTER_RUNTIME(irq_flags);
@@ -166,9 +165,7 @@ void kmsan_kmalloc(struct kmem_cache *cache, const void *object, size_t size,
 
 	if (unlikely(object == NULL))
 		return;
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
+	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
 	if (flags & __GFP_ZERO) {
@@ -302,14 +299,17 @@ void kmsan_vmap(struct vm_struct *area,
 		return;
 
 	size = (unsigned long)count << PAGE_SHIFT;
-	// It's important to call get_vm_area_caller() (which calls kmalloc())
-	// and kmalloc() outside the runtime.
-	// Calling kmalloc() may potentially allocate a new slab without
-	// corresponding shadow pages. Accesses to any subsequent allocations
-	// from that slab will crash the kernel.
+	/*
+	 * It's important to call get_vm_area_caller() (which calls kmalloc())
+	 * and kmalloc() outside the runtime.
+	 * Calling kmalloc() may potentially allocate a new slab without
+	 * corresponding shadow pages. Accesses to any subsequent allocations
+	 * from that slab will crash the kernel.
+	 */
 	shadow = get_vm_area_caller(size, flags | __GFP_NO_KMSAN_SHADOW, caller);
 	origin = get_vm_area_caller(size, flags | __GFP_NO_KMSAN_SHADOW, caller);
-	/* TODO(glider): __GFP_NO_KMSAN_SHADOW below indicates that kmalloc won't be
+	/*
+	 * TODO(glider): __GFP_NO_KMSAN_SHADOW below indicates that kmalloc won't be
 	 * calling KMSAN hooks again, but it cannot guarantee the allocation
 	 * will be performed from an untracked page (we would need a separate
 	 * kmalloc cache for that). To make sure the pages are unpoisoned, we also
@@ -325,7 +325,7 @@ void kmsan_vmap(struct vm_struct *area,
 		s_pages[i] = pages[i]->shadow;
 		o_pages[i] = pages[i]->origin;
 	}
-	// Don't enter the runtime when allocating memory with kmalloc().
+	/* Don't enter the runtime when allocating memory with kmalloc(). */
 	if (map_vm_area(shadow, prot, s_pages) ||
 	    map_vm_area(origin, prot, o_pages)) {
 		goto err_free;
@@ -414,7 +414,6 @@ void kmsan_free_page(struct page *page, unsigned int order)
 		return;
 	}
 
-	/* TODO(glider): order? */
 	if (!kmsan_ready) {
 		for (i = 0; i < pages; i++) {
 			cur_page = &page[i];
@@ -475,9 +474,7 @@ void kmsan_split_page(struct page *page, unsigned int order)
 	struct page *shadow, *origin;
 	unsigned long irq_flags;
 
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
+	if (!kmsan_ready || IN_RUNTIME())
 		return;
 
 	ENTER_RUNTIME(irq_flags);
@@ -552,9 +549,7 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 {
 	unsigned long irq_flags;
 
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
+	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	if (!src->shadow) {
 		/* TODO(glider): are we leaking pages here? */
@@ -589,6 +584,8 @@ void kmsan_copy_to_user(const void *to, const void *from,
 {
 	void *shadow;
 
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
 	/* TODO(glider): at this point we've copied the memory already.
 	 * Might be better to check it before copying.
 	 */
