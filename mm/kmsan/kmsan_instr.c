@@ -184,7 +184,7 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 
 	/* Creating new origins may allocate memory. */
 	ENTER_RUNTIME(irq_flags);
-	ret = kmsan_internal_chain_origin(origin, /*full*/true);
+	ret = kmsan_internal_chain_origin(origin);
 	LEAVE_RUNTIME(irq_flags);
 	return ret;
 }
