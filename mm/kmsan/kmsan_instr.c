@@ -65,10 +65,8 @@ void __msan_instrument_asm_load(u64 addr, u64 size)
 		size = 8;
 	if (is_bad_asm_addr(addr, size, /*is_store*/false))
 		return;
-	ENTER_RUNTIME(irq_flags);
 	/* kmsan_internal_check_memory() may take locks. */
 	kmsan_internal_check_memory(addr, size, /*user_addr*/0, REASON_ANY);
-	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_instrument_asm_load);
 
