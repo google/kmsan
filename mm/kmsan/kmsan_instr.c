@@ -56,8 +56,6 @@ DECLARE_METADATA_PTR_GETTER(8);
 
 void __msan_instrument_asm_load(u64 addr, u64 size)
 {
-	unsigned long irq_flags;
-
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	/* It's unlikely that the assembly will touch more than 32 bytes. */
@@ -92,7 +90,6 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 {
 	void *result;
 	void *shadow_dst;
-	unsigned long irq_flags;
 
 	result = __memmove(dst, src, n);
 	if (!n)
@@ -118,7 +115,6 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 {
 	void *result;
 	void *shadow_dst;
-	unsigned long irq_flags;
 
 	result = __memcpy(dst, src, n);
 	if (!n)
@@ -144,9 +140,8 @@ void *__msan_memset(void *dst, int c, size_t n)
 {
 	void *result;
 	unsigned long irq_flags;
-	depot_stack_handle_t origin, new_origin;
+	depot_stack_handle_t new_origin;
 	unsigned int shadow;
-	void *caller;
 
 	result = __memset(dst, c, n);
 	if (!kmsan_ready || IN_RUNTIME())
