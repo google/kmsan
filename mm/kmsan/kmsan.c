@@ -45,14 +45,11 @@ extern char __irqentry_text_start[];
 extern char __softirqentry_text_end[];
 extern char __softirqentry_text_start[];
 
-// Dummy shadow and origin pages to be used when the real metadata is
-// unavailable.
+// Dummy load and store pages to be used when the real metadata is unavailable.
 // There are separate pages for loads and stores, so that every load returns a
 // zero, and every store doesn't affect other stores.
-char dummy_shadow_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
-char dummy_origin_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
-char dummy_shadow_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
-char dummy_origin_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+char dummy_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+char dummy_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
 bool kmsan_ready = false;
 #define KMSAN_STACK_DEPTH 64
@@ -806,11 +803,11 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 		BUG();
 	}
 	if (store) {
-		ret.s = dummy_shadow_store_page;
-		ret.o = dummy_origin_store_page;
+		ret.s = dummy_store_page;
+		ret.o = dummy_store_page;
 	} else {
-		ret.s = dummy_shadow_load_page;
-		ret.o = dummy_origin_load_page;
+		ret.s = dummy_load_page;
+		ret.o = dummy_load_page;
 	}
 	if (!kmsan_ready || IN_RUNTIME()) {
 		return ret;
