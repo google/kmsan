@@ -300,7 +300,7 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 			// Overwrite the origin only if the corresponding shadow is nonempty.
 			if (origin_src[i] && (origin_src[i] != prev_origin) && shadow) {
 				prev_origin = origin_src[i];
-				chained_origin = kmsan_internal_chain_origin(prev_origin, /*full*/true);
+				chained_origin = kmsan_internal_chain_origin(prev_origin);
 				// kmsan_internal_chain_origin() may return NULL, but we don't want to lose the previous origin value.
 				if (chained_origin)
 					new_origin = chained_origin;
@@ -360,12 +360,6 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 				print_stack_trace(&chained_trace, 0);
 				kmsan_pr_err("\n");
 				continue;
-			} else
-			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FRAME) {
-				origin = trace.entries[2];
-				kmsan_pr_err("Uninit was stored to memory at:\n");
-				kmsan_pr_err("%px - %pSR\n", trace.entries[1], trace.entries[1]);
-				continue;
 			}
 		}
 		kmsan_pr_err("Uninit was created at:\n");
@@ -377,7 +371,7 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 	}
 }
 
-depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id, bool full)
+depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[3];
@@ -387,7 +381,7 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 		.max_entries = 3,
 		.skip = 0
 	};
-	u64 magic = full ? KMSAN_CHAIN_MAGIC_ORIGIN_FULL : KMSAN_CHAIN_MAGIC_ORIGIN_FRAME;
+	u64 magic = KMSAN_CHAIN_MAGIC_ORIGIN_FULL;
 	struct stack_trace old_trace;
 	int depth = 0;
 	u64 old_magic;
@@ -408,8 +402,7 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 		return id;
 	old_magic = old_trace.entries[0];
 	// TODO(glider): just make the chain magics more similar.
-	if (((old_magic & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) ||
-		((old_magic & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FRAME)) {
+	if ((old_magic & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
 		depth = old_magic & 0xff;
 	}
 	if (depth >= MAX_CHAIN_DEPTH) {
@@ -424,11 +417,7 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id,
 	depth++;
 	// TODO(glider): how do we figure out we've dropped some frames?
 	entries[0] = magic + depth;
-	if (full) {
-		entries[1] = kmsan_save_stack();
-	} else {
-		entries[1] = (unsigned long)kmsan_internal_return_address(1);
-	}
+	entries[1] = kmsan_save_stack();
 	entries[2] = id;
 	handle = depot_save_stack(&trace, GFP_ATOMIC);
 	return handle;
