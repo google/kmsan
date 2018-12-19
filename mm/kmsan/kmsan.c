@@ -167,42 +167,12 @@ void kmsan_internal_poison_shadow(const volatile void *address, size_t size,
 	kmsan_set_origin((u64)address, size, handle, checked);
 }
 
-void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
-{
-	unsigned long irq_flags;
-
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	// The users may want to poison/unpoison random memory.
-	kmsan_internal_poison_shadow(address, size, flags, /*checked*/true);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_poison_shadow);
 
 void kmsan_internal_unpoison_shadow(const volatile void *address, size_t size, bool checked)
 {
 	kmsan_internal_memset_shadow((u64)address, 0, size, checked);
 	kmsan_set_origin((u64)address, size, 0, checked);
 }
-
-void kmsan_unpoison_shadow(const volatile void *address, size_t size)
-{
-	unsigned long irq_flags;
-
-	if (!kmsan_ready)
-		return;
-	if (IN_RUNTIME())
-		return;
-
-	ENTER_RUNTIME(irq_flags);
-	// The users may want to poison/unpoison random memory.
-	kmsan_internal_unpoison_shadow(address, size, /*checked*/false);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_unpoison_shadow);
 
 // TODO(glider): move to lib/
 static inline int in_irqentry_text(unsigned long ptr)
