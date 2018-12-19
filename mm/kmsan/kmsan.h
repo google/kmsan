@@ -44,9 +44,6 @@ typedef struct {
 } shadow_origin_ptr_t;
 shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store);
 
-#define min_num(x,y) ((x) < (y) ? x : y)
-
-
 /*
  * When a compiler hook is invoked, it may make a call to instrumented code
  * and eventually call itself recursively. To avoid that, we protect the
