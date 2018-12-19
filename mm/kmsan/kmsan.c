@@ -462,9 +462,6 @@ void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 	u64 page_offset;
 	size_t to_fill, pad = 0;
 
-	if (!kmsan_ready)
-		// No need to fill the dummy origin.
-		return;
 	if (!IS_ALIGNED(address, 4)) {
 		pad = address % 4;
 		address -= pad;
@@ -491,7 +488,6 @@ void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 		size -= to_fill;
 	}
 }
-EXPORT_SYMBOL(kmsan_set_origin);
 
 static bool is_module_addr(const void *vaddr)
 {
@@ -548,7 +544,6 @@ struct page *virt_to_page_or_null(const void *vaddr)
 	else
 		return NULL;
 }
-
 
 // TODO(glider): unite with kmsan_alloc_page()?
 void kmsan_prep_pages(struct page *page, unsigned int order)
