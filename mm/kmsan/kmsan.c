@@ -137,7 +137,7 @@ inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool c
 
 	while (size) {
 		page_offset = address % PAGE_SIZE;
-		to_fill = min_num(PAGE_SIZE - page_offset, size);
+		to_fill = min(PAGE_SIZE - page_offset, size);
 		shadow_start = kmsan_get_metadata_or_null(address, to_fill, /*is_origin*/false);
 		if (!shadow_start) {
 			if (checked) {
@@ -259,7 +259,7 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 	while (n) {
 		rem_src = PAGE_SIZE - (src % PAGE_SIZE);
 		rem_dst = PAGE_SIZE - (dst % PAGE_SIZE);
-		to_copy = min_num(n, min_num(rem_src, rem_dst));
+		to_copy = min(n, min(rem_src, rem_dst));
 		shadow_dst = kmsan_get_metadata_or_null(dst, to_copy, /*is_origin*/false);
 		shadow_src = kmsan_get_metadata_or_null(src, to_copy, /*is_origin*/false);
 		origin_dst = kmsan_get_metadata_or_null(dst, to_copy, /*is_origin*/true);
@@ -288,11 +288,11 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 		}
 		BUG_ON(!origin_dst || !origin_src);
 
-		i = is_memmove ? min_num(src_slots, dst_slots) - 1 : 0;
+		i = is_memmove ? min(src_slots, dst_slots) - 1 : 0;
 		iter = is_memmove ? -1 : 1;
 
 		align_shadow_src = ALIGN_DOWN((u64)shadow_src, ORIGIN_SIZE);
-		for (step = 0; step < min_num(src_slots, dst_slots); step++,i+=iter) {
+		for (step = 0; step < min(src_slots, dst_slots); step++,i+=iter) {
 			shadow = align_shadow_src[i];
 			if (i == 0)
 				// If |src| isn't aligned on ORIGIN_SIZE, don't look at the first |src % ORIGIN_SIZE| bytes of the first shadow slot.
@@ -467,7 +467,7 @@ void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 
 	while (size > 0) {
 		page_offset = address % PAGE_SIZE;
-		to_fill = (PAGE_SIZE - page_offset > size) ? size : PAGE_SIZE - page_offset;
+		to_fill = min(PAGE_SIZE - page_offset, size);
 		to_fill = ALIGN(to_fill, ORIGIN_SIZE);
 		BUG_ON(!to_fill);
 		origin_start = kmsan_get_metadata_or_null(address, to_fill, /*origin*/true);
@@ -642,7 +642,7 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 
 	pos = 0;
 	while (pos < size) {
-		chunk_size = min_num(size - pos, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
+		chunk_size = min(size - pos, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
 		shadow = kmsan_get_metadata_or_null(addr64 + pos, chunk_size, /*is_origin*/false);
 		if (!shadow) {
 			/* This page is untracked. TODO(glider): assert.
