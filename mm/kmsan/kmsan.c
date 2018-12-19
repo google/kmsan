@@ -118,11 +118,6 @@ void inline do_kmsan_task_create(struct task_struct *task)
 {
 	kmsan_task_state *state = &task->kmsan;
 
-#ifdef CONFIG_VMAP_STACK
-	// TODO(glider): KMSAN isn't currently compatible with CONFIG_VMAP_STACK.
-	// BUG_ON(!virt_addr_valid(task->stack));
-#error TODO(glider): KMSAN isn't currently compatible with CONFIG_VMAP_STACK
-#endif
 	__memset(&state->cstate, 0, sizeof(kmsan_context_state));
 	state->enabled = true;
 	state->allow_reporting = true;
