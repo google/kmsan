@@ -25,7 +25,7 @@
 #include <linux/stackdepot.h>
 #include <linux/stacktrace.h>
 #include <linux/types.h>
-#include <asm/page.h>	// for clear_page()
+#include <asm/page.h>
 #include <linux/vmalloc.h>
 
 #include <linux/mmzone.h>
@@ -33,7 +33,8 @@
 #include "../slab.h"
 #include "kmsan.h"
 
-/* Some kernel asm() calls mention the non-existing |__force_order| variable
+/*
+ * Some kernel asm() calls mention the non-existing |__force_order| variable
  * in the asm constraints to preserve the order of accesses to control
  * registers. KMSAN turns those mentions into actual memory accesses, therefore
  * the variable is now required to link the kernel.
@@ -45,9 +46,11 @@ extern char __irqentry_text_start[];
 extern char __softirqentry_text_end[];
 extern char __softirqentry_text_start[];
 
-// Dummy load and store pages to be used when the real metadata is unavailable.
-// There are separate pages for loads and stores, so that every load returns a
-// zero, and every store doesn't affect other stores.
+/*
+ * Dummy load and store pages to be used when the real metadata is unavailable.
+ * There are separate pages for loads and stores, so that every load returns a
+ * zero, and every store doesn't affect other stores.
+ */
 char dummy_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 char dummy_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
@@ -55,15 +58,19 @@ bool kmsan_ready = false;
 #define KMSAN_STACK_DEPTH 64
 #define MAX_CHAIN_DEPTH 7
 
-// According to Documentation/x86/kernel-stacks, kernel code can run on the
-// following stacks:
-//  - regular task stack - when executing the task code
-//  - interrupt stack - when handling external hardware interrupts and softirqs
-//  - TODO
-// 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
-// Because interrupts may nest, trying to use a new context for every new interrupt.
-DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);  // [0] for dummy per-CPU context
-DEFINE_PER_CPU(int, kmsan_context_level);  // 0 for task context, |i>0| for kmsan_context_state[i]
+/*
+ * According to Documentation/x86/kernel-stacks, kernel code can run on the
+ * following stacks:
+ * - regular task stack - when executing the task code
+ *  - interrupt stack - when handling external hardware interrupts and softirqs
+ *  - NMI stack
+ * 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
+ * Because interrupts may nest, trying to use a new context for every new interrupt.
+ */
+/* [0] for dummy per-CPU context. */
+DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);
+/* 0 for task context, |i>0| for kmsan_context_state[i]. */
+DEFINE_PER_CPU(int, kmsan_context_level);
 DEFINE_PER_CPU(int, kmsan_in_interrupt);
 DEFINE_PER_CPU(bool, kmsan_in_softirq);
 DEFINE_PER_CPU(bool, kmsan_in_nmi);
@@ -112,12 +119,11 @@ void kmsan_leave_runtime(unsigned long *flags)
 }
 EXPORT_SYMBOL(kmsan_leave_runtime);
 
-// TODO(glider): switch to page_ext?
 void inline do_kmsan_task_create(struct task_struct *task)
 {
 	kmsan_task_state *state = &task->kmsan;
 
-	__memset(&state->cstate, 0, sizeof(kmsan_context_state));
+	__memset(state, 0, sizeof(kmsan_task_state));
 	state->enabled = true;
 	state->allow_reporting = true;
 	state->is_reporting = false;
@@ -140,7 +146,7 @@ inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool c
 				current->kmsan.is_reporting = false;
 				BUG();
 			}
-			// Otherwise just move on.
+			/* Otherwise just move on. */
 		} else {
 			__memset(shadow_start, b, to_fill);
 		}
@@ -165,7 +171,6 @@ void kmsan_internal_unpoison_shadow(const volatile void *address, size_t size, b
 	kmsan_set_origin((u64)address, size, 0, checked);
 }
 
-// TODO(glider): move to lib/
 static inline int in_irqentry_text(unsigned long ptr)
 {
 	return (ptr >= (unsigned long)&__irqentry_text_start &&
@@ -219,7 +224,8 @@ inline depot_stack_handle_t kmsan_save_stack()
 	return kmsan_save_stack_with_flags(GFP_ATOMIC);
 }
 
-/* As with the regular memmove, do the following:
+/*
+ * As with the regular memmove, do the following:
  * - if src and dst don't overlap, use memcpy;
  * - if src and dst overlap:
  *   - if src > dst, use memcpy;
@@ -271,7 +277,7 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 		if (!shadow_dst)
 			continue;
 		if (!shadow_src) {
-			// |src| is untracked: zero out destination shadow, ignore the origins.
+			/* |src| is untracked: zero out destination shadow, ignore the origins. */
 			__memset(shadow_dst, 0, to_copy);
 			continue;
 		} else {
@@ -289,18 +295,32 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 		for (step = 0; step < min(src_slots, dst_slots); step++,i+=iter) {
 			shadow = align_shadow_src[i];
 			if (i == 0)
-				// If |src| isn't aligned on ORIGIN_SIZE, don't look at the first |src % ORIGIN_SIZE| bytes of the first shadow slot.
+				/*
+				 * If |src| isn't aligned on ORIGIN_SIZE, don't
+				 * look at the first |src % ORIGIN_SIZE| bytes
+				 * of the first shadow slot.
+				 */
 				shadow = (shadow << (src % ORIGIN_SIZE)) >> (src % ORIGIN_SIZE);
 			if (i == src_slots - 1)
-				// If |src + to_copy| isn't aligned on ORIGIN_SIZE, don't look
-				// at the last |(src + to_copy) % ORIGIN_SIZE| bytes of
-				// the last shadow slot.
+				/*
+				 * If |src + to_copy| isn't aligned on
+				 * ORIGIN_SIZE, don't look at the last
+				 * |(src + to_copy) % ORIGIN_SIZE| bytes of the
+				 * last shadow slot.
+				 */
 				shadow = (shadow >> ((src + to_copy) % ORIGIN_SIZE)) >> ((src + to_copy) % ORIGIN_SIZE);
-			// Overwrite the origin only if the corresponding shadow is nonempty.
+			/*
+			 * Overwrite the origin only if the corresponding
+			 * shadow is nonempty.
+			 */
 			if (origin_src[i] && (origin_src[i] != prev_origin) && shadow) {
 				prev_origin = origin_src[i];
 				chained_origin = kmsan_internal_chain_origin(prev_origin);
-				// kmsan_internal_chain_origin() may return NULL, but we don't want to lose the previous origin value.
+				/*
+				 * kmsan_internal_chain_origin() may return
+				 * NULL, but we don't want to lose the previous
+				 * origin value.
+				 */
 				if (chained_origin)
 					new_origin = chained_origin;
 				else
@@ -389,18 +409,21 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 	if (!kmsan_ready)
 		return 0;
 
-	// TODO(glider): invalid id may denote we've hit the stack depot
-	// capacity. We can either return the same id or generate a new one.
+	/*
+	 * TODO(glider): invalid id may denote we've hit the stack depot
+	 * capacity. We can either return the same id or generate a new one.
+	 */
 	if (!id) return id;
 
-	// TODO(glider): this is slower, but will save us a lot of memory.
-	// Let us store the chain length in the lowest byte of the magic.
-	// Maybe we can cache the ids somehow to avoid fetching them?
+	/*
+	 * TODO(glider): this is slower, but will save us a lot of memory.
+	 * Let us store the chain length in the lowest byte of the magic.
+	 * Maybe we can cache the ids somehow to avoid fetching them?
+	 */
 	depot_fetch_stack(id, &old_trace);
 	if (!old_trace.nr_entries)
 		return id;
 	old_magic = old_trace.entries[0];
-	// TODO(glider): just make the chain magics more similar.
 	if ((old_magic & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
 		depth = old_magic & 0xff;
 	}
@@ -414,7 +437,7 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 		return id;
 	}
 	depth++;
-	// TODO(glider): how do we figure out we've dropped some frames?
+	/* TODO(glider): how do we figure out we've dropped some frames? */
 	entries[0] = magic + depth;
 	entries[1] = kmsan_save_stack();
 	entries[2] = id;
@@ -434,8 +457,10 @@ void kmsan_write_aligned_origin(const void *var, size_t size, u32 origin)
 		var_cast[i] = origin;
 }
 
-// TODO(glider): writing an initialized byte shouldn't zero out the origin, if
-// the remaining three bytes are uninitialized.
+/*
+ * TODO(glider): writing an initialized byte shouldn't zero out the origin, if
+ * the remaining three bytes are uninitialized.
+ */
 void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 {
 	void *origin_start;
@@ -521,7 +546,7 @@ struct page *virt_to_page_or_null(const void *vaddr)
 		return NULL;
 }
 
-// TODO(glider): unite with kmsan_alloc_page()?
+/* TODO(glider): unite with kmsan_alloc_page()? */
 void kmsan_prep_pages(struct page *page, unsigned int order)
 {
 	int i;
@@ -540,8 +565,10 @@ int order_from_size(unsigned long size)
 	if (!pages)
 		pages = 1;
 	if (hweight64(pages) > 1)
-		// TODO(glider): round up to the next power of 2.
-		// This is a bit excessive.
+		/*
+		 * TODO(glider): round up to the next power of 2.
+		 * This is a bit excessive.
+		 */
 		return fls(pages);
 	else
 		return fls(pages) - 1;
@@ -549,8 +576,10 @@ int order_from_size(unsigned long size)
 
 DEFINE_SPINLOCK(report_lock);
 
-// |deep| is a dirty hack to skip an additional frame when calling
-// kmsan_report() from kmsan_copy_to_user().
+/*
+ * TODO(glider): |deep| is a dirty hack to skip an additional frame when
+ * calling kmsan_report() from kmsan_copy_to_user().
+ */
 inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 			u64 address, int size, int off_first, int off_last, u64 user_addr, bool deep, int reason)
 {
@@ -564,17 +593,18 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 	if (is_console_locked() || is_logbuf_locked())
 		return;
 
-	// TODO(glider): temporarily disabling reports without origins.
+	/* TODO(glider): temporarily disabling reports without origins. */
 	if (!origin)
 		return;
 
 	depot_fetch_stack(origin, &trace);
 
-	current->kmsan.allow_reporting = false; // TODO(glider)
+	/* TODO(glider) */
+	current->kmsan.allow_reporting = false;
 	current->kmsan.is_reporting = true;
 	spin_lock_irqsave(&report_lock, flags);
 	kmsan_pr_err("==================================================================\n");
-	// TODO(glider): inline this properly
+	/* TODO(glider): inline this properly */
 	switch (reason) {
 		case REASON_ANY:
 			kmsan_pr_err("BUG: KMSAN: uninit-value in %pS\n", deep ? kmsan_internal_return_address(2) : kmsan_internal_return_address(1));
@@ -623,7 +653,8 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 		chunk_size = min(size - pos, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
 		shadow = kmsan_get_metadata_or_null(addr64 + pos, chunk_size, /*is_origin*/false);
 		if (!shadow) {
-			/* This page is untracked. TODO(glider): assert.
+			/*
+			 * This page is untracked. TODO(glider): assert.
 			 * If there were uninitialized bytes before, report them.
 			 */
 			if (cur_origin) {
@@ -638,7 +669,10 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 		}
 		for (i = 0; i < chunk_size; i++) {
 			if (!shadow[i]) {
-				/* This byte is unpoisoned. If there were poisoned bytes before, report them. */
+				/*
+				 * This byte is unpoisoned. If there were
+				 * poisoned bytes before, report them.
+				 */
 				if (cur_origin) {
 					ENTER_RUNTIME(irq_flags);
 					kmsan_report(_THIS_IP_, cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, /*deep*/true, reason);
@@ -651,7 +685,10 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 			origin = kmsan_get_metadata_or_null(addr64 + pos + i, chunk_size - i, /*is_origin*/true);
 			BUG_ON(!origin);
 			new_origin = *origin;
-			// Encountered new origin - report the previous uninitialized range.
+			/*
+			 * Encountered new origin - report the previous
+			 * uninitialized range.
+			 */
 			if (cur_origin != new_origin) {
 				if (cur_origin) {
 					ENTER_RUNTIME(irq_flags);
@@ -678,8 +715,10 @@ void kmsan_check_memory(const volatile void *addr, size_t size)
 }
 EXPORT_SYMBOL(kmsan_check_memory);
 
-// TODO(glider): this check shouldn't be performed for origin pages, because
-// they're always accessed after the shadow pages.
+/*
+ * TODO(glider): this check shouldn't be performed for origin pages, because
+ * they're always accessed after the shadow pages.
+ */
 bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 	u64 cur_addr, next_addr, cur_meta_addr, next_meta_addr;
 	struct page *cur_page, *next_page;
@@ -694,8 +733,10 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 		if (cur_meta_addr != next_meta_addr - PAGE_SIZE) {
 			if ((addr < _sdata) || (addr >= _edata)) {
 				const char *fname = is_origin ? "shadow" : "origin";
-				// Skip reports on __data.
-				// TODO(glider): allocate contiguous shadow for __data instead.
+				/*
+				 * Skip reports on __data.
+				 * TODO(glider): allocate contiguous shadow for __data instead.
+				 */
 				current->kmsan.is_reporting = true;
 				kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
 				dump_stack();
@@ -719,7 +760,8 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 	return true;
 }
 
-/* TODO(glider): all other shadow getters are broken, so let's write another
+/*
+ * TODO(glider): all other shadow getters are broken, so let's write another
  * one. The semantic is pretty straightforward: either return a valid shadow
  * pointer or NULL. The caller must BUG_ON on NULL if he wants to.
  * The return value of this function should not depend on whether we're in the
@@ -755,7 +797,8 @@ next:
 	offset = addr % PAGE_SIZE;
 
 	if (offset + size - 1 > PAGE_SIZE) {
-		/* The access overflows the current page and touches the
+		/*
+		 * The access overflows the current page and touches the
 		 * subsequent ones. Make sure the shadow/origin pages are also
 		 * consequent.
 		 */
@@ -814,7 +857,8 @@ next:
 	o_offset = o_addr % PAGE_SIZE;
 
 	if (offset + size - 1 > PAGE_SIZE) {
-		/* The access overflows the current page and touches the
+		/*
+		 * The access overflows the current page and touches the
 		 * subsequent ones. Make sure the shadow/origin pages are also
 		 * consequent.
 		 */
