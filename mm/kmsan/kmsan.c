@@ -488,11 +488,7 @@ void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 
 static bool is_module_addr(const void *vaddr)
 {
-	if (vaddr < MODULES_VADDR)
-		return false;
-	if (vaddr >= MODULES_END)
-		return false;
-	return true;
+	return (vaddr >= MODULES_VADDR) && (vaddr < MODULES_END);
 }
 
 void *get_cea_shadow_or_null(const void *addr)
