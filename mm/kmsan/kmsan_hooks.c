@@ -646,3 +646,31 @@ void kmsan_clear_user_page(struct page *page)
 	__memset(page_address(page->origin), 0, PAGE_SIZE);
 }
 EXPORT_SYMBOL(kmsan_clear_user_page);
+
+void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+	ENTER_RUNTIME(irq_flags);
+	// The users may want to poison/unpoison random memory.
+	kmsan_internal_poison_shadow(address, size, flags, /*checked*/true);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(kmsan_poison_shadow);
+
+void kmsan_unpoison_shadow(const volatile void *address, size_t size)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+
+	ENTER_RUNTIME(irq_flags);
+	// The users may want to poison/unpoison random memory.
+	kmsan_internal_unpoison_shadow(address, size, /*checked*/false);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(kmsan_unpoison_shadow);
+
