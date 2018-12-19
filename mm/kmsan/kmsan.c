@@ -265,8 +265,8 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 		origin_dst = kmsan_get_metadata_or_null(dst, to_copy, /*is_origin*/true);
 		origin_src = kmsan_get_metadata_or_null(src, to_copy, /*is_origin*/true);
 
-		src_slots = (ALIGN(src + to_copy, 4) - ALIGN_DOWN(src, 4)) / 4;
-		dst_slots = (ALIGN(dst + to_copy, 4) - ALIGN_DOWN(dst, 4)) / 4;
+		src_slots = (ALIGN(src + to_copy, ORIGIN_SIZE) - ALIGN_DOWN(src, ORIGIN_SIZE)) / ORIGIN_SIZE;
+		dst_slots = (ALIGN(dst + to_copy, ORIGIN_SIZE) - ALIGN_DOWN(dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
 		BUG_ON((src_slots < 1) || (dst_slots < 1));
 		BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
 
@@ -291,17 +291,17 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 		i = is_memmove ? min_num(src_slots, dst_slots) - 1 : 0;
 		iter = is_memmove ? -1 : 1;
 
-		align_shadow_src = ALIGN_DOWN((u64)shadow_src, 4);
+		align_shadow_src = ALIGN_DOWN((u64)shadow_src, ORIGIN_SIZE);
 		for (step = 0; step < min_num(src_slots, dst_slots); step++,i+=iter) {
 			shadow = align_shadow_src[i];
 			if (i == 0)
-				// If |src| isn't aligned on 4, don't look at the first |src % 4| bytes of the first shadow slot.
-				shadow = (shadow << (src % 4)) >> (src % 4);
+				// If |src| isn't aligned on ORIGIN_SIZE, don't look at the first |src % ORIGIN_SIZE| bytes of the first shadow slot.
+				shadow = (shadow << (src % ORIGIN_SIZE)) >> (src % ORIGIN_SIZE);
 			if (i == src_slots - 1)
-				// If |src + to_copy| isn't aligned on 4, don't look
-				// at the last |(src + to_copy) % 4| bytes of
+				// If |src + to_copy| isn't aligned on ORIGIN_SIZE, don't look
+				// at the last |(src + to_copy) % ORIGIN_SIZE| bytes of
 				// the last shadow slot.
-				shadow = (shadow >> ((src + to_copy) % 4)) >> ((src + to_copy) % 4);
+				shadow = (shadow >> ((src + to_copy) % ORIGIN_SIZE)) >> ((src + to_copy) % ORIGIN_SIZE);
 			// Overwrite the origin only if the corresponding shadow is nonempty.
 			if (origin_src[i] && (origin_src[i] != prev_origin) && shadow) {
 				prev_origin = origin_src[i];
@@ -445,9 +445,9 @@ void kmsan_write_aligned_origin(const void *var, size_t size, u32 origin)
 	u32 *var_cast = (u32 *)var;
 	int i;
 
-	BUG_ON((u64)var_cast % 4);
-	BUG_ON(size % 4);
-	for (i = 0; i < size / 4; i++)
+	BUG_ON((u64)var_cast % ORIGIN_SIZE);
+	BUG_ON(size % ORIGIN_SIZE);
+	for (i = 0; i < size / ORIGIN_SIZE; i++)
 		var_cast[i] = origin;
 }
 
@@ -459,8 +459,8 @@ void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 	u64 page_offset;
 	size_t to_fill, pad = 0;
 
-	if (!IS_ALIGNED(address, 4)) {
-		pad = address % 4;
+	if (!IS_ALIGNED(address, ORIGIN_SIZE)) {
+		pad = address % ORIGIN_SIZE;
 		address -= pad;
 		size += pad;
 	}
@@ -468,7 +468,7 @@ void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 	while (size > 0) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = (PAGE_SIZE - page_offset > size) ? size : PAGE_SIZE - page_offset;
-		to_fill = ALIGN(to_fill, 4);
+		to_fill = ALIGN(to_fill, ORIGIN_SIZE);
 		BUG_ON(!to_fill);
 		origin_start = kmsan_get_metadata_or_null(address, to_fill, /*origin*/true);
 		if (!origin_start) {
@@ -754,8 +754,8 @@ void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin)
 	void *ret;
 	u64 pad, offset;
 
-	if (is_origin && !IS_ALIGNED(addr, 4)) {
-		pad = addr % 4;
+	if (is_origin && !IS_ALIGNED(addr, ORIGIN_SIZE)) {
+		pad = addr % ORIGIN_SIZE;
 		addr -= pad;
 		size += pad;
 	}
@@ -813,8 +813,8 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 		return ret;
 	}
 
-	if (!IS_ALIGNED(addr, 4)) {
-		pad = addr % 4;
+	if (!IS_ALIGNED(addr, ORIGIN_SIZE)) {
+		pad = addr % ORIGIN_SIZE;
 		o_addr -= pad;
 		o_size += pad;
 	}
