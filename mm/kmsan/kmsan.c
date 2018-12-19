@@ -789,9 +789,8 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 		ret.s = dummy_load_page;
 		ret.o = dummy_load_page;
 	}
-	if (!kmsan_ready || IN_RUNTIME()) {
+	if (!kmsan_ready || IN_RUNTIME())
 		return ret;
-	}
 
 	if (!IS_ALIGNED(addr, ORIGIN_SIZE)) {
 		pad = addr % ORIGIN_SIZE;
@@ -828,13 +827,9 @@ next:
 	}
 
 	shadow = page_address(page->shadow) + offset;
-	if (!shadow)
-		return ret;
 	ret.s = shadow;
 
 	origin = page_address(page->origin) + o_offset;
-	// origin cannot be NULL, because shadow is already non-NULL.
-	BUG_ON(!origin);
 	ret.o = origin;
 	return ret;
 }
