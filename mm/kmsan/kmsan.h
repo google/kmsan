@@ -152,7 +152,7 @@ static inline int my_phys_addr_valid(resource_size_t addr)
 
 // Taken from arch/x86/mm/physaddr.c
 // TODO(glider): do we need it?
-static bool my_virt_addr_valid(unsigned long x)
+static inline bool my_virt_addr_valid(unsigned long x)
 {
 	unsigned long y = x - __START_KERNEL_map;
 
@@ -173,7 +173,7 @@ static bool my_virt_addr_valid(unsigned long x)
 	return pfn_valid(x >> PAGE_SHIFT);
 }
 
-static bool is_cpu_entry_area_addr(u64 addr)
+static inline bool is_cpu_entry_area_addr(u64 addr)
 {
 	return (addr >= CPU_ENTRY_AREA_BASE) && (addr < CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE);
 }
