@@ -188,6 +188,9 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 /* Called from mm/slab.c, mm/slub.c */
 bool kmsan_slab_free(struct kmem_cache *s, void *object)
 {
+	if (!kmsan_ready || IN_RUNTIME())
+		return true;
+
 	/* RCU slabs could be legally used after free within the RCU period */
 	if (unlikely(s->flags & SLAB_TYPESAFE_BY_RCU))
 		return false;
@@ -221,7 +224,7 @@ void kmsan_kfree_large(const void *ptr)
 	struct page *page;
 	unsigned long irq_flags;
 
-	if (IN_RUNTIME())
+	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
 	page = virt_to_page_or_null(ptr);
