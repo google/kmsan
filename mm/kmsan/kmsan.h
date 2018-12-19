@@ -15,6 +15,7 @@
 #define KMSAN_CHAIN_MAGIC_ORIGIN_FULL 0xd419170cba00
 #define KMSAN_CHAIN_MAGIC_ORIGIN_FRAME 0xed41917ddd00
 
+#define ORIGIN_SIZE 4
 
 #define KMSAN_NESTED_CONTEXT_MAX (8)
 DECLARE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);  // [0] for dummy per-CPU context
