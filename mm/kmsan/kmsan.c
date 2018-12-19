@@ -138,10 +138,6 @@ inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool c
 	u64 page_offset;
 	size_t to_fill;
 
-	if (!kmsan_ready)
-		/* No need to fill the dummy shadow. */
-		return;
-
 	while (size) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = min_num(PAGE_SIZE - page_offset, size);
@@ -584,6 +580,7 @@ struct page *virt_to_page_or_null(const void *vaddr)
 }
 
 // TODO(glider): this is similar to kmsan_clear_user_page().
+// TODO(glider): move to kmsan_hooks.c
 void kmsan_clear_page(void *page_addr)
 {
 	struct page *page;
@@ -603,6 +600,7 @@ void kmsan_clear_page(void *page_addr)
 EXPORT_SYMBOL(kmsan_clear_page);
 
 // Clear shadow and origin for a given struct page.
+// TODO(glider): move to kmsan_hooks.c
 void kmsan_clear_user_page(struct page *page)
 {
 	unsigned long irq_flags;
@@ -714,8 +712,6 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 	int cur_off_start = -1;
 	int i, chunk_size, pos;
 
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
 	pos = 0;
 	while (pos < size) {
 		chunk_size = min_num(size - pos, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
