@@ -13,7 +13,6 @@
 #define KMSAN_MAGIC_MASK 0xffffffffff00
 #define KMSAN_ALLOCA_MAGIC_ORIGIN 0x4110c4071900
 #define KMSAN_CHAIN_MAGIC_ORIGIN_FULL 0xd419170cba00
-#define KMSAN_CHAIN_MAGIC_ORIGIN_FRAME 0xed41917ddd00
 
 #define ORIGIN_SIZE 4
 
@@ -92,7 +91,7 @@ inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags);
 void kmsan_internal_poison_shadow(const volatile void *address, size_t size, gfp_t flags, bool checked);
 void kmsan_internal_unpoison_shadow(const volatile void *address, size_t size, bool checked);
 void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool checked);
-depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id, bool full);
+depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
 
 void do_kmsan_task_create(struct task_struct *task);
 void kmsan_set_origin(u64 address, int size, u32 origin, bool checked);
