@@ -196,9 +196,9 @@ void kmsan_write_aligned_origin_inline(const void *var, size_t size, u32 origin)
 	u32 *var_cast = (u32 *)var;
 	int i;
 
-	BUG_ON((u64)var_cast % 4);
-	BUG_ON(size % 4);
-	for (i = 0; i < size / 4; i++)
+	BUG_ON((u64)var_cast % ORIGIN_SIZE);
+	BUG_ON(size % ORIGIN_SIZE);
+	for (i = 0; i < size / ORIGIN_SIZE; i++)
 		var_cast[i] = origin;
 }
 
@@ -208,8 +208,8 @@ inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
 	u64 page_offset;
 	size_t to_fill, pad = 0;
 
-	if (!IS_ALIGNED(address, 4)) {
-		pad = address % 4;
+	if (!IS_ALIGNED(address, ORIGIN_SIZE)) {
+		pad = address % ORIGIN_SIZE;
 		address -= pad;
 		size += pad;
 	}
@@ -217,7 +217,7 @@ inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
 	while (size > 0) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = (PAGE_SIZE - page_offset > size) ? size : PAGE_SIZE - page_offset;
-		to_fill = ALIGN(to_fill, 4);	/* write at least 4 bytes*/
+		to_fill = ALIGN(to_fill, ORIGIN_SIZE);	/* write at least ORIGIN_SIZE bytes */
 		BUG_ON(!to_fill);
 		origin_start = kmsan_get_metadata_or_null(address, to_fill, /*is_origin*/true);
 		if (!origin_start)
