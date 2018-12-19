@@ -803,10 +803,7 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 
 	if (size > PAGE_SIZE) {
 		WARN(1, "size too big in kmsan_get_shadow_origin_ptr(%px, %d, %d)\n", addr, size, store);
-		//BUG();
-		ret.s = NULL;
-		ret.o = NULL;
-		return ret;
+		BUG();
 	}
 	if (store) {
 		ret.s = dummy_shadow_store_page;
@@ -864,4 +861,3 @@ next:
 	ret.o = origin;
 	return ret;
 }
-EXPORT_SYMBOL(kmsan_get_shadow_origin_ptr);
