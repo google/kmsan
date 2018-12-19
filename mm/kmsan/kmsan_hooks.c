@@ -240,7 +240,6 @@ bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_mask, gfp_t nes
 	size_t area_size = get_vm_area_size(area);
 	unsigned int nr_pages = area->nr_pages;
 	unsigned int array_size = nr_pages * sizeof(struct page *);
-	unsigned long irq_flags;
 	int i;
 
 	if (!kmsan_ready || IN_RUNTIME())
@@ -293,7 +292,7 @@ void kmsan_vmap(struct vm_struct *area,
 {
 	struct vm_struct *shadow, *origin;
 	struct page **s_pages = NULL, **o_pages = NULL;
-	unsigned long irq_flags, size;
+	unsigned long size;
 	int i;
 
 	if (!kmsan_ready || IN_RUNTIME())
@@ -359,7 +358,6 @@ err_free:
 /* Called from mm/vmalloc.c */
 void kmsan_vunmap(const void *addr, struct vm_struct *area, int deallocate_pages)
 {
-	unsigned long irq_flags;
 	struct vm_struct *vms, *shadow, *origin;
 	int i;
 
@@ -638,8 +636,6 @@ EXPORT_SYMBOL(kmsan_clear_page);
 // Clear shadow and origin for a given struct page.
 void kmsan_clear_user_page(struct page *page)
 {
-	unsigned long irq_flags;
-
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	if (!page->shadow)
