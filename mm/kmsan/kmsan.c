@@ -82,7 +82,6 @@ EXPORT_SYMBOL(is_logbuf_locked);
 
 kmsan_context_state *task_kmsan_context_state(void)
 {
-	unsigned long irq_flags;
 	int cpu = smp_processor_id();
 	int level = this_cpu_read(kmsan_context_level);
 	kmsan_context_state *ret;
@@ -557,7 +556,6 @@ inline void kmsan_report(void *caller, depot_stack_handle_t origin,
 {
 	unsigned long flags;
 	struct stack_trace trace;
-	char *descr = NULL;
 
 	if (!kmsan_ready)
 		return;
@@ -775,7 +773,6 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 	struct page *page;
 	u64 pad, offset, o_offset;
 	u64 o_addr = addr;
-	u64 o_size = size;
 	void *shadow, *origin;
 
 	if (size > PAGE_SIZE) {
@@ -795,7 +792,6 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 	if (!IS_ALIGNED(addr, ORIGIN_SIZE)) {
 		pad = addr % ORIGIN_SIZE;
 		o_addr -= pad;
-		o_size += pad;
 	}
 
 	if (!my_virt_addr_valid(addr)) {
