@@ -579,40 +579,6 @@ struct page *virt_to_page_or_null(const void *vaddr)
 		return NULL;
 }
 
-// TODO(glider): this is similar to kmsan_clear_user_page().
-// TODO(glider): move to kmsan_hooks.c
-void kmsan_clear_page(void *page_addr)
-{
-	struct page *page;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-	BUG_ON(!IS_ALIGNED((u64)page_addr, PAGE_SIZE));
-	page = vmalloc_to_page_or_null(page_addr);
-	if (!page)
-		page = virt_to_page_or_null(page_addr);
-	if (!page || !page->shadow)
-		return;
-	__memset(page_address(page->shadow), 0, PAGE_SIZE);
-	BUG_ON(!page->origin);
-	__memset(page_address(page->origin), 0, PAGE_SIZE);
-}
-EXPORT_SYMBOL(kmsan_clear_page);
-
-// Clear shadow and origin for a given struct page.
-// TODO(glider): move to kmsan_hooks.c
-void kmsan_clear_user_page(struct page *page)
-{
-	unsigned long irq_flags;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-	if (!page->shadow)
-		return;
-
-	__memset(page_address(page->shadow), 0, PAGE_SIZE);
-	__memset(page_address(page->origin), 0, PAGE_SIZE);
-}
 
 // TODO(glider): unite with kmsan_alloc_page()?
 void kmsan_prep_pages(struct page *page, unsigned int order)
