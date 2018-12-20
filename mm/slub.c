@@ -21,6 +21,8 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/kasan.h>
+#include <linux/kmsan.h>
+#include <linux/kmsan-checks.h> /* KMSAN_INIT_VALUE */
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
 #include <linux/mempolicy.h>
@@ -273,17 +275,27 @@ static void prefetch_freepointer(const struct kmem_cache *s, void *object)
 	prefetch(object + s->offset);
 }
 
+/*
+ * When running under KMSAN, get_freepointer_safe() may return an uninitialized
+ * pointer value in the case the current thread loses the race for the next
+ * memory chunk in the freelist. In that case this_cpu_cmpxchg_double() in
+ * slab_alloc_node() will fail, so the uninitialized value won't be used, but
+ * KMSAN will still check all arguments of cmpxchg because of imperfect
+ * handling of inline assembly.
+ * To work around this problem, use KMSAN_INIT_VALUE() to force initialize the return
+ * value of get_freepointer_safe().
+ */
 static inline void *get_freepointer_safe(struct kmem_cache *s, void *object)
 {
 	unsigned long freepointer_addr;
 	void *p;
 
 	if (!debug_pagealloc_enabled())
-		return get_freepointer(s, object);
+		return KMSAN_INIT_VALUE(get_freepointer(s, object));
 
 	freepointer_addr = (unsigned long)object + s->offset;
 	probe_kernel_read(&p, (void **)freepointer_addr, sizeof(p));
-	return freelist_ptr(s, p, freepointer_addr);
+	return KMSAN_INIT_VALUE(freelist_ptr(s, p, freepointer_addr));
 }
 
 static inline void set_freepointer(struct kmem_cache *s, void *object, void *fp)
@@ -1375,6 +1387,7 @@ static inline void dec_slabs_node(struct kmem_cache *s, int node,
 static inline void *kmalloc_large_node_hook(void *ptr, size_t size, gfp_t flags)
 {
 	kmemleak_alloc(ptr, size, 1, flags);
+	kmsan_kmalloc_large(ptr, size, flags);
 	return kasan_kmalloc_large(ptr, size, flags);
 }
 
@@ -1382,6 +1395,7 @@ static __always_inline void kfree_hook(void *x)
 {
 	kmemleak_free(x);
 	kasan_kfree_large(x, _RET_IP_);
+	kmsan_kfree_large(x);
 }
 
 static __always_inline bool slab_free_hook(struct kmem_cache *s, void *x)
@@ -1405,6 +1419,7 @@ static __always_inline bool slab_free_hook(struct kmem_cache *s, void *x)
 	if (!(s->flags & SLAB_DEBUG_OBJECTS))
 		debug_check_no_obj_freed(x, s->object_size);
 
+	kmsan_slab_free(s, x);
 	/* KASAN might put x into memory quarantine, delaying its reuse */
 	return kasan_slab_free(s, x, _RET_IP_);
 }
@@ -2754,6 +2769,8 @@ void *kmem_cache_alloc(struct kmem_cache *s, gfp_t gfpflags)
 	trace_kmem_cache_alloc(_RET_IP_, ret, s->object_size,
 				s->size, gfpflags);
 
+	kmsan_kmalloc(s, ret, s->object_size, gfpflags);
+
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc);
@@ -2764,6 +2781,8 @@ void *kmem_cache_alloc_trace(struct kmem_cache *s, gfp_t gfpflags, size_t size)
 	void *ret = slab_alloc(s, gfpflags, _RET_IP_);
 	trace_kmalloc(_RET_IP_, ret, size, s->size, gfpflags);
 	ret = kasan_kmalloc(s, ret, size, gfpflags);
+	kmsan_kmalloc(s, ret, size, gfpflags);
+
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_trace);
@@ -2776,7 +2795,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *s, gfp_t gfpflags, int node)
 
 	trace_kmem_cache_alloc_node(_RET_IP_, ret,
 				    s->object_size, s->size, gfpflags, node);
-
+	// TODO(glider): do we want to tell KMSAN about this allocation?
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_node);
@@ -2792,6 +2811,8 @@ void *kmem_cache_alloc_node_trace(struct kmem_cache *s,
 			   size, s->size, gfpflags, node);
 
 	ret = kasan_kmalloc(s, ret, size, gfpflags);
+	kmsan_kmalloc(s, ret, size, gfpflags);
+
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_node_trace);
@@ -3369,6 +3390,9 @@ static void early_kmem_cache_node_alloc(int node)
 	page->inuse = 1;
 	page->frozen = 0;
 	kmem_cache_node->node[node] = n;
+	// TODO(glider): get rid of kmsan_kmalloc here?
+	kmsan_kmalloc(kmem_cache_node, n, sizeof(struct kmem_cache_node),
+		      GFP_KERNEL);
 	init_kmem_cache_node(n);
 	inc_slabs_node(kmem_cache_node, node, page->objects);
 
@@ -3762,6 +3786,7 @@ static int __init setup_slub_min_objects(char *str)
 
 __setup("slub_min_objects=", setup_slub_min_objects);
 
+__no_sanitize_memory
 void *__kmalloc(size_t size, gfp_t flags)
 {
 	struct kmem_cache *s;
@@ -3780,6 +3805,7 @@ void *__kmalloc(size_t size, gfp_t flags)
 	trace_kmalloc(_RET_IP_, ret, size, s->size, flags);
 
 	ret = kasan_kmalloc(s, ret, size, flags);
+	kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
 }
@@ -3824,6 +3850,7 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 	trace_kmalloc_node(_RET_IP_, ret, size, s->size, flags, node);
 
 	ret = kasan_kmalloc(s, ret, size, flags);
+	kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
 }
@@ -5671,6 +5698,7 @@ static char *create_unique_id(struct kmem_cache *s)
 	p += sprintf(p, "%07u", s->size);
 
 	BUG_ON(p > name + ID_STR_LENGTH - 1);
+	kmsan_unpoison_shadow(name, p - name);
 	return name;
 }
 
@@ -5820,6 +5848,7 @@ static int sysfs_slab_alias(struct kmem_cache *s, const char *name)
 	al->name = name;
 	al->next = alias_list;
 	alias_list = al;
+	kmsan_unpoison_shadow(al, sizeof(struct saved_alias));
 	return 0;
 }
 
