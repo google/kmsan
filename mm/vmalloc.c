@@ -27,6 +27,7 @@
 #include <linux/rcupdate.h>
 #include <linux/pfn.h>
 #include <linux/kmemleak.h>
+#include <linux/kmsan.h>
 #include <linux/atomic.h>
 #include <linux/compiler.h>
 #include <linux/llist.h>
@@ -1506,6 +1507,7 @@ static void __vunmap(const void *addr, int deallocate_pages)
 		return;
 
 	area = find_vmap_area((unsigned long)addr)->vm;
+	kmsan_vunmap(addr, area, deallocate_pages);
 	if (unlikely(!area)) {
 		WARN(1, KERN_ERR "Trying to vfree() nonexistent vm area (%p)\n",
 				addr);
@@ -1647,6 +1649,7 @@ void *vmap(struct page **pages, unsigned int count,
 		return NULL;
 	}
 
+	kmsan_vmap(area, pages, count, flags, prot, __builtin_return_address(0));
 	return area->addr;
 }
 EXPORT_SYMBOL(vmap);
@@ -1703,6 +1706,9 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 
 	if (map_vm_area(area, prot, pages))
 		goto fail;
+	if (!kmsan_vmalloc_area_node(area, alloc_mask, nested_gfp, highmem_mask, prot, node))
+		goto fail;
+
 	return area->addr;
 
 fail:

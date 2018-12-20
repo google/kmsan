@@ -25,6 +25,8 @@
 #include <linux/compiler.h>
 #include <linux/kernel.h>
 #include <linux/kasan.h>
+#include <linux/kmsan.h>
+#include <linux/kmsan-checks.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
 #include <linux/pagevec.h>
@@ -1030,6 +1032,7 @@ static __always_inline bool free_pages_prepare(struct page *page,
 	VM_BUG_ON_PAGE(PageTail(page), page);
 
 	trace_mm_page_free(page, order);
+	kmsan_free_page(page, order);
 
 	/*
 	 * Check tail pages before head page information is cleared to
@@ -1947,6 +1950,7 @@ inline void post_alloc_hook(struct page *page, unsigned int order,
 	kernel_map_pages(page, 1 << order, 1);
 	kernel_poison_pages(page, 1 << order, 1);
 	kasan_alloc_pages(page, order);
+	kmsan_prep_pages(page, order);
 	set_page_owner(page, order, gfp_flags);
 }
 
@@ -2926,6 +2930,7 @@ void split_page(struct page *page, unsigned int order)
 	VM_BUG_ON_PAGE(PageCompound(page), page);
 	VM_BUG_ON_PAGE(!page_count(page), page);
 
+	kmsan_split_page(page, order);
 	for (i = 1; i < (1 << order); i++)
 		set_page_refcounted(page + i);
 	split_page_owner(page, order);
@@ -3059,6 +3064,13 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
 /*
  * Allocate a page from the given zone. Use pcplists for order-0 allocations.
  */
+/*
+ * TODO(glider): rmqueue() may call __msan_poison_alloca() through a call to
+ * set_pfnblock_flags_mask(). If __msan_poison_alloca() attempts to allocate
+ * pages for the stack depot, it may call rmqueue() again, which will result
+ * in a deadlock.
+ */
+__no_sanitize_memory
 static inline
 struct page *rmqueue(struct zone *preferred_zone,
 			struct zone *zone, unsigned int order,
@@ -4556,7 +4568,11 @@ out:
 	}
 
 	trace_mm_page_alloc(page, order, alloc_mask, ac.migratetype);
-
+	if (page)
+		if (kmsan_alloc_page(page, order, gfp_mask)) {
+			__free_pages(page, order);
+			page = NULL;
+		}
 	return page;
 }
 EXPORT_SYMBOL(__alloc_pages_nodemask);
