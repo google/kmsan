@@ -2134,7 +2134,7 @@ static inline void *skb_put_data(struct sk_buff *skb, const void *data,
 	void *tmp = skb_put(skb, len);
 
 	/* Unpoison the input buffer. */
-	kmsan_unpoison_shadow((void*)data, len);
+	kmsan_unpoison_shadow(data, len);
 	memcpy(tmp, data, len);
 
 	return tmp;
@@ -2142,10 +2142,7 @@ static inline void *skb_put_data(struct sk_buff *skb, const void *data,
 
 static inline void skb_put_u8(struct sk_buff *skb, u8 val)
 {
-	u8 *tmp = (u8 *)skb_put(skb, 1);
-	/* Unpoison |val|. */
-	kmsan_unpoison_shadow(&val, 1);
-	*tmp = val;
+	*(u8 *)skb_put(skb, 1) = KMSAN_INIT_VALUE(val);
 }
 
 void *skb_push(struct sk_buff *skb, unsigned int len);
