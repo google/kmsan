@@ -1916,7 +1916,11 @@ int vprintk_store(int facility, int level,
 	 * The printf needs to come first; we need the syslog
 	 * prefix which might be passed-in as a parameter.
 	 */
-	text_len = vscnprintf(text, sizeof(textbuf), fmt, args);
+	/*
+	 * We've checked the printk arguments in vprintk_emit() already.
+	 * Initialize |text_len| to prevent the errors from spreading.
+	 */
+	text_len = KMSAN_INIT_VALUE(vscnprintf(text, sizeof(textbuf), fmt, args));
 
 	/* mark and strip a trailing newline */
 	if (text_len && text[text_len-1] == '\n') {
@@ -1974,6 +1978,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	boot_delay_msec(level);
 	printk_delay();
 
+	kmsan_handle_vprintk(&fmt, args);
 	/* This stops the holder of console_sem just where we want him */
 	logbuf_lock_irqsave(flags);
 	curr_log_seq = log_next_seq;
