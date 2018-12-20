@@ -77,8 +77,6 @@ void kmsan_slab_setup_object(struct kmem_cache *s, void *object);
 void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 			size_t size, void *object);
 
-void kmsan_vprintk_func(const char *fmt, va_list args);
-
 // Vmap
 void kmsan_vmap(struct vm_struct *area,
 		struct page **pages, unsigned int count, unsigned long flags,
@@ -126,8 +124,6 @@ static inline void kmsan_slab_setup_object(
 	struct kmem_cache *s, void *object) {}
 static inline void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 	size_t size, void *object) {}
-
-static inline void kmsan_vprintk_func(const char *fmt, va_list args) {}
 
 static inline void kmsan_vmap(struct vm_struct *area,
 		struct page **pages, unsigned int count, unsigned long flags,
