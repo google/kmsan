@@ -239,13 +239,12 @@ Metadata allocation
 ~~~~~~~~~~~~~~~~~~~
 There are several places in the kernel for which the metadata is stored.
 
-1. Each ``struct page`` instance for which ``is_kmsan_tracked_page`` flag is
-set, contains two pointers to its shadow and origin pages::
+1. Each ``struct page`` instance contains two pointers to its shadow and
+origin pages::
 
   struct page {
     ...
     struct page *shadow, *origin;
-    bool is_kmsan_tracked_page;
     ...
   };
 
@@ -285,7 +284,6 @@ deallocating the rest.
   struct vm_struct {
     ...
     struct vm_struct *shadow, *origin;
-    bool is_kmsan_tracked;
     ...
   }
 
