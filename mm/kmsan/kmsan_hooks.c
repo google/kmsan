@@ -673,3 +673,21 @@ void kmsan_unpoison_shadow(const volatile void *address, size_t size)
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);
 
+void kmsan_gup_pgd_range(struct page **pages, int nr)
+{
+	int i;
+	unsigned long page_addr;
+
+	/*
+	 * gup_pgd_range() has just created a number of new pages that KMSAN
+	 * treats as uninitialized. In the case they belong to the userspace
+	 * memory, unpoison the corresponding kernel pages.
+	 */
+	for (i = 0; i < nr; i++) {
+		page_addr = page_address(pages[i]);
+		if ((page_addr < TASK_SIZE) && (page_addr + PAGE_SIZE < TASK_SIZE))
+			kmsan_unpoison_shadow(page_addr, PAGE_SIZE);
+	}
+
+}
+EXPORT_SYMBOL(kmsan_gup_pgd_range);
