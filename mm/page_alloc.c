@@ -1950,7 +1950,6 @@ inline void post_alloc_hook(struct page *page, unsigned int order,
 	kernel_map_pages(page, 1 << order, 1);
 	kernel_poison_pages(page, 1 << order, 1);
 	kasan_alloc_pages(page, order);
-	// TODO(glider): we must decide when to allocate the shadow/origin pages.
 	kmsan_prep_pages(page, order);
 	set_page_owner(page, order, gfp_flags);
 }
@@ -3077,7 +3076,8 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
 /*
  * Allocate a page from the given zone. Use pcplists for order-0 allocations.
  */
-/* TODO(glider): rmqueue() may call __msan_poison_alloca() through a call to
+/*
+ * TODO(glider): rmqueue() may call __msan_poison_alloca() through a call to
  * set_pfnblock_flags_mask(). If __msan_poison_alloca() attempts to allocate
  * pages for the stack depot, it may call rmqueue() again, which will result
  * in a deadlock.
@@ -7928,14 +7928,10 @@ void *__init alloc_large_system_hash(const char *tablename,
 	pr_info("%s hash table entries: %ld (order: %d, %lu bytes)\n",
 		tablename, 1UL << log2qty, ilog2(size) - PAGE_SHIFT, size);
 
-	if (_hash_shift) {
+	if (_hash_shift)
 		*_hash_shift = log2qty;
-		kmsan_unpoison_shadow(_hash_shift, sizeof(*_hash_shift));
-	}
-	if (_hash_mask) {
+	if (_hash_mask)
 		*_hash_mask = (1 << log2qty) - 1;
-		kmsan_unpoison_shadow(_hash_mask, sizeof(*_hash_mask));
-	}
 
 	return table;
 }
