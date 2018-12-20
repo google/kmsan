@@ -84,6 +84,13 @@ static void split_map_pages(struct list_head *list)
 
 		for (i = 0; i < nr_pages; i++) {
 			list_add(&page->lru, &tmp_list);
+#ifdef CONFIG_KMSAN
+			// TODO(glider): we may lose the metadata when copying
+			// something to these pages. Need to allocate shadow
+			// and origin pages here instead.
+			page->shadow = NULL;
+			page->origin = NULL;
+#endif
 			page++;
 		}
 	}
