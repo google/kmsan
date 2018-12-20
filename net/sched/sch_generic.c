@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
+#include <linux/kmsan-checks.h>
 #include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/errno.h>
@@ -650,6 +651,7 @@ static struct sk_buff *pfifo_fast_dequeue(struct Qdisc *qdisc)
 	} else {
 		qdisc->empty = true;
 	}
+	kmsan_check_skb(skb);
 
 	return skb;
 }
