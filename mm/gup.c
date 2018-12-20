@@ -3,6 +3,7 @@
 #include <linux/err.h>
 #include <linux/spinlock.h>
 
+#include <linux/kmsan.h>
 #include <linux/mm.h>
 #include <linux/memremap.h>
 #include <linux/pagemap.h>
@@ -1832,6 +1833,7 @@ int __get_user_pages_fast(unsigned long start, int nr_pages, int write,
 	if (gup_fast_permitted(start, nr_pages, write)) {
 		local_irq_save(flags);
 		gup_pgd_range(start, end, write, pages, &nr);
+		kmsan_gup_pgd_range(pages, nr);
 		local_irq_restore(flags);
 	}
 
@@ -1874,18 +1876,7 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 	if (gup_fast_permitted(start, nr_pages, write)) {
 		local_irq_disable();
 		gup_pgd_range(addr, end, write, pages, &nr);
-		// TODO(glider): there might be other places where user memory is pinned
-		// to kernel memory.
-		// gup_pgd_range() has just created a number (less or equal to nr_pages)
-		// of new pages that KMSAN treats as uninitialized.
-		// In the case they belong to the userspace memory, unpoison the
-		// corresponding kernel pages.
-		for (i = 0; i < nr; i++) {
-			page_addr = page_address(pages[i]);
-			if ((page_addr < TASK_SIZE) && (page_addr + PAGE_SIZE < TASK_SIZE)) {
-				kmsan_unpoison_shadow(page_addr, PAGE_SIZE);
-			}
-		}
+		kmsan_gup_pgd_range(pages, nr);
 		local_irq_enable();
 		ret = nr;
 	}
