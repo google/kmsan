@@ -205,7 +205,7 @@ inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
 	    trace.entries[trace.nr_entries-1] == ULONG_MAX)
 		trace.nr_entries--;
 
-	// Don't sleep. (see might_sleep_if() in __alloc_pages_nodemask())
+	/* Don't sleep (see might_sleep_if() in __alloc_pages_nodemask()). */
 	flags &= ~__GFP_DIRECT_RECLAIM;
 
 	handle = depot_save_stack(&trace, flags);
