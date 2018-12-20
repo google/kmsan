@@ -25,14 +25,10 @@
 			pr_info(#x " is false\n");	\
 	} while(0)
 
-#if 1
 void noinline use_integer(int cond)
 {
 	CHECK(cond);
 }
-
-// TODO(glider): test asm (rdtsc)
-// test init_once
 
 int signed_sum3(int a, int b, int c)
 {
@@ -78,20 +74,13 @@ void noinline uninit_multiple_args_test(void)
 	volatile char b = 3, c;
 	CHECK(signed_sum3(a, b, c));
 }
-#endif
-#include <linux/delay.h>
+
 extern void *my_kmsan_get_shadow_address_1(void *addr);
-extern void enable_reporting(void);
 void noinline uninit_stack_var_test(void)
 {
-	/*volatile */int cond;
-	void *shadow;
-	enable_reporting();
+	int cond;
 	pr_err("uninit_stack_var_test: %p\n", uninit_stack_var_test);
 	pr_err("&cond: %p\n", (void*)&cond);
-	//shadow = my_kmsan_get_shadow_address_1((void*)&cond);
-	//pr_err("shadow: %p\n", shadow);
-	//msleep(5000);
 
 	pr_info("-----------------------------\n");
 	pr_info("uninitialized stack variable (UMR report)\n");
@@ -162,14 +151,12 @@ void noinline init_kmsan_vmap_vunmap_test(void)
 	pr_info("-----------------------------\n");
 	pr_info("pages initialized via vmap (no reports)\n");
 
-	for (i = 0; i < npages; i++) {
+	for (i = 0; i < npages; i++)
 		pages[i] = alloc_page(GFP_KERNEL);
-	}
 	vbuf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
 	memset(vbuf, 0xfe, npages * PAGE_SIZE);
-	for (i = 0; i < npages; i++) {
+	for (i = 0; i < npages; i++)
 		kmsan_check_memory(page_address(pages[i]), PAGE_SIZE);
-	}
 
 	if (vbuf)
 		vunmap(vbuf);
@@ -189,12 +176,10 @@ void noinline init_vmalloc(void)
 	buf[0] = 1;
 	memset(buf, 0xfe, PAGE_SIZE * npages);
 	CHECK(buf[0]);
-	for (i = 0; i < npages; i++) {
+	for (i = 0; i < npages; i++)
 		kmsan_check_memory(&buf[PAGE_SIZE * i], PAGE_SIZE);
-	}
 	vfree(buf);
 }
-
 
 static noinline int __init kmsan_tests_init(void)
 {
@@ -209,7 +194,6 @@ static noinline int __init kmsan_tests_init(void)
 	init_vmalloc();
 	return -EAGAIN;
 }
-
 
 module_init(kmsan_tests_init);
 MODULE_LICENSE("GPL");
