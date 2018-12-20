@@ -2133,7 +2133,7 @@ static inline void *skb_put_data(struct sk_buff *skb, const void *data,
 {
 	void *tmp = skb_put(skb, len);
 
-	/* Unpoison the input buffer. */
+	/* Unpoison the data received from the network device. */
 	kmsan_unpoison_shadow(data, len);
 	memcpy(tmp, data, len);
 
