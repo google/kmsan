@@ -58,8 +58,8 @@ void kmsan_task_exit(struct task_struct *task);
 void kmsan_alloc_shadow_for_region(void *start, size_t size);
 void kmsan_prep_pages(struct page *page, unsigned int order);
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
-void kmsan_acpi_map(void *vaddr, unsigned long size);
-void kmsan_acpi_unmap(void *vaddr, unsigned long size);
+void kmsan_iomap(void *vaddr, unsigned long size);
+void kmsan_iounmap(void *vaddr, unsigned long size);
 void kmsan_free_page(struct page *page, unsigned int order);
 void kmsan_split_page(struct page *page, unsigned int order);
 void kmsan_clear_user_page(struct page *page);
@@ -99,8 +99,8 @@ static inline int kmsan_alloc_page(
 {
 	return 0;
 }
-static inline void kmsan_acpi_map(void *vaddr, unsigned long size) {}
-static inline void kmsan_acpi_unmap(void *vaddr, unsigned long size) {}
+static inline void kmsan_iomap(void *vaddr, unsigned long size) {}
+static inline void kmsan_iounmap(void *vaddr, unsigned long size) {}
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
 static inline void kmsan_split_page(struct page *page, unsigned int order) {}
 static inline void kmsan_clear_user_page(struct page *page) {}
