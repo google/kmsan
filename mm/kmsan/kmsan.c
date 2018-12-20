@@ -245,6 +245,7 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 	depot_stack_handle_t prev_origin, chained_origin, new_origin;
 	int i, iter, step, src_slots, dst_slots;
 	int rem_src, rem_dst, to_copy;
+	u64 cur_dst, cur_src;
 	u32 shadow;
 
 	if (is_memmove && (src > dst)) {
@@ -260,33 +261,35 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 		rem_src = PAGE_SIZE - (src % PAGE_SIZE);
 		rem_dst = PAGE_SIZE - (dst % PAGE_SIZE);
 		to_copy = min(n, min(rem_src, rem_dst));
-		shadow_dst = kmsan_get_metadata_or_null(dst, to_copy, /*is_origin*/false);
-		shadow_src = kmsan_get_metadata_or_null(src, to_copy, /*is_origin*/false);
-		origin_dst = kmsan_get_metadata_or_null(dst, to_copy, /*is_origin*/true);
-		origin_src = kmsan_get_metadata_or_null(src, to_copy, /*is_origin*/true);
-
-		src_slots = (ALIGN(src + to_copy, ORIGIN_SIZE) - ALIGN_DOWN(src, ORIGIN_SIZE)) / ORIGIN_SIZE;
-		dst_slots = (ALIGN(dst + to_copy, ORIGIN_SIZE) - ALIGN_DOWN(dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
-		BUG_ON((src_slots < 1) || (dst_slots < 1));
-		BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
-
+		cur_dst = dst;
+		cur_src = src;
 		src += to_copy;
 		dst += to_copy;
-		BUG_ON(n < to_copy);
 		n -= to_copy;
+
+		shadow_dst = kmsan_get_metadata_or_null(cur_dst, to_copy, /*is_origin*/false);
 		if (!shadow_dst)
 			continue;
+		shadow_src = kmsan_get_metadata_or_null(cur_src, to_copy, /*is_origin*/false);
 		if (!shadow_src) {
 			/* |src| is untracked: zero out destination shadow, ignore the origins. */
 			__memset(shadow_dst, 0, to_copy);
 			continue;
-		} else {
-			if (is_memmove)
-				__memmove(shadow_dst, shadow_src, to_copy);
-			else
-				__memcpy(shadow_dst, shadow_src, to_copy);
 		}
+
+		origin_dst = kmsan_get_metadata_or_null(cur_dst, to_copy, /*is_origin*/true);
+		origin_src = kmsan_get_metadata_or_null(cur_src, to_copy, /*is_origin*/true);
 		BUG_ON(!origin_dst || !origin_src);
+
+		src_slots = (ALIGN(cur_src + to_copy, ORIGIN_SIZE) - ALIGN_DOWN(cur_src, ORIGIN_SIZE)) / ORIGIN_SIZE;
+		dst_slots = (ALIGN(cur_dst + to_copy, ORIGIN_SIZE) - ALIGN_DOWN(cur_dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
+		BUG_ON((src_slots < 1) || (dst_slots < 1));
+		BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
+
+		if (is_memmove)
+			__memmove(shadow_dst, shadow_src, to_copy);
+		else
+			__memcpy(shadow_dst, shadow_src, to_copy);
 
 		i = is_memmove ? min(src_slots, dst_slots) - 1 : 0;
 		iter = is_memmove ? -1 : 1;
@@ -326,11 +329,10 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 				else
 					new_origin = prev_origin;
 			}
-			if (shadow) {
+			if (shadow)
 				origin_dst[i] = new_origin;
-			} else {
+			else
 				origin_dst[i] = 0;
-			}
 		}
 	}
 }
