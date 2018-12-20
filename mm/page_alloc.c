@@ -4587,7 +4587,7 @@ out:
 
 	trace_mm_page_alloc(page, order, alloc_mask, ac.migratetype);
 	if (page)
-		if (kmsan_alloc_page(page, order, gfp_mask) == -ENOMEM) {
+		if (kmsan_alloc_page(page, order, gfp_mask)) {
 			__free_pages(page, order);
 			page = NULL;
 		}
