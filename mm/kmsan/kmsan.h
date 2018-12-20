@@ -2,6 +2,7 @@
 #define __MM_KMSAN_KMSAN_H
 
 #include <asm/current.h>
+#include <linux/console.h>
 #include <linux/irqflags.h>
 #include <linux/sched.h>
 #include <linux/stackdepot.h>
@@ -24,10 +25,9 @@ DECLARE_PER_CPU(bool, kmsan_in_softirq);
 DECLARE_PER_CPU(bool, kmsan_in_nmi);
 
 extern spinlock_t report_lock;
-bool is_logbuf_locked(void);
 #define kmsan_pr_err(...) \
 	do { \
-		if (!is_logbuf_locked()) \
+		if (!is_console_locked()) \
 			pr_err(__VA_ARGS__); \
 	} while (0)
 
