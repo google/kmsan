@@ -494,7 +494,7 @@ void kmsan_split_page(struct page *page, unsigned int order)
 EXPORT_SYMBOL(kmsan_split_page);
 
 /* Called from drivers/acpi/osl.c */
-void kmsan_acpi_map(void *vaddr, unsigned long size)
+void kmsan_iomap(void *vaddr, unsigned long size)
 {
 	struct page *page;
 	unsigned long irq_flags;
@@ -518,7 +518,7 @@ void kmsan_acpi_map(void *vaddr, unsigned long size)
 }
 
 /* Called from drivers/acpi/osl.c */
-void kmsan_acpi_unmap(void *vaddr, unsigned long size)
+void kmsan_iounmap(void *vaddr, unsigned long size)
 {
 	struct page *page;
 	unsigned long irq_flags;
