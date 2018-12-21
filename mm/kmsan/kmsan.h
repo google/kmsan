@@ -58,12 +58,16 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store);
 		local_irq_save(irq_flags); \
 		stop_nmi();		\
 		current->kmsan.in_runtime++; \
+		current->kmsan.last_caller = _THIS_IP_; \
 		BUG_ON(current->kmsan.in_runtime > 1); \
 	} while(0)
 #define LEAVE_RUNTIME(irq_flags)	\
 	do {	\
 		current->kmsan.in_runtime--;	\
-		BUG_ON(current->kmsan.in_runtime); \
+		if (current->kmsan.in_runtime) { \
+			kmsan_pr_err("current->kmsan.in_runtime: %d, last_caller: %pF\n", current->kmsan.in_runtime, current->kmsan.last_caller);	\
+			BUG(); \
+		}	\
 		restart_nmi();		\
 		local_irq_restore(irq_flags);	\
 		preempt_enable(); } while(0)
