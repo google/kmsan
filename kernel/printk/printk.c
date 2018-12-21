@@ -379,9 +379,13 @@ __packed __aligned(4)
  */
 DEFINE_RAW_SPINLOCK(logbuf_lock);
 
-// TODO(glider): need to make sure we need logbuf_lock_is_locked at all.
-// Maybe things have changed in new Linux versions.
-bool logbuf_lock_is_locked = false;
+static int logbuf_lock_is_locked = 0;
+
+int is_logbuf_locked(void)
+{
+	return logbuf_lock_is_locked;
+}
+EXPORT_SYMBOL(is_logbuf_locked);
 
 /*
  * Helper macros to lock/unlock logbuf_lock and switch between
@@ -391,12 +395,12 @@ bool logbuf_lock_is_locked = false;
 	do {						\
 		printk_safe_enter_irq();		\
 		raw_spin_lock(&logbuf_lock);		\
-		logbuf_lock_is_locked = true;		\
+		logbuf_lock_is_locked = 1;		\
 	} while (0)
 
 #define logbuf_unlock_irq()				\
 	do {						\
-		logbuf_lock_is_locked = false;		\
+		logbuf_lock_is_locked = 0;		\
 		raw_spin_unlock(&logbuf_lock);		\
 		printk_safe_exit_irq();			\
 	} while (0)
@@ -405,12 +409,12 @@ bool logbuf_lock_is_locked = false;
 	do {						\
 		printk_safe_enter_irqsave(flags);	\
 		raw_spin_lock(&logbuf_lock);		\
-		logbuf_lock_is_locked = true;		\
+		logbuf_lock_is_locked = 1;		\
 	} while (0)
 
 #define logbuf_unlock_irqrestore(flags)		\
 	do {						\
-		logbuf_lock_is_locked = false;		\
+		logbuf_lock_is_locked = 0;		\
 		raw_spin_unlock(&logbuf_lock);		\
 		printk_safe_exit_irqrestore(flags);	\
 	} while (0)
@@ -2410,7 +2414,7 @@ again:
 
 		printk_safe_enter_irqsave(flags);
 		raw_spin_lock(&logbuf_lock);
-		logbuf_lock_is_locked = true;
+		logbuf_lock_is_locked = 1;
 
 		if (console_seq < log_first_seq) {
 			len = sprintf(text,
@@ -2459,7 +2463,7 @@ skip:
 		}
 		console_idx = log_next(console_idx);
 		console_seq++;
-		logbuf_lock_is_locked = false;
+		logbuf_lock_is_locked = 0;
 		raw_spin_unlock(&logbuf_lock);
 
 		/*
@@ -2487,7 +2491,7 @@ skip:
 
 	console_locked = 0;
 
-	logbuf_lock_is_locked = false;
+	logbuf_lock_is_locked = 0;
 	raw_spin_unlock(&logbuf_lock);
 
 	up_console_sem();
@@ -2499,9 +2503,9 @@ skip:
 	 * flush, no worries.
 	 */
 	raw_spin_lock(&logbuf_lock);
-	logbuf_lock_is_locked = true;
+	logbuf_lock_is_locked = 1;
 	retry = console_seq != log_next_seq;
-	logbuf_lock_is_locked = false;
+	logbuf_lock_is_locked = 0;
 	raw_spin_unlock(&logbuf_lock);
 	printk_safe_exit_irqrestore(flags);
 
