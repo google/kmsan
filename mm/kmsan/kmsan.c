@@ -80,13 +80,6 @@ DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
 
 extern int oops_in_progress;
 
-extern bool logbuf_lock_is_locked;
-bool is_logbuf_locked(void)
-{
-	return logbuf_lock_is_locked;
-}
-EXPORT_SYMBOL(is_logbuf_locked);
-
 kmsan_context_state *task_kmsan_context_state(void)
 {
 	int cpu = smp_processor_id();
