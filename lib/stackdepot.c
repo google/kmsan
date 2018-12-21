@@ -205,8 +205,8 @@ unsigned int stack_depot_fetch(depot_stack_handle_t handle,
 	if (parts.slabindex > depot_index) {
 		WARN(1, "slab index %d out of bounds (%d) for stack id %px\n",
 			parts.slabindex, depot_index, handle);
-		__memset(trace, 0, sizeof(*trace));
-		return;
+		*entries = NULL;
+		return 0;
 	}
 	slab = stack_slabs[parts.slabindex];
 	stack = slab + offset;
@@ -268,7 +268,7 @@ depot_stack_handle_t stack_depot_save(unsigned long *entries,
 		 * contexts and I/O.
 		 */
 		alloc_flags &= ~GFP_ZONEMASK;
-		alloc_flags &= (GFP_ATOMIC | GFP_KERNEL);
+		alloc_flags &= (GFP_ATOMIC | GFP_KERNEL | __GFP_NO_KMSAN_SHADOW);
 		alloc_flags |= __GFP_NOWARN;
 		page = alloc_pages(alloc_flags, STACK_ALLOC_ORDER);
 		if (page)

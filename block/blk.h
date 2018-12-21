@@ -71,6 +71,13 @@ static inline bool biovec_phys_mergeable(struct request_queue *q,
 	phys_addr_t addr1 = page_to_phys(vec1->bv_page) + vec1->bv_offset;
 	phys_addr_t addr2 = page_to_phys(vec2->bv_page) + vec2->bv_offset;
 
+#ifdef CONFIG_KMSAN
+	/*
+	 * Merging consequent physical pages may not work correctly under KMSAN
+	 * if their metadata pages aren't consequent. Just disable merging.
+	 */
+	return false;
+#endif
 	if (addr1 + vec1->bv_len != addr2)
 		return false;
 	if (xen_domain() && !xen_biovec_phys_mergeable(vec1, vec2->bv_page))
