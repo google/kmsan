@@ -8,6 +8,7 @@
 #include <linux/stacktrace.h>
 #include <linux/nmi.h>
 #include <linux/mm.h>
+#include <linux/printk.h>
 #include <asm/cpu_entry_area.h>  // for CPU_ENTRY_AREA_MAP_SIZE
 
 #define KMSAN_MAGIC_MASK 0xffffffffff00
@@ -24,7 +25,6 @@ DECLARE_PER_CPU(bool, kmsan_in_softirq);
 DECLARE_PER_CPU(bool, kmsan_in_nmi);
 
 extern spinlock_t report_lock;
-bool is_logbuf_locked(void);
 #define kmsan_pr_err(...) \
 	do { \
 		if (!is_logbuf_locked()) \
