@@ -35,6 +35,7 @@
 #include <asm/asm.h>
 #include <asm/smap.h>
 #include <asm/pgtable_types.h>
+#include <asm/kmsan.h>
 #include <asm/export.h>
 #include <asm/frame.h>
 #include <asm/nospec-branch.h>
@@ -168,12 +169,14 @@ GLOBAL(entry_SYSCALL_64_after_hwframe)
 	PUSH_AND_CLEAR_REGS rax=$-ENOSYS
 
 	TRACE_IRQS_OFF
+	KMSAN_SYSCALL_ENTER
 
 	/* IRQs are off. */
 	movq	%rax, %rdi
 	movq	%rsp, %rsi
 	call	do_syscall_64		/* returns with IRQs disabled */
 
+	KMSAN_SYSCALL_EXIT
 	TRACE_IRQS_IRETQ		/* we're about to change IF */
 
 	/*
@@ -561,6 +564,7 @@ ENTRY(interrupt_entry)
 
 1:
 	ENTER_IRQ_STACK old_rsp=%rdi save_ret=1
+	KMSAN_INTERRUPT_ENTER
 	/* We entered an interrupt context - irqs are off: */
 	TRACE_IRQS_OFF
 
@@ -580,12 +584,14 @@ common_interrupt:
 	addq	$-0x80, (%rsp)			/* Adjust vector to [-256, -1] range */
 	call	interrupt_entry
 	UNWIND_HINT_REGS indirect=1
+	KMSAN_UNPOISON_PT_REGS
 	call	do_IRQ	/* rdi points to pt_regs */
 	/* 0(%rsp): old RSP */
 ret_from_intr:
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	TRACE_IRQS_OFF
 
+	KMSAN_INTERRUPT_EXIT
 	LEAVE_IRQ_STACK
 
 	testb	$3, CS(%rsp)
@@ -779,6 +785,7 @@ ENTRY(\sym)
 .Lcommon_\sym:
 	call	interrupt_entry
 	UNWIND_HINT_REGS indirect=1
+	KMSAN_UNPOISON_PT_REGS
 	call	\do_sym	/* rdi points to pt_regs */
 	jmp	ret_from_intr
 END(\sym)
@@ -926,11 +933,14 @@ ENTRY(\sym)
 
 	.if \shift_ist != -1
 	subq	$EXCEPTION_STKSZ, CPU_TSS_IST(\shift_ist)
+	KMSAN_IST_ENTER(\shift_ist)
 	.endif
 
+	KMSAN_UNPOISON_PT_REGS
 	call	\do_sym
 
 	.if \shift_ist != -1
+	KMSAN_IST_EXIT(\shift_ist)
 	addq	$EXCEPTION_STKSZ, CPU_TSS_IST(\shift_ist)
 	.endif
 
@@ -959,6 +969,7 @@ ENTRY(\sym)
 	xorl	%esi, %esi			/* no error code */
 	.endif
 
+	KMSAN_UNPOISON_PT_REGS
 	call	\do_sym
 
 	jmp	error_exit
@@ -1024,7 +1035,9 @@ ENTRY(do_softirq_own_stack)
 	pushq	%rbp
 	mov	%rsp, %rbp
 	ENTER_IRQ_STACK regs=0 old_rsp=%r11
+	KMSAN_SOFTIRQ_ENTER
 	call	__do_softirq
+	KMSAN_SOFTIRQ_EXIT
 	LEAVE_IRQ_STACK regs=0
 	leaveq
 	ret
@@ -1403,9 +1416,12 @@ ENTRY(nmi)
 	 * done with the NMI stack.
 	 */
 
+	KMSAN_NMI_ENTER
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
+	KMSAN_UNPOISON_PT_REGS
 	call	do_nmi
+	KMSAN_NMI_EXIT
 
 	/*
 	 * Return back to user mode.  We must *not* do the normal exit
@@ -1615,10 +1631,13 @@ end_repeat_nmi:
 	call	paranoid_entry
 	UNWIND_HINT_REGS
 
+	KMSAN_NMI_ENTER
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
+	KMSAN_UNPOISON_PT_REGS
 	call	do_nmi
+	KMSAN_NMI_EXIT
 
 	/* Always restore stashed CR3 value (see paranoid_entry) */
 	RESTORE_CR3 scratch_reg=%r15 save_reg=%r14

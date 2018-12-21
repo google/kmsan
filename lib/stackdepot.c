@@ -197,9 +197,16 @@ static inline struct stack_record *find_stack(struct stack_record *bucket,
 void depot_fetch_stack(depot_stack_handle_t handle, struct stack_trace *trace)
 {
 	union handle_parts parts = { .handle = handle };
-	void *slab = stack_slabs[parts.slabindex];
+	void *slab;
 	size_t offset = parts.offset << STACK_ALLOC_ALIGN;
-	struct stack_record *stack = slab + offset;
+	struct stack_record *stack;
+
+	if (parts.slabindex >= STACK_ALLOC_MAX_SLABS) {
+		__memset(trace, 0, sizeof(*trace));
+		return;
+	}
+	slab = stack_slabs[parts.slabindex];
+	stack = slab + offset;
 
 	trace->nr_entries = trace->max_entries = stack->size;
 	trace->entries = stack->entries;
@@ -255,7 +262,7 @@ depot_stack_handle_t depot_save_stack(struct stack_trace *trace,
 		 * contexts and I/O.
 		 */
 		alloc_flags &= ~GFP_ZONEMASK;
-		alloc_flags &= (GFP_ATOMIC | GFP_KERNEL);
+		alloc_flags &= (GFP_ATOMIC | GFP_KERNEL | __GFP_NO_KMSAN_SHADOW);
 		alloc_flags |= __GFP_NOWARN;
 		page = alloc_pages(alloc_flags, STACK_ALLOC_ORDER);
 		if (page)
