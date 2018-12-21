@@ -44,6 +44,7 @@ struct kmsan_task_s {
 	bool allow_reporting;
 	bool is_reporting;
 	// TODO(glider): When in_runtime is 1, IRQs are disabled.
+	void *last_caller;
 	int in_runtime;
 	bool is_switching;
 	bool debug;
