@@ -161,7 +161,6 @@ static inline void clear_user_highpage(struct page *page, unsigned long vaddr)
 	void *addr = kmap_atomic(page);
 	clear_user_page(addr, vaddr, page);
 	kunmap_atomic(addr);
-	kmsan_clear_user_page(page);
 }
 #endif
 
