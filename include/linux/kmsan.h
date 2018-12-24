@@ -60,7 +60,6 @@ void kmsan_iounmap(void *vaddr, unsigned long size);
 void kmsan_gup_pgd_range(struct page **pages, int nr);
 void kmsan_free_page(struct page *page, unsigned int order);
 void kmsan_split_page(struct page *page, unsigned int order);
-void kmsan_clear_user_page(struct page *page);
 void kmsan_copy_page_meta(struct page *dst, struct page *src);
 
 void kmsan_poison_slab(struct page *page, gfp_t flags);
@@ -103,7 +102,6 @@ static inline void kmsan_iounmap(void *vaddr, unsigned long size) {}
 void kmsan_gup_pgd_range(struct page **pages, int nr);
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
 static inline void kmsan_split_page(struct page *page, unsigned int order) {}
-static inline void kmsan_clear_user_page(struct page *page) {}
 static inline void kmsan_copy_page_meta(struct page *dst, struct page *src) {}
 
 static inline void kmsan_poison_slab(struct page *page, gfp_t flags) {}
