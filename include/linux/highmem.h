@@ -256,7 +256,8 @@ static inline void copy_user_highpage(struct page *to, struct page *from,
 	vfrom = kmap_atomic(from);
 	vto = kmap_atomic(to);
 	copy_user_page(vto, vfrom, vaddr, to);
-	kmsan_copy_page_meta(to, from);
+	/* User pages don't have shadow, just clear the destination. */
+	kmsan_clear_page(page_address(to));
 	kunmap_atomic(vto);
 	kunmap_atomic(vfrom);
 }
