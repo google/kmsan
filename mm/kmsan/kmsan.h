@@ -51,26 +51,30 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store);
  * runtime, the hooks won’t run either, which may lead to errors.
  * Therefore we have to disable interrupts inside the runtime.
  */
-#define IN_RUNTIME()	(current->kmsan.in_runtime)
+DECLARE_PER_CPU(int, kmsan_in_runtime);
+DECLARE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
+#define IN_RUNTIME()	(this_cpu_read(kmsan_in_runtime))
 #define ENTER_RUNTIME(irq_flags) \
 	do { \
 		preempt_disable(); \
 		local_irq_save(irq_flags); \
 		stop_nmi();		\
-		current->kmsan.in_runtime++; \
-		current->kmsan.last_caller = _THIS_IP_; \
-		BUG_ON(current->kmsan.in_runtime > 1); \
+		this_cpu_inc(kmsan_in_runtime); \
+		this_cpu_write(kmsan_runtime_last_caller, _THIS_IP_); \
+		BUG_ON(this_cpu_read(kmsan_in_runtime) > 1); \
 	} while(0)
 #define LEAVE_RUNTIME(irq_flags)	\
 	do {	\
-		current->kmsan.in_runtime--;	\
-		if (current->kmsan.in_runtime) { \
-			kmsan_pr_err("current->kmsan.in_runtime: %d, last_caller: %pF\n", current->kmsan.in_runtime, current->kmsan.last_caller);	\
+		this_cpu_dec(kmsan_in_runtime);	\
+		if (this_cpu_read(kmsan_in_runtime)) { \
+			kmsan_pr_err("kmsan_in_runtime: %d, last_caller: %pF\n", \
+				this_cpu_read(kmsan_in_runtime), this_cpu_read(kmsan_runtime_last_caller));	\
 			BUG(); \
 		}	\
 		restart_nmi();		\
 		local_irq_restore(irq_flags);	\
 		preempt_enable(); } while(0)
+
 void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin);
 
 void kmsan_memcpy_metadata(u64 dst, u64 src, size_t n);

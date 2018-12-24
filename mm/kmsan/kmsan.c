@@ -74,6 +74,8 @@ DEFINE_PER_CPU(int, kmsan_context_level);
 DEFINE_PER_CPU(int, kmsan_in_interrupt);
 DEFINE_PER_CPU(bool, kmsan_in_softirq);
 DEFINE_PER_CPU(bool, kmsan_in_nmi);
+DEFINE_PER_CPU(int, kmsan_in_runtime);
+DEFINE_PER_CPU(unsigned long, kmsan_runtime_last_caller);  // TODO(glider): debug-only
 
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
