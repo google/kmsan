@@ -614,7 +614,6 @@ void kmsan_copy_to_user(const void *to, const void *from,
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
 
-// TODO(glider): this is similar to kmsan_clear_user_page().
 void kmsan_clear_page(void *page_addr)
 {
 	struct page *page;
@@ -632,19 +631,6 @@ void kmsan_clear_page(void *page_addr)
 	__memset(page_address(page->origin), 0, PAGE_SIZE);
 }
 EXPORT_SYMBOL(kmsan_clear_page);
-
-// Clear shadow and origin for a given struct page.
-void kmsan_clear_user_page(struct page *page)
-{
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-	if (!page->shadow)
-		return;
-
-	__memset(page_address(page->shadow), 0, PAGE_SIZE);
-	__memset(page_address(page->origin), 0, PAGE_SIZE);
-}
-EXPORT_SYMBOL(kmsan_clear_user_page);
 
 void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
 {
