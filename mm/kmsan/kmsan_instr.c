@@ -118,7 +118,7 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 
 	result = __memcpy(dst, src, n);
 	if (!n)
-		// Some people call memcpy() with zero length.
+		/* Some people call memcpy() with zero length. */
 		return result;
 
 	if (!kmsan_ready || IN_RUNTIME())
