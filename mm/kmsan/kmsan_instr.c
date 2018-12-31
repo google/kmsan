@@ -111,6 +111,12 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 }
 EXPORT_SYMBOL(__msan_memmove);
 
+void *__msan_memmove_nosanitize(void *dst, void *src, u64 n)
+{
+	return __memmove(dst, src, n);
+}
+EXPORT_SYMBOL(__msan_memmove_nosanitize);
+
 void *__msan_memcpy(void *dst, const void *src, u64 n)
 {
 	void *result;
@@ -135,6 +141,12 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 	return result;
 }
 EXPORT_SYMBOL(__msan_memcpy);
+
+void *__msan_memcpy_nosanitize(void *dst, const void *src, u64 n)
+{
+	return __memcpy(dst, src, n);
+}
+EXPORT_SYMBOL(__msan_memcpy_nosanitize);
 
 void *__msan_memset(void *dst, int c, size_t n)
 {
@@ -168,6 +180,12 @@ void *__msan_memset(void *dst, int c, size_t n)
 	return result;
 }
 EXPORT_SYMBOL(__msan_memset);
+
+void *__msan_memset_nosanitize(void *dst, int c, size_t n)
+{
+	return __memset(dst, c, n);
+}
+EXPORT_SYMBOL(__msan_memset_nosanitize);
 
 depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 {
