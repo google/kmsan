@@ -131,6 +131,12 @@ _c_flags += $(if $(patsubst n%,, \
 		$(CFLAGS_UBSAN))
 endif
 
+ifeq ($(CONFIG_INIT_ALL_MEMORY),y)
+_c_flags += $(if $(patsubst n%,, \
+		$(INIT_ALL_MEMORY_$(basetarget).o)$(INIT_ALL_MEMORY)y), \
+		$(CFLAGS_INITMEM))
+endif
+
 ifeq ($(CONFIG_KCOV),y)
 _c_flags += $(if $(patsubst n%,, \
 	$(KCOV_INSTRUMENT_$(basetarget).o)$(KCOV_INSTRUMENT)$(CONFIG_KCOV_INSTRUMENT_ALL)), \

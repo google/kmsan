@@ -1,0 +1,9 @@
+config HAVE_ARCH_INITIALIZE_ALL_MEMORY
+	bool
+
+if HAVE_ARCH_INITIALIZE_ALL_MEMORY
+
+config INIT_ALL_MEMORY
+	bool "Initialize all memory"
+
+endif

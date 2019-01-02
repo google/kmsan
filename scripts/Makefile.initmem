@@ -1,0 +1,15 @@
+ifdef CONFIG_INIT_ALL_MEMORY
+
+# -ftrivial-auto-var-init=uninitialized (the default)
+# -ftrivial-auto-var-init=pattern
+# -ftrivial-auto-var-init=zero
+CFLAGS_INITMEM := -ftrivial-auto-var-init=zero -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang
+
+ifeq ($(call cc-option, $(CFLAGS_INITMEM) -Werror),)
+   ifneq ($(CONFIG_COMPILE_TEST),y)
+        $(warning Cannot use CONFIG_INIT_ALL_MEMORY: \
+            -ftrivial-auto-var-init is not supported by compiler)
+   endif
+endif
+
+endif
