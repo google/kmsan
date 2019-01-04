@@ -32,8 +32,6 @@ static __initdata bool ranges_processed = false;
  */
 static void __init kmsan_record_future_shadow_range(u64 start, u64 end)
 {
-	///pr_err("kmsan_record_future_shadow_range(%px, %px)\n", start, end);
-	///dump_stack();
 	BUG_ON(future_index == NUM_FUTURE_RANGES);
 	BUG_ON(ranges_processed);
 	BUG_ON((start >= end) || !start || !end);
@@ -42,71 +40,30 @@ static void __init kmsan_record_future_shadow_range(u64 start, u64 end)
 	future_index++;
 }
 
-extern char __bss_stop[];
-
-/*
- * Allocate metadata pages for kernel sections from __START_KERNEL_map to
- * __bss_stop.
- * TODO(glider): try to use memblock_alloc() to reserve some phys space for the
- * addresses.
- * Problem: need to allocate contiguous shadow/origin ranges to avoid
- * situations when an access crosses an allocation boundary.
- */
-void kmsan_initialize_shadow_for_text()
-{
-	u64 addr;
-	struct page *page, *upper;
-	u64 start = __START_KERNEL_map;
-	u64 size = (u64)__bss_stop - start;
-	u64 order = MAX_ORDER - 1;
-	int np;
-
-	/*
-	 * Allocate chunks of (PAGE_SIZE << order) bytes to decrease the number
-	 * of stitches.
-	 * TODO(glider): Ideally, every single section should have consequent
-	 * shadow memory range.
-	 * This is quite hard, because page_alloc can allocate at most
-	 * 1 << (MAX_ORDER-1) pages.
-	 */
-	for (addr = 0; addr < size; addr += (PAGE_SIZE << order)) {
-		page = virt_to_page_or_null((char*)addr + __START_KERNEL_map);
-		/* TODO(glider): use proper actual_size? */
-		BUG_ON(kmsan_internal_alloc_meta_for_pages(
-			page, order, /*actual_size*/ 0, GFP_ATOMIC | __GFP_ZERO,
-			NUMA_NO_NODE));
-		upper = virt_to_page_or_null((char*)addr + __PAGE_OFFSET);
-		BUG_ON(page != upper);
-		for (np = 0; np < 1 << order; np++) {
-			/*
-			 * TODO(glider): may we use a single page for both
-			 * upper and lower mappings?
-			 * Depends on whether ffff880000000000 and
-			 * ffffffff80000000 are the same.
-			 */
-			upper[np].shadow = page[np].shadow;
-			upper[np].origin = page[np].origin;
-		}
-	}
-}
+extern char _sdata[], _edata[];
 
 void __init kmsan_alloc_meta_for_range(u64 start, u64 end)
 {
 	u64 addr;
 	struct page *page;
+	pr_err("kmsan_alloc_meta_for_range(%px, %px)\n", start, end);
+	start = ALIGN_DOWN(start, PAGE_SIZE);
+	u64 size = ALIGN(end - start, PAGE_SIZE);
+	void *shadow, *origin;
+	struct page *shadow_p, *origin_p;
 
-	for (addr = start; addr < end; addr += PAGE_SIZE) {
-		page = virt_to_page_or_null((void *)addr);
-		if (!page) {
-			pr_err("virt_to_page_or_null(%px)=NULL!\n",
-				addr, page);
-			BUG();
-		}
-		if (!page->shadow)
-			BUG_ON(kmsan_internal_alloc_meta_for_pages(page,
-				/*order*/ 0, /*actual_size*/ 0,
-				GFP_ATOMIC | __GFP_ZERO,
-				NUMA_NO_NODE));
+	shadow = memblock_alloc(size, PAGE_SIZE);
+	origin = memblock_alloc(size, PAGE_SIZE);
+	for (addr = 0; addr < size; addr += PAGE_SIZE) {
+		page = virt_to_page_or_null((char*)start + addr);
+		shadow_p = virt_to_page_or_null((char*)shadow + addr);
+		shadow_p->shadow = NULL;
+		shadow_p->origin = NULL;
+		page->shadow = shadow_p;
+		origin_p = virt_to_page_or_null((char*)origin + addr);
+		origin_p->shadow = NULL;
+		origin_p->origin = NULL;
+		page->origin = origin_p;
 	}
 }
 
@@ -125,6 +82,8 @@ void __init process_future_ranges(void)
  * Initialize the shadow for existing mappings during kernel initialization.
  * These include kernel text/data sections, NODE_DATA and future ranges
  * registered while creating other data (e.g. percpu).
+ *
+ * Allocations via memblock can be only done before slab is initialized.
  */
 void __init kmsan_initialize_shadow(void)
 {
@@ -134,11 +93,11 @@ void __init kmsan_initialize_shadow(void)
 	phys_addr_t p_start, p_end;
 
 	for_each_reserved_mem_region(i, &p_start, &p_end) {
-		///pr_err("reserved region: %px--%px\n", phys_to_virt(p_start), phys_to_virt(p_end+1));
 		kmsan_record_future_shadow_range(phys_to_virt(p_start), phys_to_virt(p_end+1));
 	}
+	/* Allocate shadow for .data */
+	kmsan_record_future_shadow_range(_sdata, _edata);
 
-	kmsan_initialize_shadow_for_text();
 	/*
 	 * TODO(glider): alloc_node_data() in arch/x86/mm/numa.c uses
 	 * sizeof(pg_data_t).
@@ -147,9 +106,14 @@ void __init kmsan_initialize_shadow(void)
 		kmsan_record_future_shadow_range((u64)NODE_DATA(nid),
 						(u64)NODE_DATA(nid) + nd_size);
 	process_future_ranges();
+}
+EXPORT_SYMBOL(kmsan_initialize_shadow);
+
+void __init kmsan_initialize(void)
+{
 	/* Assuming current is init_task */
 	do_kmsan_task_create(current);
 	kmsan_pr_err("Starting KernelMemorySanitizer\n");
 	kmsan_ready = true;
 }
-EXPORT_SYMBOL(kmsan_initialize_shadow);
+EXPORT_SYMBOL(kmsan_initialize);
