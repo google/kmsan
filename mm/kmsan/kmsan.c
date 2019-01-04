@@ -797,8 +797,7 @@ next:
 		 * subsequent ones. Make sure the shadow/origin pages are also
 		 * consequent.
 		 */
-		if (!metadata_is_contiguous(addr, size, is_origin))
-			return NULL;
+		BUG_ON(!metadata_is_contiguous(addr, size, is_origin));
 	}
 	ret = page_address(is_origin ? page->origin : page->shadow) + offset;
 	return ret;
@@ -857,8 +856,7 @@ next:
 		 * subsequent ones. Make sure the shadow/origin pages are also
 		 * consequent.
 		 */
-		if (!metadata_is_contiguous(addr, size, /*is_origin*/false))
-			return ret;
+		BUG_ON(!metadata_is_contiguous(addr, size, /*is_origin*/false));
 	}
 
 	shadow = page_address(page->shadow) + offset;
