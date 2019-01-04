@@ -727,32 +727,30 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 		next_page = virt_to_page_or_null(next_addr);
 		cur_meta_addr = page_address(is_origin ? cur_page->shadow : cur_page->origin);
 		next_meta_addr = page_address(is_origin ? next_page->shadow : next_page->origin);
-		if (cur_meta_addr != next_meta_addr - PAGE_SIZE) {
-			if ((addr < _sdata) || (addr >= _edata)) {
-				const char *fname = is_origin ? "shadow" : "origin";
-				/*
-				 * Skip reports on __data.
-				 * TODO(glider): allocate contiguous shadow for __data instead.
-				 */
-				current->kmsan.is_reporting = true;
-				kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
-				dump_stack();
+		if (cur_meta_addr == next_meta_addr - PAGE_SIZE)
+			continue;
+		const char *fname = is_origin ? "shadow" : "origin";
+		/*
+		 * Skip reports on __data.
+		 * TODO(glider): allocate contiguous shadow for __data instead.
+		 */
+		current->kmsan.is_reporting = true;
+		kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
+		dump_stack();
 
-				kmsan_pr_err("\n");
-				kmsan_pr_err("Access of size %d at %px.\n", size, addr);
-				kmsan_pr_err("Addresses belonging to different ranges are: %px and %px\n", cur_addr, next_addr);
-				kmsan_pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta_addr, fname, next_meta_addr);
-				origin_p = kmsan_get_metadata_or_null(addr, 1, /*is_origin*/true);
-				if (origin_p) {
-					kmsan_pr_err("Origin: %px\n", *origin_p);
-					kmsan_print_origin(*origin_p);
-				} else {
-					kmsan_pr_err("Origin: unavailable\n");
-				}
-				current->kmsan.is_reporting = false;
-				return false;
-			}
+		kmsan_pr_err("\n");
+		kmsan_pr_err("Access of size %d at %px.\n", size, addr);
+		kmsan_pr_err("Addresses belonging to different ranges are: %px and %px\n", cur_addr, next_addr);
+		kmsan_pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta_addr, fname, next_meta_addr);
+		origin_p = kmsan_get_metadata_or_null(addr, 1, /*is_origin*/true);
+		if (origin_p) {
+			kmsan_pr_err("Origin: %px\n", *origin_p);
+			kmsan_print_origin(*origin_p);
+		} else {
+			kmsan_pr_err("Origin: unavailable\n");
 		}
+		current->kmsan.is_reporting = false;
+		return false;
 	}
 	return true;
 }
