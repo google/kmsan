@@ -46,7 +46,6 @@ void __init kmsan_alloc_meta_for_range(u64 start, u64 end)
 {
 	u64 addr;
 	struct page *page;
-	pr_err("kmsan_alloc_meta_for_range(%px, %px)\n", start, end);
 	start = ALIGN_DOWN(start, PAGE_SIZE);
 	u64 size = ALIGN(end - start, PAGE_SIZE);
 	void *shadow, *origin;
