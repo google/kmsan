@@ -16,6 +16,7 @@ extern bool kmsan_ready;
 
 #ifdef CONFIG_KMSAN
 void __init kmsan_initialize_shadow(void);
+void __init kmsan_initialize(void);
 
 typedef struct kmsan_task_s kmsan_task_state;
 typedef struct kmsan_context_s kmsan_context_state;
@@ -86,6 +87,7 @@ void kmsan_softirq_exit(void);
 #else
 
 static inline void __init kmsan_initialize_shadow(void) { }
+static inline void __init kmsan_initialize(void) { }
 
 static inline void kmsan_task_create(struct task_struct *task) {}
 static inline void kmsan_task_exit(struct task_struct *task) {}
