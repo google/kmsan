@@ -131,7 +131,7 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 		return result;
 
 	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = kmsan_get_metadata_or_null((u64)dst, n, /*is_origin*/true);
+	shadow_dst = kmsan_get_metadata_or_null((u64)dst, n, /*is_origin*/false);
 	if (!shadow_dst)
 		/* Can happen e.g. if the memory is untracked. */
 		return result;
