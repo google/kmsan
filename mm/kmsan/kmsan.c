@@ -130,6 +130,7 @@ inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool c
 	u64 page_offset;
 	size_t to_fill;
 
+	BUG_ON(!metadata_is_contiguous(address, size, /*is_origin*/false));
 	while (size) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, size);
@@ -236,99 +237,85 @@ inline
 void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 {
 	void *shadow_src, *shadow_dst;
-	depot_stack_handle_t *origin_src, *origin_dst, *align_shadow_src;
+	depot_stack_handle_t *origin_src, *origin_dst;
+	int src_slots, dst_slots, i, iter, step;
 	depot_stack_handle_t prev_origin, chained_origin, new_origin;
-	int i, iter, step, src_slots, dst_slots;
-	int rem_src, rem_dst, to_copy;
-	u64 cur_dst, cur_src;
-	u32 shadow;
+	u32 *align_shadow_src, shadow;
+	bool backwards;
 
-	if (is_memmove && (src > dst)) {
-		kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/false);
+	BUG_ON(!metadata_is_contiguous(dst, n, /*is_origin*/false));
+	BUG_ON(!metadata_is_contiguous(src, n, /*is_origin*/false));
+
+	shadow_dst = kmsan_get_metadata_or_null(dst, n, /*is_origin*/false);
+	if (!shadow_dst)
+		return;
+
+	shadow_src = kmsan_get_metadata_or_null(src, n, /*is_origin*/false);
+	if (!shadow_src) {
+		/* |src| is untracked: zero out destination shadow, ignore the origins. */
+		__memset(shadow_dst, 0, n);
 		return;
 	}
+	if (is_memmove)
+		__memmove(shadow_dst, shadow_src, n);
+	else
+		__memcpy(shadow_dst, shadow_src, n);
 
-	if (!n || dst == src)
-		return;
-	BUG_ON(dst + n < dst);
-	BUG_ON(src + n < src);
-	while (n) {
-		rem_src = PAGE_SIZE - (src % PAGE_SIZE);
-		rem_dst = PAGE_SIZE - (dst % PAGE_SIZE);
-		to_copy = min(n, min(rem_src, rem_dst));
-		cur_dst = dst;
-		cur_src = src;
-		src += to_copy;
-		dst += to_copy;
-		n -= to_copy;
+	origin_dst = kmsan_get_metadata_or_null(dst, n, /*is_origin*/true);
+	origin_src = kmsan_get_metadata_or_null(src, n, /*is_origin*/true);
+	BUG_ON(!origin_dst || !origin_src);
+	BUG_ON(!metadata_is_contiguous(dst, n, /*is_origin*/true));
+	BUG_ON(!metadata_is_contiguous(src, n, /*is_origin*/true));
+	src_slots = (ALIGN(src + n, ORIGIN_SIZE) - ALIGN_DOWN(src, ORIGIN_SIZE)) / ORIGIN_SIZE;
+	dst_slots = (ALIGN(dst + n, ORIGIN_SIZE) - ALIGN_DOWN(dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
+	BUG_ON(!src_slots || !dst_slots);
+	BUG_ON((src_slots < 1) || (dst_slots < 1));
+	BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
 
-		shadow_dst = kmsan_get_metadata_or_null(cur_dst, to_copy, /*is_origin*/false);
-		if (!shadow_dst)
-			continue;
-		shadow_src = kmsan_get_metadata_or_null(cur_src, to_copy, /*is_origin*/false);
-		if (!shadow_src) {
-			/* |src| is untracked: zero out destination shadow, ignore the origins. */
-			__memset(shadow_dst, 0, to_copy);
-			continue;
-		}
+	backwards = is_memmove && (dst > src);
+	i = backwards ? min(src_slots, dst_slots) - 1 : 0;
+	iter = backwards ? -1 : 1;
 
-		origin_dst = kmsan_get_metadata_or_null(cur_dst, to_copy, /*is_origin*/true);
-		origin_src = kmsan_get_metadata_or_null(cur_src, to_copy, /*is_origin*/true);
-		BUG_ON(!origin_dst || !origin_src);
-
-		src_slots = (ALIGN(cur_src + to_copy, ORIGIN_SIZE) - ALIGN_DOWN(cur_src, ORIGIN_SIZE)) / ORIGIN_SIZE;
-		dst_slots = (ALIGN(cur_dst + to_copy, ORIGIN_SIZE) - ALIGN_DOWN(cur_dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
-		BUG_ON((src_slots < 1) || (dst_slots < 1));
-		BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
-
-		if (is_memmove)
-			__memmove(shadow_dst, shadow_src, to_copy);
-		else
-			__memcpy(shadow_dst, shadow_src, to_copy);
-
-		i = is_memmove ? min(src_slots, dst_slots) - 1 : 0;
-		iter = is_memmove ? -1 : 1;
-
-		align_shadow_src = ALIGN_DOWN((u64)shadow_src, ORIGIN_SIZE);
-		for (step = 0; step < min(src_slots, dst_slots); step++,i+=iter) {
-			shadow = align_shadow_src[i];
-			if (i == 0)
-				/*
-				 * If |src| isn't aligned on ORIGIN_SIZE, don't
-				 * look at the first |src % ORIGIN_SIZE| bytes
-				 * of the first shadow slot.
-				 */
-				shadow = (shadow << (src % ORIGIN_SIZE)) >> (src % ORIGIN_SIZE);
-			if (i == src_slots - 1)
-				/*
-				 * If |src + to_copy| isn't aligned on
-				 * ORIGIN_SIZE, don't look at the last
-				 * |(src + to_copy) % ORIGIN_SIZE| bytes of the
-				 * last shadow slot.
-				 */
-				shadow = (shadow >> ((src + to_copy) % ORIGIN_SIZE)) >> ((src + to_copy) % ORIGIN_SIZE);
+	align_shadow_src = ALIGN_DOWN((u64)shadow_src, ORIGIN_SIZE);
+	for (step = 0; step < min(src_slots, dst_slots); step++,i+=iter) {
+		BUG_ON(i < 0);
+		shadow = align_shadow_src[i];
+		if (i == 0)
 			/*
-			 * Overwrite the origin only if the corresponding
-			 * shadow is nonempty.
+			 * If |src| isn't aligned on ORIGIN_SIZE, don't
+			 * look at the first |src % ORIGIN_SIZE| bytes
+			 * of the first shadow slot.
 			 */
-			if (origin_src[i] && (origin_src[i] != prev_origin) && shadow) {
-				prev_origin = origin_src[i];
-				chained_origin = kmsan_internal_chain_origin(prev_origin);
-				/*
-				 * kmsan_internal_chain_origin() may return
-				 * NULL, but we don't want to lose the previous
-				 * origin value.
-				 */
-				if (chained_origin)
-					new_origin = chained_origin;
-				else
-					new_origin = prev_origin;
-			}
-			if (shadow)
-				origin_dst[i] = new_origin;
+			shadow = (shadow << (src % ORIGIN_SIZE)) >> (src % ORIGIN_SIZE);
+		if (i == src_slots - 1)
+			/*
+			 * If |src + n| isn't aligned on
+			 * ORIGIN_SIZE, don't look at the last
+			 * |(src + n) % ORIGIN_SIZE| bytes of the
+			 * last shadow slot.
+			 */
+			shadow = (shadow >> ((src + n) % ORIGIN_SIZE)) >> ((src + n) % ORIGIN_SIZE);
+		/*
+		 * Overwrite the origin only if the corresponding
+		 * shadow is nonempty.
+		 */
+		if (origin_src[i] && (origin_src[i] != prev_origin) && shadow) {
+			prev_origin = origin_src[i];
+			chained_origin = kmsan_internal_chain_origin(prev_origin);
+			/*
+			 * kmsan_internal_chain_origin() may return
+			 * NULL, but we don't want to lose the previous
+			 * origin value.
+			 */
+			if (chained_origin)
+				new_origin = chained_origin;
 			else
-				origin_dst[i] = 0;
+				new_origin = prev_origin;
 		}
+		if (shadow)
+			origin_dst[i] = new_origin;
+		else
+			origin_dst[i] = 0;
 	}
 }
 
@@ -646,6 +633,7 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 	int i, chunk_size, pos;
 
 	pos = 0;
+	BUG_ON(!metadata_is_contiguous(addr, size, /*is_origin*/false));
 	while (pos < size) {
 		chunk_size = min(size - pos, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
 		shadow = kmsan_get_metadata_or_null(addr64 + pos, chunk_size, /*is_origin*/false);
@@ -715,44 +703,55 @@ EXPORT_SYMBOL(kmsan_check_memory);
 /*
  * TODO(glider): this check shouldn't be performed for origin pages, because
  * they're always accessed after the shadow pages.
+ * TODO(glider): call this check kmsan_get_metadata_or_null().
  */
 bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
-	u64 cur_addr, next_addr, cur_meta_addr, next_meta_addr;
-	struct page *cur_page, *next_page;
+	u64 cur_addr, next_addr;
+	char *cur_meta = NULL, *next_meta = NULL;
 	depot_stack_handle_t *origin_p;
-	for (cur_addr = addr; next_addr < addr + size;
-			cur_addr = next_addr, next_addr += PAGE_SIZE) {
-		next_addr = cur_addr + PAGE_SIZE;
-		cur_page = virt_to_page_or_null(cur_addr);
-		next_page = virt_to_page_or_null(next_addr);
-		cur_meta_addr = page_address(is_origin ? cur_page->shadow : cur_page->origin);
-		next_meta_addr = page_address(is_origin ? next_page->shadow : next_page->origin);
-		if (cur_meta_addr == next_meta_addr - PAGE_SIZE)
-			continue;
-		const char *fname = is_origin ? "shadow" : "origin";
-		/*
-		 * Skip reports on __data.
-		 * TODO(glider): allocate contiguous shadow for __data instead.
-		 */
-		current->kmsan.is_reporting = true;
-		kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
-		dump_stack();
+	bool all_untracked = false;
+	const char *fname = is_origin ? "origin" : "shadow";
 
-		kmsan_pr_err("\n");
-		kmsan_pr_err("Access of size %d at %px.\n", size, addr);
-		kmsan_pr_err("Addresses belonging to different ranges are: %px and %px\n", cur_addr, next_addr);
-		kmsan_pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta_addr, fname, next_meta_addr);
-		origin_p = kmsan_get_metadata_or_null(addr, 1, /*is_origin*/true);
-		if (origin_p) {
-			kmsan_pr_err("Origin: %px\n", *origin_p);
-			kmsan_print_origin(*origin_p);
-		} else {
-			kmsan_pr_err("Origin: unavailable\n");
+	/* The whole range belongs to the same page. */
+	if (ALIGN_DOWN(addr + size, PAGE_SIZE) == ALIGN_DOWN(addr, PAGE_SIZE))
+		return true;
+	/* This is a vmalloc address, all bets are off. */
+	if (is_vmalloc_addr(addr))
+		return true;
+	cur_addr = addr;
+	cur_meta = kmsan_get_metadata_or_null(cur_addr, 1, is_origin);
+	if (!cur_meta)
+		all_untracked = true;
+	for (next_addr = cur_addr + PAGE_SIZE; next_addr < addr + size; cur_addr = next_addr, cur_meta = next_meta, next_addr += PAGE_SIZE) {
+		next_meta = kmsan_get_metadata_or_null(next_addr, 1, is_origin);
+		if (!next_meta) {
+			if (!all_untracked)
+				goto report;
+			continue;
 		}
-		current->kmsan.is_reporting = false;
-		return false;
+		if ((u64)cur_meta == ((u64)next_meta - PAGE_SIZE))
+			continue;
+		goto report;
 	}
 	return true;
+
+report:
+	current->kmsan.is_reporting = true;
+	kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
+	dump_stack();
+	kmsan_pr_err("\n");
+	kmsan_pr_err("Access of size %d at %px.\n", size, addr);
+	kmsan_pr_err("Addresses belonging to different ranges are: %px and %px\n", cur_addr, next_addr);
+	kmsan_pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta, fname, next_meta);
+	origin_p = kmsan_get_metadata_or_null(addr, 1, /*is_origin*/true);
+	if (origin_p) {
+		kmsan_pr_err("Origin: %px\n", *origin_p);
+		kmsan_print_origin(*origin_p);
+	} else {
+		kmsan_pr_err("Origin: unavailable\n");
+	}
+	current->kmsan.is_reporting = false;
+	return false;
 }
 
 /*
@@ -791,14 +790,6 @@ next:
 		return NULL;
 	offset = addr % PAGE_SIZE;
 
-	if (offset + size - 1 > PAGE_SIZE) {
-		/*
-		 * The access overflows the current page and touches the
-		 * subsequent ones. Make sure the shadow/origin pages are also
-		 * consequent.
-		 */
-		BUG_ON(!metadata_is_contiguous(addr, size, is_origin));
-	}
 	ret = page_address(is_origin ? page->origin : page->shadow) + offset;
 	return ret;
 }
@@ -825,6 +816,7 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 	}
 	if (!kmsan_ready || IN_RUNTIME())
 		return ret;
+	BUG_ON(!metadata_is_contiguous(addr, size, /*is_origin*/false));
 
 	if (!IS_ALIGNED(addr, ORIGIN_SIZE)) {
 		pad = addr % ORIGIN_SIZE;
