@@ -5,5 +5,18 @@ if HAVE_ARCH_INITIALIZE_ALL_MEMORY
 
 config INIT_ALL_MEMORY
 	bool "Initialize all memory"
+	default n
+
+choice
+	prompt "Initialization type"
+	depends on INIT_ALL_MEMORY
+	default INIT_ALL_MEMORY_ZERO
+
+config INIT_ALL_MEMORY_ZERO
+	bool "Initialize all memory with a zero pattern"
+
+config INIT_ALL_MEMORY_PATTERN
+	bool "Initialize all memory with a 0xAA pattern"
+endchoice
 
 endif

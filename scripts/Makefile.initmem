@@ -3,7 +3,11 @@ ifdef CONFIG_INIT_ALL_MEMORY
 # -ftrivial-auto-var-init=uninitialized (the default)
 # -ftrivial-auto-var-init=pattern
 # -ftrivial-auto-var-init=zero
+ifdef CONFIG_INIT_ALL_MEMORY_ZERO
 CFLAGS_INITMEM := -ftrivial-auto-var-init=zero -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang
+else ifdef CONFIG_INIT_ALL_MEMORY_PATTERN
+CFLAGS_INITMEM := -ftrivial-auto-var-init=pattern -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang
+endif
 
 ifeq ($(call cc-option, $(CFLAGS_INITMEM) -Werror),)
    ifneq ($(CONFIG_COMPILE_TEST),y)
