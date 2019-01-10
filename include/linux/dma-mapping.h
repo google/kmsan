@@ -281,7 +281,7 @@ static inline dma_addr_t dma_map_page_attrs(struct device *dev,
 	const struct dma_map_ops *ops = get_dma_ops(dev);
 	dma_addr_t addr;
 
-	kmsan_unpoison_shadow(ptr, size);
+	kmsan_unpoison_shadow(page_address(page), size);
 	BUG_ON(!valid_dma_direction(dir));
 	if (dma_is_direct(ops))
 		addr = dma_direct_map_page(dev, page, offset, size, dir, attrs);
