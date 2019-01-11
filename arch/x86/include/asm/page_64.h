@@ -54,7 +54,7 @@ static inline void clear_page(void *page)
 			   : "cc", "memory", "rax", "rcx");
 }
 
-#ifdef INIT_ALL_MEMORY_PATTERN
+#ifdef CONFIG_INIT_ALL_MEMORY_PATTERN
 void clear_page_pattern_orig(void *page);
 void clear_page_pattern_rep(void *page);
 void clear_page_pattern_erms(void *page);

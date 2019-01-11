@@ -63,7 +63,7 @@ ENTRY(clear_page_pattern_orig)
 	movl   $0xAA,%eax
 	movl   $4096/64,%ecx
 	.p2align 4
-.Lloop:
+.Lloop_p:
 	decl	%ecx
 #define PUT(x) movq %rax,x*8(%rdi)
 	movq %rax,(%rdi)
@@ -75,7 +75,7 @@ ENTRY(clear_page_pattern_orig)
 	PUT(6)
 	PUT(7)
 	leaq	64(%rdi),%rdi
-	jnz	.Lloop
+	jnz	.Lloop_p
 	nop
 	ret
 ENDPROC(clear_page_pattern_orig)
