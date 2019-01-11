@@ -49,3 +49,43 @@ ENTRY(clear_page_erms)
 	ret
 ENDPROC(clear_page_erms)
 EXPORT_SYMBOL_GPL(clear_page_erms)
+
+#ifdef CONFIG_INIT_ALL_MEMORY_PATTERN
+ENTRY(clear_page_pattern_rep)
+	movl $4096/8,%ecx
+	movl $0xAA,%eax
+	rep stosq
+	ret
+ENDPROC(clear_page_pattern_rep)
+EXPORT_SYMBOL_GPL(clear_page_pattern_rep)
+
+ENTRY(clear_page_pattern_orig)
+	movl   $0xAA,%eax
+	movl   $4096/64,%ecx
+	.p2align 4
+.Lloop:
+	decl	%ecx
+#define PUT(x) movq %rax,x*8(%rdi)
+	movq %rax,(%rdi)
+	PUT(1)
+	PUT(2)
+	PUT(3)
+	PUT(4)
+	PUT(5)
+	PUT(6)
+	PUT(7)
+	leaq	64(%rdi),%rdi
+	jnz	.Lloop
+	nop
+	ret
+ENDPROC(clear_page_pattern_orig)
+EXPORT_SYMBOL_GPL(clear_page_pattern_orig)
+
+ENTRY(clear_page_pattern_erms)
+	movl $4096,%ecx
+	movl $0xAA,%eax
+	rep stosb
+	ret
+ENDPROC(clear_page_pattern_erms)
+EXPORT_SYMBOL_GPL(clear_page_pattern_erms)
+#endif

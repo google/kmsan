@@ -128,7 +128,7 @@ __malloc void *_uverbs_alloc(struct uverbs_attr_bundle *bundle, size_t size,
 	pbundle->internal_used =
 		ALIGN(new_used, sizeof(*pbundle->internal_buffer));
 	if (GFP_ZERO_ALWAYS_ON || (flags & __GFP_ZERO))
-		memset(res, 0, size);
+		memset(res, INITMEM_FILL_BYTE(flags), size);
 	return res;
 }
 EXPORT_SYMBOL(_uverbs_alloc);

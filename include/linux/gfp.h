@@ -213,10 +213,17 @@ struct vm_area_struct;
 #define __GFP_COMP	((__force gfp_t)___GFP_COMP)
 #define __GFP_ZERO	((__force gfp_t)___GFP_ZERO)
 
-#ifdef CONFIG_INIT_ALL_MEMORY
+#if defined(CONFIG_INIT_ALL_MEMORY_ZERO) || defined(CONFIG_INIT_ALL_MEMORY_PATTERN)
 #define GFP_ZERO_ALWAYS_ON 1
 #else
 #define GFP_ZERO_ALWAYS_ON 0
+#endif
+
+#ifndef CONFIG_INIT_ALL_MEMORY_PATTERN
+#define INITMEM_FILL_BYTE(gfp_flags) (0)
+#else
+#define INITMEM_FILL_BYTE(gfp_flags) \
+	(((gfp_flags) & __GFP_ZERO) ? (0) : (0xAA))
 #endif
 
 /* Disable lockdep for GFP context tracking */

@@ -380,7 +380,7 @@ void *dma_pool_alloc(struct dma_pool *pool, gfp_t mem_flags,
 	spin_unlock_irqrestore(&pool->lock, flags);
 
 	if (GFP_ZERO_ALWAYS_ON || (mem_flags & __GFP_ZERO))
-		memset(retval, 0, pool->size);
+		memset(retval, INITMEM_FILL_BYTE(mem_flags), pool->size);
 
 	return retval;
 }

@@ -215,6 +215,17 @@ static inline void clear_highpage(struct page *page)
 	kunmap_atomic(kaddr);
 }
 
+static inline void clear_highpage_pattern(struct page *page)
+{
+	void *kaddr = kmap_atomic(page);
+#ifdef CONFIG_INIT_ALL_MEMORY_PATTERN
+	clear_page_pattern(kaddr);
+#else
+	clear_page(kaddr);
+#endif
+	kunmap_atomic(kaddr);
+}
+
 static inline void zero_user_segments(struct page *page,
 	unsigned start1, unsigned end1,
 	unsigned start2, unsigned end2)

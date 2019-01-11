@@ -1958,8 +1958,12 @@ static void prep_new_page(struct page *page, unsigned int order, gfp_t gfp_flags
 	post_alloc_hook(page, order, gfp_flags);
 
 	if (!free_pages_prezeroed() && (GFP_ZERO_ALWAYS_ON || (gfp_flags & __GFP_ZERO)))
-		for (i = 0; i < (1 << order); i++)
-			clear_highpage(page + i);
+		for (i = 0; i < (1 << order); i++) {
+			if (!INITMEM_FILL_BYTE(gfp_flags))
+				clear_highpage(page + i);
+			else
+				clear_highpage_pattern(page + i);
+		}
 
 	if (order && (gfp_flags & __GFP_COMP))
 		prep_compound_page(page, order);

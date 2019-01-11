@@ -54,6 +54,21 @@ static inline void clear_page(void *page)
 			   : "cc", "memory", "rax", "rcx");
 }
 
+#ifdef INIT_ALL_MEMORY_PATTERN
+void clear_page_pattern_orig(void *page);
+void clear_page_pattern_rep(void *page);
+void clear_page_pattern_erms(void *page);
+
+static inline void clear_page_pattern(void *page)
+{
+	alternative_call_2(clear_page_pattern_orig,
+			   clear_page_pattern_rep, X86_FEATURE_REP_GOOD,
+			   clear_page_pattern_erms, X86_FEATURE_ERMS,
+			   "=D" (page),
+			   "0" (page)
+			   : "cc", "memory", "rax", "rcx");
+}
+#endif
 void copy_page(void *to, void *from);
 
 #endif	/* !__ASSEMBLY__ */

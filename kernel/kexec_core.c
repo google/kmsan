@@ -316,8 +316,12 @@ static struct page *kimage_alloc_pages(gfp_t gfp_mask, unsigned int order)
 					    gfp_mask);
 
 		if (GFP_ZERO_ALWAYS_ON || (gfp_mask & __GFP_ZERO))
-			for (i = 0; i < count; i++)
-				clear_highpage(pages + i);
+			for (i = 0; i < count; i++) {
+				if (!INITMEM_FILL_BYTE(gfp_mask))
+					clear_highpage(pages + i);
+				else
+					clear_highpage_pattern(pages + i);
+			}
 	}
 
 	return pages;
