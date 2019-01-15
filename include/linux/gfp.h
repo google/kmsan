@@ -213,7 +213,7 @@ struct vm_area_struct;
 #define __GFP_COMP	((__force gfp_t)___GFP_COMP)
 #define __GFP_ZERO	((__force gfp_t)___GFP_ZERO)
 
-#if defined(CONFIG_INIT_ALL_MEMORY_ZERO) || defined(CONFIG_INIT_ALL_MEMORY_PATTERN)
+#if (defined(CONFIG_INIT_ALL_MEMORY_ZERO) || defined(CONFIG_INIT_ALL_MEMORY_PATTERN)) && defined(CONFIG_INIT_ALL_HEAP)
 #define GFP_ZERO_ALWAYS_ON 1
 #else
 #define GFP_ZERO_ALWAYS_ON 0

@@ -7,6 +7,16 @@ config INIT_ALL_MEMORY
 	bool "Initialize all memory"
 	default n
 
+if INIT_ALL_MEMORY
+config INIT_ALL_HEAP
+	bool "Initialize all heap"
+	default y
+
+config INIT_ALL_STACK
+	bool "Initialize all stack"
+	default y
+endif
+
 choice
 	prompt "Initialization type"
 	depends on INIT_ALL_MEMORY
