@@ -10,6 +10,12 @@
 
 struct vm_area_struct;
 
+#if (defined(CONFIG_INIT_ALL_MEMORY_ZERO) || defined(CONFIG_INIT_ALL_MEMORY_PATTERN)) && defined(CONFIG_INIT_ALL_HEAP)
+#define GFP_ZERO_ALWAYS_ON 1
+#else
+#define GFP_ZERO_ALWAYS_ON 0
+#endif
+
 /*
  * In case of changes, please don't forget to update
  * include/trace/events/mmflags.h and tools/perf/builtin-kmem.c
@@ -43,6 +49,11 @@ struct vm_area_struct;
 #define ___GFP_NOLOCKDEP	0x800000u
 #else
 #define ___GFP_NOLOCKDEP	0
+#endif
+#if GFP_ZERO_ALWAYS_ON
+#define ___GFP_SLAB_PAGE	0x1000000u
+#else
+#define ___GFP_SLAB_PAGE	0
 #endif
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
@@ -212,12 +223,8 @@ struct vm_area_struct;
 #define __GFP_NOWARN	((__force gfp_t)___GFP_NOWARN)
 #define __GFP_COMP	((__force gfp_t)___GFP_COMP)
 #define __GFP_ZERO	((__force gfp_t)___GFP_ZERO)
+#define __GFP_SLAB_PAGE	((__force gfp_t)___GFP_SLAB_PAGE)
 
-#if (defined(CONFIG_INIT_ALL_MEMORY_ZERO) || defined(CONFIG_INIT_ALL_MEMORY_PATTERN)) && defined(CONFIG_INIT_ALL_HEAP)
-#define GFP_ZERO_ALWAYS_ON 1
-#else
-#define GFP_ZERO_ALWAYS_ON 0
-#endif
 
 #ifndef CONFIG_INIT_ALL_MEMORY_PATTERN
 #define INITMEM_FILL_BYTE(gfp_flags) (0)
@@ -230,7 +237,7 @@ struct vm_area_struct;
 #define __GFP_NOLOCKDEP ((__force gfp_t)___GFP_NOLOCKDEP)
 
 /* Room for N __GFP_FOO bits */
-#define __GFP_BITS_SHIFT (23 + IS_ENABLED(CONFIG_LOCKDEP))
+#define __GFP_BITS_SHIFT (25)
 #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
 
 /**
