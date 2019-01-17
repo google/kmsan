@@ -1225,8 +1225,14 @@ struct task_struct {
 	/* Buffer for coverage collection: */
 	void				*kcov_area;
 
+	/* KCOV sequence number: */
+	int				kcov_sequence;
+
 	/* KCOV descriptor wired with this task or NULL: */
 	struct kcov			*kcov;
+
+	/* KCOV handle for remote coverage collection: */
+	u64				kcov_handle;
 #endif
 
 #ifdef CONFIG_MEMCG
