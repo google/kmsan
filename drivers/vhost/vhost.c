@@ -359,7 +359,13 @@ static int vhost_worker(void *data)
 		llist_for_each_entry_safe(work, work_next, node, node) {
 			clear_bit(VHOST_WORK_QUEUED, &work->flags);
 			__set_current_state(TASK_RUNNING);
+#ifdef CONFIG_KCOV
+			kcov_remote_start(dev->kcov_handle);
+#endif
 			work->fn(work);
+#ifdef CONFIG_KCOV
+			kcov_remote_stop();
+#endif
 			if (need_resched())
 				schedule();
 		}
@@ -504,6 +510,9 @@ long vhost_dev_set_owner(struct vhost_dev *dev)
 
 	/* No owner, become one */
 	dev->mm = get_task_mm(current);
+#ifdef CONFIG_KCOV
+	dev->kcov_handle = current->kcov_handle;
+#endif
 	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
 	if (IS_ERR(worker)) {
 		err = PTR_ERR(worker);
@@ -529,6 +538,9 @@ err_worker:
 	if (dev->mm)
 		mmput(dev->mm);
 	dev->mm = NULL;
+#ifdef CONFIG_KCOV
+	dev->kcov_handle = 0;
+#endif
 err_mm:
 	return err;
 }
@@ -640,6 +652,9 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
 	if (dev->worker) {
 		kthread_stop(dev->worker);
 		dev->worker = NULL;
+#ifdef CONFIG_KCOV
+		dev->kcov_handle = 0;
+#endif
 	}
 	if (dev->mm)
 		mmput(dev->mm);

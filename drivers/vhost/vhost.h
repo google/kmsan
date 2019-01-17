@@ -171,6 +171,9 @@ struct vhost_dev {
 	struct list_head pending_list;
 	wait_queue_head_t wait;
 	int iov_limit;
+#ifdef CONFIG_KCOV
+	u64 kcov_handle;
+#endif
 };
 
 void vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue **vqs,
