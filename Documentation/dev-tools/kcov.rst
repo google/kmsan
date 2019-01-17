@@ -34,6 +34,7 @@ Profiling data will only become accessible once debugfs has been mounted::
 
 Coverage collection
 -------------------
+
 The following program demonstrates coverage collection from within a test
 program using kcov:
 
@@ -128,6 +129,7 @@ only need to enable coverage (disable happens automatically on thread end).
 
 Comparison operands collection
 ------------------------------
+
 Comparison operands collection is similar to coverage collection:
 
 .. code-block:: c
@@ -202,3 +204,101 @@ Comparison operands collection is similar to coverage collection:
 
 Note that the kcov modes (coverage collection or comparison operands) are
 mutually exclusive.
+
+Remote coverage collection
+--------------------------
+
+With KCOV_REMOTE_ENABLE it's possible to collect coverage from arbitrary
+kernel threads. For that the targeted section of kernel code needs to be
+annotated with kcov_remote_start(unique_id) and kcov_remote_stop(). Then
+ioctl(kcov, KCOV_REMOTE_ENABLE) can be used to make kcov start collecting
+coverage from that code section. Multiple ids can be targeted with the same
+kcov device simultaneously.
+
+This allows to collect coverage from both types of kernel background threads:
+the global ones, that are spawned during kernel boot and are always running
+(e.g. USB hub_event); and the local ones, that are spawned when a user
+interacts with some kernel interfaces (e.g. vhost). Collecting coverage from
+both types of kernel threads requires custom annotations.
+
+To collect coverage from a global background thread add kcov_remote_start/
+kcov_remote_stop annotation with a unique id to that thread's code and then
+pass this id in the handles array field of the kcov_remote_arg struct.
+
+A tracking id for local background threads is passed through the common_handle
+field of the kcov_remote_arg struct. This id gets saved to the kcov_handle
+field in the thread that created kcov and needs to be passed to the newly
+spawned threads via custom annotations. Those threads should be in turn
+annotated with kcov_remote_start/kcov_remote_stop.
+
+.. code-block:: c
+
+    struct kcov_remote_arg {
+	unsigned	trace_mode;
+	unsigned	area_size;
+	unsigned	num_handles;
+	uint64_t	common_handle;
+	uint64_t	handles[0];
+    };
+
+    #define KCOV_REMOTE_MAX_HANDLES		0x10000
+
+    #define KCOV_INIT_TRACE			_IOR('c', 1, unsigned long)
+    #define KCOV_ENABLE			_IO('c', 100)
+    #define KCOV_DISABLE			_IO('c', 101)
+    #define KCOV_REMOTE_ENABLE		_IOW('c', 102, struct kcov_remote_arg)
+
+
+    #define KCOV_REMOTE_HANDLE_USB  0x4242000000000000ull
+
+    static inline __u64 kcov_remote_handle_usb(int bus)
+    {
+	return KCOV_REMOTE_HANDLE_USB + (__u64)bus;
+    }
+
+    #define COVER_SIZE	(64 << 10)
+
+    #define KCOV_TRACE_PC	0
+    #define KCOV_TRACE_CMP	1
+
+    int main(int argc, char **argv)
+    {
+	int fd;
+	unsigned long *cover, n, i;
+	uint64_t handle;
+
+	fd = open("/sys/kernel/debug/kcov", O_RDWR);
+	if (fd == -1)
+		perror("open"), exit(1);
+	if (ioctl(fd, KCOV_INIT_TRACE, COVER_SIZE))
+		perror("ioctl"), exit(1);
+	cover = (unsigned long*)mmap(NULL, COVER_SIZE * sizeof(unsigned long),
+				     PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if ((void*)cover == MAP_FAILED)
+		perror("mmap"), exit(1);
+	/* Enable coverage collection from the USB bus #1. */
+	arg = calloc(1, sizeof(*arg) + sizeof(uint64_t));
+	if (!arg)
+		perror("calloc"), exit(1);
+	arg->trace_mode = KCOV_TRACE_PC;
+	arg->area_size = COVER_SIZE;
+	arg->num_handles = 1;
+	arg->handles[0] = kcov_remote_handle_usb(1);
+	if (ioctl(fd, KCOV_REMOTE_ENABLE, arg))
+		perror("ioctl"), free(arg), exit(1);
+	free(arg);
+
+	/* Sleep. The user needs to trigger some activity on the USB bus #1. */
+	sleep(2);
+
+	n = __atomic_load_n(&cover[0], __ATOMIC_RELAXED);
+	for (i = 0; i < n; i++)
+		printf("0x%lx\n", cover[i + 1]);
+	if (ioctl(fd, KCOV_DISABLE, 0))
+		perror("ioctl"), exit(1);
+	if (munmap(cover, COVER_SIZE * sizeof(unsigned long)))
+		perror("munmap"), exit(1);
+	if (close(fd))
+		perror("close"), exit(1);
+	return 0;
+    }
