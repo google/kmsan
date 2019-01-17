@@ -109,7 +109,7 @@ struct flex_array *flex_array_alloc(int element_size, unsigned int total,
 	ret->total_nr_elements = total;
 	ret->elems_per_part = elems_per_part;
 	ret->reciprocal_elems = reciprocal_elems;
-	if (elements_fit_in_base(ret) && !(flags & __GFP_ZERO) && !GFP_ZERO_ALWAYS_ON)
+	if (elements_fit_in_base(ret) && !(flags & __GFP_ZERO) && !GFP_ZERO_SLAB_ALWAYS_ON)
 		memset(&ret->parts[0], FLEX_ARRAY_FREE,
 						FLEX_ARRAY_BASE_BYTES_LEFT);
 	return ret;
@@ -170,7 +170,7 @@ __fa_get_part(struct flex_array *fa, int part_nr, gfp_t flags)
 		part = kmalloc(sizeof(struct flex_array_part), flags);
 		if (!part)
 			return NULL;
-		if (!(flags & __GFP_ZERO) && !GFP_ZERO_ALWAYS_ON)
+		if (!(flags & __GFP_ZERO) && !GFP_ZERO_SLAB_ALWAYS_ON)
 			memset(part, FLEX_ARRAY_FREE,
 				sizeof(struct flex_array_part));
 		fa->parts[part_nr] = part;

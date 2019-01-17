@@ -374,12 +374,12 @@ void *dma_pool_alloc(struct dma_pool *pool, gfp_t mem_flags,
 			break;
 		}
 	}
-	if (!GFP_ZERO_ALWAYS_ON && !(mem_flags & __GFP_ZERO))
+	if (!GFP_ZERO_SLAB_ALWAYS_ON && !(mem_flags & __GFP_ZERO))
 		memset(retval, POOL_POISON_ALLOCATED, pool->size);
 #endif
 	spin_unlock_irqrestore(&pool->lock, flags);
 
-	if (GFP_ZERO_ALWAYS_ON || (mem_flags & __GFP_ZERO))
+	if (GFP_ZERO_SLAB_ALWAYS_ON || (mem_flags & __GFP_ZERO))
 		memset(retval, INITMEM_FILL_BYTE(mem_flags), pool->size);
 
 	return retval;

@@ -3,19 +3,13 @@ config HAVE_ARCH_INITIALIZE_ALL_MEMORY
 
 if HAVE_ARCH_INITIALIZE_ALL_MEMORY
 
+menu "Initialize all memory"
+
 config INIT_ALL_MEMORY
 	bool "Initialize all memory"
 	default n
 
 if INIT_ALL_MEMORY
-config INIT_ALL_HEAP
-	bool "Initialize all heap"
-	default y
-
-config INIT_ALL_STACK
-	bool "Initialize all stack"
-	default y
-endif
 
 choice
 	prompt "Initialization type"
@@ -29,4 +23,29 @@ config INIT_ALL_MEMORY_PATTERN
 	bool "Initialize all memory with a 0xAA pattern"
 endchoice
 
-endif
+
+choice
+	prompt "Heap initialization"
+	depends on INIT_ALL_MEMORY
+	default INIT_ALL_HEAP
+
+config INIT_ALL_HEAP
+	bool "Initialize all heap (slab and pagealloc)"
+
+config INIT_ALL_HEAP_PAGES
+	bool "Initialize only pagealloc pages"
+
+config NOINIT_ALL_HEAP
+	bool "Don't initialize any heap pages"
+endchoice
+
+config INIT_ALL_STACK
+	bool "Initialize all stack"
+	depends on INIT_ALL_MEMORY
+	default y
+
+
+endif # INIT_ALL_MEMORY
+endmenu
+
+endif # HAVE_ARCH_INITIALIZE_ALL_MEMORY

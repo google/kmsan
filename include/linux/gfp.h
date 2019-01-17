@@ -10,10 +10,16 @@
 
 struct vm_area_struct;
 
-#if (defined(CONFIG_INIT_ALL_MEMORY_ZERO) || defined(CONFIG_INIT_ALL_MEMORY_PATTERN)) && defined(CONFIG_INIT_ALL_HEAP)
-#define GFP_ZERO_ALWAYS_ON 1
+#if defined(CONFIG_INIT_ALL_HEAP) || defined(CONFIG_INIT_ALL_HEAP_PAGES)
+#define GFP_ZERO_PAGE_ALWAYS_ON 1
 #else
-#define GFP_ZERO_ALWAYS_ON 0
+#define GFP_ZERO_PAGE_ALWAYS_ON 0
+#endif
+
+#if defined(CONFIG_INIT_ALL_HEAP)
+#define GFP_ZERO_SLAB_ALWAYS_ON 1
+#else
+#define GFP_ZERO_SLAB_ALWAYS_ON 0
 #endif
 
 /*
@@ -50,7 +56,7 @@ struct vm_area_struct;
 #else
 #define ___GFP_NOLOCKDEP	0
 #endif
-#if GFP_ZERO_ALWAYS_ON
+#if GFP_ZERO_PAGE_ALWAYS_ON
 #define ___GFP_SLAB_PAGE	0x1000000u
 #else
 #define ___GFP_SLAB_PAGE	0
