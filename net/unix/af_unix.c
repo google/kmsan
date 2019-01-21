@@ -1676,7 +1676,8 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
 		BUILD_BUG_ON(SKB_MAX_ALLOC < PAGE_SIZE);
 	}
 
-	skb = sock_alloc_send_pskb(sk, len - data_len, data_len,
+	/* Copying |len| bytes to |skb| below, no need to initialize it now. */
+	skb = sock_alloc_send_pskb_noinit(sk, len - data_len, data_len,
 				   msg->msg_flags & MSG_DONTWAIT, &err,
 				   PAGE_ALLOC_COSTLY_ORDER);
 	if (skb == NULL)
@@ -1873,7 +1874,11 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
 
 		data_len = min_t(size_t, size, PAGE_ALIGN(data_len));
 
-		skb = sock_alloc_send_pskb(sk, size - data_len, data_len,
+		/*
+		 * Copying |size| bytes to |skb| below, no need to initialize
+		 * it now.
+		 */
+		skb = sock_alloc_send_pskb_noinit(sk, size - data_len, data_len,
 					   msg->msg_flags & MSG_DONTWAIT, &err,
 					   get_order(UNIX_SKB_FRAGS_SZ));
 		if (!skb)

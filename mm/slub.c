@@ -2734,7 +2734,7 @@ redo:
 		stat(s, ALLOC_FASTPATH);
 	}
 
-	if (((GFP_ZERO_SLAB_ALWAYS_ON && !s->ctor && !(gfpflags & SLAB_TYPESAFE_BY_RCU)) || unlikely(gfpflags & __GFP_ZERO)) && object)
+	if (((GFP_ZERO_SLAB_ALWAYS_ON && !s->ctor && !(gfpflags & (SLAB_TYPESAFE_BY_RCU | __GFP_NOINIT))) || unlikely(gfpflags & __GFP_ZERO)) && object)
 		memset(object, INITMEM_FILL_BYTE(gfpflags), s->object_size);
 
 	slab_post_alloc_hook(s, gfpflags, 1, &object);
@@ -3156,7 +3156,7 @@ int kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
 	local_irq_enable();
 
 	/* Clear memory outside IRQ disabled fastpath loop */
-	if ((GFP_ZERO_SLAB_ALWAYS_ON && !s->ctor && !(flags & SLAB_TYPESAFE_BY_RCU)) || unlikely(flags & __GFP_ZERO)) {
+	if ((GFP_ZERO_SLAB_ALWAYS_ON && !s->ctor && !(flags & (SLAB_TYPESAFE_BY_RCU|__GFP_NOINIT))) || unlikely(flags & __GFP_ZERO)) {
 		int j;
 
 		for (j = 0; j < i; j++)
