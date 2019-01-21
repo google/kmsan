@@ -57,9 +57,9 @@ struct vm_area_struct;
 #define ___GFP_NOLOCKDEP	0
 #endif
 #if GFP_ZERO_PAGE_ALWAYS_ON
-#define ___GFP_SLAB_PAGE	0x1000000u
+#define ___GFP_NOINIT	0x1000000u
 #else
-#define ___GFP_SLAB_PAGE	0
+#define ___GFP_NOINIT	0
 #endif
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
@@ -229,7 +229,7 @@ struct vm_area_struct;
 #define __GFP_NOWARN	((__force gfp_t)___GFP_NOWARN)
 #define __GFP_COMP	((__force gfp_t)___GFP_COMP)
 #define __GFP_ZERO	((__force gfp_t)___GFP_ZERO)
-#define __GFP_SLAB_PAGE	((__force gfp_t)___GFP_SLAB_PAGE)
+#define __GFP_NOINIT	((__force gfp_t)___GFP_NOINIT)
 
 
 #ifndef CONFIG_INIT_ALL_MEMORY_PATTERN
