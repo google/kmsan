@@ -84,6 +84,8 @@ bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_flags, gfp_t ne
 
 void kmsan_softirq_enter(void);
 void kmsan_softirq_exit(void);
+
+void kmsan_clear_page(void *page_addr);
 #else
 
 static inline void __init kmsan_initialize_shadow(void) { }
@@ -100,7 +102,7 @@ static inline int kmsan_alloc_page(
 }
 static inline void kmsan_iomap(void *vaddr, unsigned long size) {}
 static inline void kmsan_iounmap(void *vaddr, unsigned long size) {}
-void kmsan_gup_pgd_range(struct page **pages, int nr);
+static void kmsan_gup_pgd_range(struct page **pages, int nr) {}
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
 static inline void kmsan_split_page(struct page *page, unsigned int order) {}
 static inline void kmsan_copy_page_meta(struct page *dst, struct page *src) {}
@@ -136,7 +138,7 @@ static inline bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_f
 static inline void kmsan_softirq_enter(void) {}
 static inline void kmsan_softirq_exit(void) {}
 
-
+static void kmsan_clear_page(void *page_addr) {}
 #endif
 
 #endif /* LINUX_KMSAN_H */
