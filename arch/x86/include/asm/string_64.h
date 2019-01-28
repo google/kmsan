@@ -14,7 +14,6 @@
 #ifndef CONFIG_KMSAN
 extern void *memcpy(void *to, const void *from, size_t len);
 #else
-extern void *__msan_memcpy(void *dst, const void *src, size_t len);
 #define memcpy(dst, src, len) __msan_memcpy(dst, src, len)
 #endif
 extern void *__memcpy(void *to, const void *from, size_t len);
