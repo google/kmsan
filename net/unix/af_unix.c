@@ -1832,7 +1832,11 @@ static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg,
 {
 	struct sock *sk = sock->sk;
 	struct sock *other = NULL;
-	int err, size;
+	/*
+	 * TODO(glider): remove __attribute((uninitialized)) when
+	 * https://bugs.llvm.org/show_bug.cgi?id=40527 is fixed.
+	 */
+	int err __attribute((uninitialized)), size;
 	struct sk_buff *skb;
 	int sent = 0;
 	struct scm_cookie scm;
