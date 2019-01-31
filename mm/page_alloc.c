@@ -2097,7 +2097,7 @@ static int move_freepages(struct zone *zone,
 	return pages_moved;
 }
 
-int move_freepages_block(struct zone *zone, struct page *page,
+inline int move_freepages_block(struct zone *zone, struct page *page,
 				int migratetype, int *num_movable)
 {
 	unsigned long start_pfn, end_pfn;
