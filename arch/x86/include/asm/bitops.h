@@ -142,7 +142,7 @@ static __always_inline void __clear_bit(long nr, volatile unsigned long *addr)
 
 static __always_inline bool clear_bit_unlock_is_negative_byte(long nr, volatile unsigned long *addr)
 {
-	bool negative;
+	bool negative __attribute((uninitialized));
 	asm volatile(LOCK_PREFIX "andb %2,%1"
 		CC_SET(s)
 		: CC_OUT(s) (negative), ADDR
@@ -244,7 +244,7 @@ test_and_set_bit_lock(long nr, volatile unsigned long *addr)
  */
 static __always_inline bool __test_and_set_bit(long nr, volatile unsigned long *addr)
 {
-	bool oldbit;
+	bool oldbit __attribute((uninitialized));
 
 	asm(__ASM_SIZE(bts) " %2,%1"
 	    CC_SET(c)
@@ -284,7 +284,7 @@ static __always_inline bool test_and_clear_bit(long nr, volatile unsigned long *
  */
 static __always_inline bool __test_and_clear_bit(long nr, volatile unsigned long *addr)
 {
-	bool oldbit;
+	bool oldbit __attribute((uninitialized));
 
 	asm volatile(__ASM_SIZE(btr) " %2,%1"
 		     CC_SET(c)
@@ -296,7 +296,7 @@ static __always_inline bool __test_and_clear_bit(long nr, volatile unsigned long
 /* WARNING: non atomic and it can be reordered! */
 static __always_inline bool __test_and_change_bit(long nr, volatile unsigned long *addr)
 {
-	bool oldbit;
+	bool oldbit __attribute((uninitialized));
 
 	asm volatile(__ASM_SIZE(btc) " %2,%1"
 		     CC_SET(c)
@@ -327,7 +327,7 @@ static __always_inline bool constant_test_bit(long nr, const volatile unsigned l
 
 static __always_inline bool variable_test_bit(long nr, volatile const unsigned long *addr)
 {
-	bool oldbit;
+	bool oldbit __attribute((uninitialized));
 
 	asm volatile(__ASM_SIZE(bt) " %2,%1"
 		     CC_SET(c)
@@ -409,7 +409,7 @@ static __always_inline unsigned long __fls(unsigned long word)
  */
 static __always_inline int ffs(int x)
 {
-	int r;
+	int r __attribute((uninitialized));
 
 #ifdef CONFIG_X86_64
 	/*
@@ -450,7 +450,7 @@ static __always_inline int ffs(int x)
  */
 static __always_inline int fls(unsigned int x)
 {
-	int r;
+	int r __attribute((uninitialized));
 
 #ifdef CONFIG_X86_64
 	/*

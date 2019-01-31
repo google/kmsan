@@ -17,7 +17,7 @@
 extern inline unsigned long native_save_fl(void);
 extern inline unsigned long native_save_fl(void)
 {
-	unsigned long flags;
+	unsigned long flags __attribute((uninitialized));
 
 	/*
 	 * "=rm" is safe here, because "pop" adjusts the stack before
