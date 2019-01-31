@@ -84,7 +84,7 @@ extern void __add_wrong_size(void)
  */
 #define __raw_cmpxchg(ptr, old, new, size, lock)			\
 ({									\
-	__typeof__(*(ptr)) __ret;					\
+	__typeof__(*(ptr)) __ret __attribute((uninitialized));		\
 	__typeof__(*(ptr)) __old = (old);				\
 	__typeof__(*(ptr)) __new = (new);				\
 	switch (size) {							\
@@ -157,7 +157,7 @@ extern void __add_wrong_size(void)
 
 #define __raw_try_cmpxchg(_ptr, _pold, _new, size, lock)		\
 ({									\
-	bool success;							\
+	bool success __attribute((uninitialized));			\
 	__typeof__(_ptr) _old = (__typeof__(_ptr))(_pold);		\
 	__typeof__(*(_ptr)) __old = *_old;				\
 	__typeof__(*(_ptr)) __new = (_new);				\
@@ -235,7 +235,7 @@ extern void __add_wrong_size(void)
 
 #define __cmpxchg_double(pfx, p1, p2, o1, o2, n1, n2)			\
 ({									\
-	bool __ret;							\
+	bool __ret __attribute((uninitialized));			\
 	__typeof__(*(p1)) __old1 = (o1), __new1 = (n1);			\
 	__typeof__(*(p2)) __old2 = (o2), __new2 = (n2);			\
 	BUILD_BUG_ON(sizeof(*(p1)) != sizeof(long));			\
