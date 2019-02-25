@@ -634,6 +634,8 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 
 	pos = 0;
 	BUG_ON(!metadata_is_contiguous(addr, size, /*is_origin*/false));
+	if (size <= 0)
+		return;
 	while (pos < size) {
 		chunk_size = min(size - pos, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
 		shadow = kmsan_get_metadata_or_null(addr64 + pos, chunk_size, /*is_origin*/false);
