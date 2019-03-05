@@ -51,8 +51,10 @@ void kmsan_clear_page(void *page_addr);
 __no_sanitize_memory
 static inline void clear_page(void *page)
 {
+#ifdef CONFIG_KMSAN
 	// alternative_call_2() changes |page|.
 	void *page_copy = page;
+#endif
 	alternative_call_2(clear_page_orig,
 			   clear_page_rep, X86_FEATURE_REP_GOOD,
 			   clear_page_erms, X86_FEATURE_ERMS,
