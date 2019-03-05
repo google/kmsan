@@ -6,18 +6,16 @@
 #include <asm/kaslr.h>
 #endif
 
-#if defined(CONFIG_KMSAN)
-#define EXTRA_STACK_ORDER 2
-#else
 #ifdef CONFIG_KASAN
 #ifdef CONFIG_KASAN_EXTRA
 #define EXTRA_STACK_ORDER 2
 #else
 #define EXTRA_STACK_ORDER 1
 #endif
+#elif defined(CONFIG_KMSAN)
+#define EXTRA_STACK_ORDER 2
 #else
 #define EXTRA_STACK_ORDER 0
-#endif
 #endif
 
 #define THREAD_SIZE_ORDER	(2 + EXTRA_STACK_ORDER)
