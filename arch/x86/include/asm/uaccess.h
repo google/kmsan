@@ -296,7 +296,8 @@ do {									\
 		__put_user_asm(x, ptr, retval, "l", "k", "ir", errret);	\
 		break;							\
 	case 8:								\
-		__put_user_goto_u64(x, ptr, label);			\
+		__put_user_asm_u64((__typeof__(*ptr))(x), ptr, retval,	\
+				   errret);				\
 		break;							\
 	default:							\
 		__put_user_bad();					\
@@ -446,15 +447,11 @@ do {									\
 
 #define __put_user_nocheck(x, ptr, size)			\
 ({								\
-	__label__ __pu_label;					\
-	int __pu_err = -EFAULT;					\
-	__typeof__(*(ptr)) __pu_val;				\
-	__pu_val = x;						\
+	__typeof__(*(ptr)) __pu_val = x;			\
+	int __pu_err;						\
 	__uaccess_begin();					\
 	kmsan_check_memory(&(__pu_val), size);			\
-	__put_user_size(__pu_val, (ptr), (size), __pu_label);	\
-	__pu_err = 0;						\
-__pu_label:							\
+	__put_user_size((x), (ptr), (size), __pu_err, -EFAULT);	\
 	__uaccess_end();					\
 	__builtin_expect(__pu_err, 0);				\
 })
