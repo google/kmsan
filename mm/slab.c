@@ -2707,6 +2707,7 @@ static struct page *cache_grow_begin(struct kmem_cache *cachep,
 
 	slab_map_pages(cachep, page, freelist);
 
+	/* TODO(glider): v5.0 dropped KASAN hook here. */
 	kmsan_poison_slab(page);
 	cache_init_objs(cachep, page);
 
@@ -3558,10 +3559,8 @@ void ___cache_free(struct kmem_cache *cachep, void *objp,
 void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
 {
 	void *ret = slab_alloc(cachep, flags, _RET_IP_);
-	/*
-	 * TODO(glider): kasan_slab_alloc() was removed in v5.0, shall we
-	 * remove KMSAN hook as well?
-	 */
+
+	/* TODO(glider): v5.0 dropped KASAN hook here. */
 	kmsan_slab_alloc(cachep, ret, flags);
 	trace_kmem_cache_alloc(_RET_IP_, ret,
 			       cachep->object_size, cachep->size, flags);
@@ -3653,10 +3652,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *cachep, gfp_t flags, int nodeid)
 {
 	void *ret = slab_alloc_node(cachep, flags, nodeid, _RET_IP_);
 
-	/*
-	 * TODO(glider): kasan_slab_alloc() was removed in v5.0, shall we
-	 * remove KMSAN hook as well?
-	 */
+	/* TODO(glider): v5.0 dropped KASAN hook here. */
 	kmsan_slab_alloc(cachep, ret, flags);
 	trace_kmem_cache_alloc_node(_RET_IP_, ret,
 				    cachep->object_size, cachep->size,
