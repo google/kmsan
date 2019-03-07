@@ -239,7 +239,7 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 	void *shadow_src, *shadow_dst;
 	depot_stack_handle_t *origin_src, *origin_dst;
 	int src_slots, dst_slots, i, iter, step;
-	depot_stack_handle_t prev_origin, chained_origin, new_origin;
+	depot_stack_handle_t prev_origin = 0, chained_origin, new_origin = 0;
 	u32 *align_shadow_src, shadow;
 	bool backwards;
 
