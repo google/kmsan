@@ -201,12 +201,16 @@ void depot_fetch_stack(depot_stack_handle_t handle, struct stack_trace *trace)
 	size_t offset = parts.offset << STACK_ALLOC_ALIGN;
 	struct stack_record *stack;
 
-	if (parts.slabindex >= STACK_ALLOC_MAX_SLABS) {
+	if (parts.slabindex > depot_index) {
+		WARN(1, "slab index %d out of bounds (%d) for origin %px\n",
+			parts.slabindex, depot_index, handle);
 		__memset(trace, 0, sizeof(*trace));
 		return;
 	}
 	slab = stack_slabs[parts.slabindex];
 	stack = slab + offset;
+	BUG_ON(!trace);
+	BUG_ON(!stack);
 
 	trace->nr_entries = trace->max_entries = stack->size;
 	trace->entries = stack->entries;
