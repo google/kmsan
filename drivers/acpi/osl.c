@@ -25,7 +25,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/kmsan.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
@@ -282,18 +281,14 @@ acpi_map_lookup_virt(void __iomem *virt, acpi_size size)
 static void __iomem *acpi_map(acpi_physical_address pg_off, unsigned long pg_sz)
 {
 	unsigned long pfn;
-	void __iomem *ret;
 
 	pfn = pg_off >> PAGE_SHIFT;
 	if (should_use_kmap(pfn)) {
 		if (pg_sz > PAGE_SIZE)
 			return NULL;
-		ret = (void __iomem __force *)kmap(pfn_to_page(pfn));
-	} else {
-		ret = acpi_os_ioremap(pg_off, pg_sz);
-	}
-	kmsan_iomap(ret, pg_sz);
-	return ret;
+		return (void __iomem __force *)kmap(pfn_to_page(pfn));
+	} else
+		return acpi_os_ioremap(pg_off, pg_sz);
 }
 
 static void acpi_unmap(acpi_physical_address pg_off, void __iomem *vaddr)
@@ -301,13 +296,10 @@ static void acpi_unmap(acpi_physical_address pg_off, void __iomem *vaddr)
 	unsigned long pfn;
 
 	pfn = pg_off >> PAGE_SHIFT;
-	if (should_use_kmap(pfn)) {
-		kmsan_iounmap(vaddr, PAGE_SIZE);
+	if (should_use_kmap(pfn))
 		kunmap(pfn_to_page(pfn));
-	} else {
-		kmsan_iounmap(vaddr, /*size*/-1);
+	else
 		iounmap(vaddr);
-	}
 }
 
 /**
