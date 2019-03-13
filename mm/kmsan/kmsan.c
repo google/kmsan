@@ -717,9 +717,6 @@ bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
 	/* The whole range belongs to the same page. */
 	if (ALIGN_DOWN(addr + size, PAGE_SIZE) == ALIGN_DOWN(addr, PAGE_SIZE))
 		return true;
-	/* This is a vmalloc address, all bets are off. */
-	if (is_vmalloc_addr(addr))
-		return true;
 	cur_addr = addr;
 	cur_meta = kmsan_get_metadata_or_null(cur_addr, 1, is_origin);
 	if (!cur_meta)
@@ -777,6 +774,12 @@ void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin)
 	}
 
 	if (!my_virt_addr_valid(addr)) {
+		if (addr >= VMALLOC_START && addr < VMALLOC_END) {
+			if (is_origin)
+				return addr + VMALLOC_ORIGIN_OFFSET;
+			else
+				return addr + VMALLOC_SHADOW_OFFSET;
+		}
 		page = vmalloc_to_page_or_null(addr);
 		if (page)
 			goto next;
@@ -826,6 +829,11 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 	}
 
 	if (!my_virt_addr_valid(addr)) {
+		if (addr >= VMALLOC_START && addr < VMALLOC_END) {
+			ret.s = addr + VMALLOC_SHADOW_OFFSET;
+			ret.o = o_addr + VMALLOC_ORIGIN_OFFSET;
+			return ret;
+		}
 		page = vmalloc_to_page_or_null(addr);
 		if (page)
 			goto next;
