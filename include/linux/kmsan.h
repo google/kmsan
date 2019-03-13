@@ -56,8 +56,6 @@ void kmsan_task_exit(struct task_struct *task);
 void kmsan_alloc_shadow_for_region(void *start, size_t size);
 void kmsan_prep_pages(struct page *page, unsigned int order);
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
-void kmsan_iomap(void *vaddr, unsigned long size);
-void kmsan_iounmap(void *vaddr, unsigned long size);
 void kmsan_gup_pgd_range(struct page **pages, int nr);
 void kmsan_free_page(struct page *page, unsigned int order);
 void kmsan_split_page(struct page *page, unsigned int order);
@@ -75,12 +73,15 @@ void kmsan_slab_setup_object(struct kmem_cache *s, void *object);
 void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 			size_t size, void *object);
 
-// Vmap
-void kmsan_vmap(struct vm_struct *area,
-		struct page **pages, unsigned int count, unsigned long flags,
-		pgprot_t prot, void *caller);
-void kmsan_vunmap(const void *addr, struct vm_struct *area, int deallocate_pages);
-bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_flags, gfp_t nested_gfp, gfp_t highmem_mask, pgprot_t prot, int node);
+/* vmap */
+void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
+				   pgprot_t prot, struct page **pages);
+void kmsan_vunmap_page_range(unsigned long addr, unsigned long end);
+
+/* ioremap */
+void kmsan_ioremap_page_range(unsigned long addr, unsigned long end,
+	phys_addr_t phys_addr, pgprot_t prot);
+void kmsan_iounmap_page_range(unsigned long start, unsigned long end);
 
 void kmsan_softirq_enter(void);
 void kmsan_softirq_exit(void);
@@ -100,8 +101,6 @@ static inline int kmsan_alloc_page(
 {
 	return 0;
 }
-static inline void kmsan_iomap(void *vaddr, unsigned long size) {}
-static inline void kmsan_iounmap(void *vaddr, unsigned long size) {}
 static void kmsan_gup_pgd_range(struct page **pages, int nr) {}
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
 static inline void kmsan_split_page(struct page *page, unsigned int order) {}
@@ -126,15 +125,13 @@ static inline void kmsan_slab_setup_object(
 static inline void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 	size_t size, void *object) {}
 
-static inline void kmsan_vmap(struct vm_struct *area,
-		struct page **pages, unsigned int count, unsigned long flags,
-		pgprot_t prot, void *caller) {}
-static inline void kmsan_vunmap(const void *addr, struct vm_struct *area, int deallocate_pages) {}
-static inline bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_flags, gfp_t nested_gfp, gfp_t highmem_mask, pgprot_t prot, int node)
-{
-	return true;
-}
+void void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
+				   pgprot_t prot, struct page **pages) {}
+kmsan_vunmap_page_range(unsigned long start, unsigned long end) {}
 
+void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
+	phys_addr_t phys_addr, pgprot_t prot) {}
+void kmsan_iounmap_page_range(unsigned long start, unsigned long end) {}
 static inline void kmsan_softirq_enter(void) {}
 static inline void kmsan_softirq_exit(void) {}
 
