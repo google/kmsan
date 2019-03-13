@@ -7,6 +7,7 @@
  * (C) Copyright 1995 1996 Linus Torvalds
  */
 
+#include <linux/kmsan.h>
 #include <linux/memblock.h>
 #include <linux/init.h>
 #include <linux/io.h>
@@ -431,6 +432,7 @@ void iounmap(volatile void __iomem *addr)
 		return;
 	}
 
+	kmsan_iounmap_page_range(addr, addr + get_vm_area_size(p));
 	free_memtype(p->phys_addr, p->phys_addr + get_vm_area_size(p));
 
 	/* Finally remove it */

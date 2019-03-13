@@ -120,7 +120,8 @@ static void vunmap_p4d_range(pgd_t *pgd, unsigned long addr, unsigned long end)
 	} while (p4d++, addr = next, addr != end);
 }
 
-static void vunmap_page_range(unsigned long addr, unsigned long end)
+/* Exported for KMSAN, visible in mm/kmsan/kmsan.h only. */
+void __vunmap_page_range(unsigned long addr, unsigned long end)
 {
 	pgd_t *pgd;
 	unsigned long next;
@@ -133,6 +134,12 @@ static void vunmap_page_range(unsigned long addr, unsigned long end)
 			continue;
 		vunmap_p4d_range(pgd, addr, next);
 	} while (pgd++, addr = next, addr != end);
+}
+EXPORT_SYMBOL(__vunmap_page_range);
+static void vunmap_page_range(unsigned long addr, unsigned long end)
+{
+	kmsan_vunmap_page_range(addr, end);
+	__vunmap_page_range(addr, end);
 }
 
 static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
@@ -217,8 +224,11 @@ static int vmap_p4d_range(pgd_t *pgd, unsigned long addr,
  * will have pfns corresponding to the "pages" array.
  *
  * Ie. pte at addr+N*PAGE_SIZE shall point to pfn corresponding to pages[N]
+ *
+ * This function is exported for use in KMSAN, but is only declared in KMSAN
+ * headers.
  */
-static int vmap_page_range_noflush(unsigned long start, unsigned long end,
+int __vmap_page_range_noflush(unsigned long start, unsigned long end,
 				   pgprot_t prot, struct page **pages)
 {
 	pgd_t *pgd;
@@ -237,6 +247,14 @@ static int vmap_page_range_noflush(unsigned long start, unsigned long end,
 	} while (pgd++, addr = next, addr != end);
 
 	return nr;
+}
+EXPORT_SYMBOL(__vmap_page_range_noflush);
+
+static int vmap_page_range_noflush(unsigned long start, unsigned long end,
+				   pgprot_t prot, struct page **pages)
+{
+	kmsan_vmap_page_range_noflush(start, end, prot, pages);
+	return __vmap_page_range_noflush(start, end, prot, pages);
 }
 
 static int vmap_page_range(unsigned long start, unsigned long end,
@@ -1952,7 +1970,6 @@ int map_vm_area(struct vm_struct *area, pgprot_t prot, struct page **pages)
 	int err;
 
 	err = vmap_page_range(addr, end, prot, pages);
-
 	return err > 0 ? 0 : err;
 }
 EXPORT_SYMBOL_GPL(map_vm_area);
@@ -2342,7 +2359,6 @@ void *vmap(struct page **pages, unsigned int count,
 		return NULL;
 	}
 
-	kmsan_vmap(area, pages, count, flags, prot, __builtin_return_address(0));
 	return area->addr;
 }
 EXPORT_SYMBOL(vmap);
@@ -2398,8 +2414,6 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 	}
 
 	if (map_vm_area(area, prot, pages))
-		goto fail;
-	if (!kmsan_vmalloc_area_node(area, alloc_mask, nested_gfp, highmem_mask, prot, node))
 		goto fail;
 
 	return area->addr;
