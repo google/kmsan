@@ -121,6 +121,11 @@ struct page *virt_to_page_or_null(const void *vaddr);
 void *get_cea_shadow_or_null(const void *addr);
 void *get_cea_origin_or_null(const void *addr);
 
+/* Declared in mm/vmalloc.c */
+void __vunmap_page_range(unsigned long addr, unsigned long end);
+int __vmap_page_range_noflush(unsigned long start, unsigned long end,
+				   pgprot_t prot, struct page **pages);
+
 // Dummy replacement for __builtin_return_address() which may crash without
 // frame pointers.
 static inline void *kmsan_internal_return_address(int arg)
