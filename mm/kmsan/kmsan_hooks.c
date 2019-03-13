@@ -233,157 +233,6 @@ void kmsan_kfree_large(const void *ptr)
 	LEAVE_RUNTIME(irq_flags);
 }
 
-bool kmsan_vmalloc_area_node(struct vm_struct *area, gfp_t alloc_mask, gfp_t nested_gfp, gfp_t highmem_mask, pgprot_t prot, int node)
-{
-	struct page **s_pages, **o_pages;
-	struct vm_struct *s_area, *o_area;
-	size_t area_size = get_vm_area_size(area);
-	unsigned int nr_pages = area->nr_pages;
-	unsigned int array_size = nr_pages * sizeof(struct page *);
-	int i;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return true;
-	if (alloc_mask & __GFP_NO_KMSAN_SHADOW)
-		return true;
-
-	s_area = get_vm_area(area_size, /*flags*/0);
-	o_area = get_vm_area(area_size, /*flags*/0);
-
-	if (array_size > PAGE_SIZE) {
-		s_pages = __vmalloc_node_flags_caller(array_size, node, nested_gfp|highmem_mask|__GFP_NO_KMSAN_SHADOW, (void*)area->caller);
-		o_pages = __vmalloc_node_flags_caller(array_size, node, nested_gfp|highmem_mask|__GFP_NO_KMSAN_SHADOW, (void*)area->caller);
-	} else {
-		s_pages = kmalloc_node(array_size, nested_gfp | __GFP_NO_KMSAN_SHADOW, node);
-		o_pages = kmalloc_node(array_size, nested_gfp | __GFP_NO_KMSAN_SHADOW, node);
-	}
-	if (!s_pages || !o_pages)
-		goto fail;
-
-	for (i = 0; i < area->nr_pages; i++) {
-		s_pages[i] = area->pages[i]->shadow;
-		o_pages[i] = area->pages[i]->origin;
-	}
-
-	s_area->pages = s_pages;
-	o_area->pages = o_pages;
-
-	if (map_vm_area(s_area, prot, s_pages))
-		goto fail;
-	if (map_vm_area(o_area, prot, o_pages))
-		goto fail;
-	area->shadow = s_area;
-	area->origin = o_area;
-
-	return true;
-
-fail:
-	remove_vm_area(s_area->addr);
-	remove_vm_area(o_area->addr);
-	kfree(s_area);
-	kfree(o_area);
-	return false;
-}
-
-/* Called from mm/vmalloc.c */
-void kmsan_vmap(struct vm_struct *area,
-		struct page **pages, unsigned int count, unsigned long flags,
-		pgprot_t prot, void *caller)
-{
-	struct vm_struct *shadow, *origin;
-	struct page **s_pages = NULL, **o_pages = NULL;
-	unsigned long size;
-	int i;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-	if (flags & __GFP_NO_KMSAN_SHADOW)
-		return;
-
-	size = (unsigned long)count << PAGE_SHIFT;
-	/*
-	 * It's important to call get_vm_area_caller() (which calls kmalloc())
-	 * and kmalloc() outside the runtime.
-	 * Calling kmalloc() may potentially allocate a new slab without
-	 * corresponding shadow pages. Accesses to any subsequent allocations
-	 * from that slab will crash the kernel.
-	 */
-	shadow = get_vm_area_caller(size, flags | __GFP_NO_KMSAN_SHADOW, caller);
-	origin = get_vm_area_caller(size, flags | __GFP_NO_KMSAN_SHADOW, caller);
-	/*
-	 * TODO(glider): __GFP_NO_KMSAN_SHADOW below indicates that kmalloc won't be
-	 * calling KMSAN hooks again, but it cannot guarantee the allocation
-	 * will be performed from an untracked page (we would need a separate
-	 * kmalloc cache for that). To make sure the pages are unpoisoned, we also
-	 * allocate with __GFP_ZERO.
-	 */
-	s_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL | __GFP_NO_KMSAN_SHADOW | __GFP_ZERO);
-	if (!s_pages)
-		goto err_free;
-	o_pages = kmalloc(count * sizeof(struct page *), GFP_KERNEL | __GFP_NO_KMSAN_SHADOW | __GFP_ZERO);
-	for (i = 0; i < count; i++) {
-		if (!pages[i]->shadow)
-			goto err_free;
-		s_pages[i] = pages[i]->shadow;
-		o_pages[i] = pages[i]->origin;
-	}
-	/* Don't enter the runtime when allocating memory with kmalloc(). */
-	if (map_vm_area(shadow, prot, s_pages) ||
-	    map_vm_area(origin, prot, o_pages)) {
-		goto err_free;
-	}
-
-	shadow->pages = s_pages;
-	shadow->nr_pages = count;
-	shadow->shadow = NULL;
-	shadow->origin = NULL;
-	origin->pages = o_pages;
-	origin->nr_pages = count;
-	origin->shadow = NULL;
-	origin->origin = NULL;
-	area->shadow = shadow;
-	area->origin = origin;
-	return;
-err_free:
-	if (s_pages)
-		kfree(s_pages);
-	if (o_pages)
-		kfree(o_pages);
-	if (shadow)
-		vunmap(shadow->addr);
-	if (origin)
-		vunmap(origin->addr);
-}
-
-/* Called from mm/vmalloc.c */
-void kmsan_vunmap(const void *addr, struct vm_struct *area, int deallocate_pages)
-{
-	struct vm_struct *vms, *shadow, *origin;
-	int i;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-
-	if (!vms || !vms->shadow)
-		return;
-	shadow = vms->shadow;
-	origin = vms->origin;
-
-	vunmap(vms->shadow->addr);
-	vunmap(vms->origin->addr);
-
-	BUG_ON(shadow->nr_pages != origin->nr_pages);
-	for (i = 0; i < shadow->nr_pages; i++) {
-		BUG_ON(shadow->pages[i]);
-		__free_pages(shadow->pages[i], 0);
-		BUG_ON(origin->pages[i]);
-		__free_pages(origin->pages[i], 0);
-	}
-	kfree(shadow->pages);
-	kfree(origin->pages);
-}
-EXPORT_SYMBOL(kmsan_vunmap);
-
 /* Called from mm/page_alloc.c, mm/slab.c */
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 {
@@ -493,53 +342,99 @@ void kmsan_split_page(struct page *page, unsigned int order)
 }
 EXPORT_SYMBOL(kmsan_split_page);
 
-/* Called from drivers/acpi/osl.c */
-void kmsan_iomap(void *vaddr, unsigned long size)
+/* Called from mm/vmalloc.c */
+void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
+				   pgprot_t prot, struct page **pages)
 {
-	struct page *page;
+	int nr, i;
+	struct page **s_pages, **o_pages;
 	unsigned long irq_flags;
-	int order;
 
-	if (IN_RUNTIME())
+	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	ENTER_RUNTIME(irq_flags);
-	page = vmalloc_to_page_or_null(vaddr);
-	if (!page) {
-		LEAVE_RUNTIME(irq_flags);
-		return;
+
+	BUG_ON(start >= end);
+	nr = (end - start) / PAGE_SIZE;
+	s_pages = kzalloc(sizeof(struct page *) * nr, GFP_KERNEL);
+	o_pages = kzalloc(sizeof(struct page *) * nr, GFP_KERNEL);
+	if (!s_pages || !o_pages)
+		goto ret;
+	for (i = 0; i < nr; i++) {
+		s_pages[i] = pages[i]->shadow;
+		o_pages[i] = pages[i]->origin;
 	}
-	order = order_from_size(size);
-	/* Although the address is virtual, corresponding ACPI physical pages
-	 * are consequent.
-	 */
-	kmsan_internal_alloc_meta_for_pages(page, order, size,
-						GFP_KERNEL | __GFP_ZERO, -1);
+	ENTER_RUNTIME(irq_flags);
+	__vmap_page_range_noflush(start + VMALLOC_SHADOW_OFFSET, end + VMALLOC_SHADOW_OFFSET, prot, s_pages);
+	__vmap_page_range_noflush(start + VMALLOC_ORIGIN_OFFSET, end + VMALLOC_ORIGIN_OFFSET, prot, o_pages);
+	LEAVE_RUNTIME(irq_flags);
+ret:
+	if (s_pages)
+		kfree(s_pages);
+	if (o_pages)
+		kfree(o_pages);
+}
+
+/* Called from mm/vmalloc.c */
+void kmsan_vunmap_page_range(unsigned long start, unsigned long end)
+{
+	__vunmap_page_range(start + VMALLOC_SHADOW_OFFSET, end + VMALLOC_SHADOW_OFFSET);
+	__vunmap_page_range(start + VMALLOC_ORIGIN_OFFSET, end + VMALLOC_ORIGIN_OFFSET);
+}
+
+/* Called from lib/ioremap.c */
+/*
+ * This function creates new shadow/origin pages for the physical pages mapped
+ * into the virtual memory. If those physical pages already had shadow/origin, those are ignored.
+ */
+void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
+	phys_addr_t phys_addr, pgprot_t prot)
+{
+	unsigned long irq_flags;
+	struct page *shadow, *origin;
+	int i, nr;
+	unsigned long off = 0;
+	gfp_t gfp_mask = GFP_KERNEL | __GFP_ZERO | __GFP_NO_KMSAN_SHADOW;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+
+	nr = (end - start) / PAGE_SIZE;
+	ENTER_RUNTIME(irq_flags);
+	for (i = 0; i < nr; i++, off += PAGE_SIZE) {
+		shadow = alloc_pages(gfp_mask, 1);
+		origin = alloc_pages(gfp_mask, 1);
+		__vmap_page_range_noflush(start + VMALLOC_SHADOW_OFFSET + off, start + VMALLOC_SHADOW_OFFSET + off + PAGE_SIZE, prot, &shadow);
+		__vmap_page_range_noflush(start + VMALLOC_ORIGIN_OFFSET + off, start + VMALLOC_ORIGIN_OFFSET + off + PAGE_SIZE, prot, &origin);
+	}
+	flush_cache_vmap(start + VMALLOC_SHADOW_OFFSET, end + VMALLOC_SHADOW_OFFSET);
+	flush_cache_vmap(start + VMALLOC_ORIGIN_OFFSET, end + VMALLOC_ORIGIN_OFFSET);
 	LEAVE_RUNTIME(irq_flags);
 }
 
-/* Called from drivers/acpi/osl.c */
-void kmsan_iounmap(void *vaddr, unsigned long size)
+void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 {
-	struct page *page;
+	int i, nr;
+	struct page *shadow, *origin;
+	unsigned long off = 0;
+	unsigned long v_shadow, v_origin;
 	unsigned long irq_flags;
-	int order;
-	int pages, i;
 
-	if (IN_RUNTIME())
+	if (!kmsan_ready || IN_RUNTIME())
 		return;
+
+	nr = (end - start) / PAGE_SIZE;
 	ENTER_RUNTIME(irq_flags);
-	page = vmalloc_to_page_or_null(vaddr);
-	if (size == -1)
-		size = get_vm_area_size(find_vm_area(vaddr));
-	order = order_from_size(size);
-	if (page->shadow)
-		__free_pages(page->shadow, order);
-	if (page->origin)
-		__free_pages(page->origin, order);
-	pages = ALIGN(size, PAGE_SIZE) >> PAGE_SHIFT;
-	for (i = 0; i < pages; i++) {
-		page[i].shadow = NULL;
-		page[i].origin = NULL;
+	v_shadow = start + VMALLOC_SHADOW_OFFSET;
+	v_origin = start + VMALLOC_ORIGIN_OFFSET;
+	for (i = 0; i < nr; i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
+		shadow = vmalloc_to_page_or_null(v_shadow);
+		origin = vmalloc_to_page_or_null(v_origin);
+		__vunmap_page_range(v_shadow, v_shadow + PAGE_SIZE);
+		__vunmap_page_range(v_origin, v_origin + PAGE_SIZE);
+		if (shadow)
+			free_pages(shadow, 1);
+		if (origin)
+			free_pages(origin, 1);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
