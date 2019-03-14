@@ -198,9 +198,19 @@ unsigned int stack_depot_fetch(depot_stack_handle_t handle,
 			       unsigned long **entries)
 {
 	union handle_parts parts = { .handle = handle };
-	void *slab = stack_slabs[parts.slabindex];
+	void *slab;
 	size_t offset = parts.offset << STACK_ALLOC_ALIGN;
-	struct stack_record *stack = slab + offset;
+	struct stack_record *stack;
+
+	if (parts.slabindex > depot_index) {
+		WARN(1, "slab index %d out of bounds (%d) for stack id %px\n",
+			parts.slabindex, depot_index, handle);
+		__memset(trace, 0, sizeof(*trace));
+		return;
+	}
+	slab = stack_slabs[parts.slabindex];
+	stack = slab + offset;
+	BUG_ON(!stack);
 
 	*entries = stack->entries;
 	return stack->size;
