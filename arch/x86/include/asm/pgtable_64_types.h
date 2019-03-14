@@ -139,7 +139,22 @@ extern unsigned int ptrs_per_p4d;
 # define VMEMMAP_START		__VMEMMAP_BASE_L4
 #endif /* CONFIG_DYNAMIC_MEMORY_LAYOUT */
 
+#ifndef CONFIG_KMSAN
 #define VMALLOC_END		(VMALLOC_START + (VMALLOC_SIZE_TB << 40) - 1)
+#else
+/*
+ * In KMSAN builds vmalloc area is four times smaller, and the remaining 3/4
+ * are used to keep the metadata for virtual pages.
+ */
+#define VMALLOC_QUARTER_SIZE	((VMALLOC_SIZE_TB << 40) >> 2)
+#define VMALLOC_END		(VMALLOC_START + VMALLOC_QUARTER_SIZE - 1)
+#define VMALLOC_SHADOW_OFFSET	VMALLOC_QUARTER_SIZE
+#define VMALLOC_ORIGIN_OFFSET	(VMALLOC_QUARTER_SIZE * 2)
+#define VMALLOC_META_END	(VMALLOC_END + VMALLOC_ORIGIN_OFFSET)
+#define MODULES_SHADOW_START	(VMALLOC_META_END + 1 )
+#define MODULES_ORIGIN_START	(MODULES_SHADOW_START + MODULES_LEN)
+#define MODULES_ORIGIN_END	(MODULES_ORIGIN_START + MODULES_LEN)
+#endif
 
 #define MODULES_VADDR		(__START_KERNEL_map + KERNEL_IMAGE_SIZE)
 /* The module sections ends with the start of the fixmap */
