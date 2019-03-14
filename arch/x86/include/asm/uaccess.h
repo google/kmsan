@@ -253,26 +253,26 @@ extern void __put_user_8(void);
 #define put_user(x, ptr)					\
 ({								\
 	int __ret_pu;						\
-	__typeof__(*(ptr)) __pu_val;				\
+	__typeof__(*(ptr)) __pu_val_1;				\
 	__chk_user_ptr(ptr);					\
 	might_fault();						\
-	__pu_val = x;						\
-	kmsan_check_memory(&(__pu_val), sizeof(*(ptr)));	\
+	__pu_val_1 = x;						\
+	kmsan_check_memory(&(__pu_val_1), sizeof(*(ptr)));	\
 	switch (sizeof(*(ptr))) {				\
 	case 1:							\
-		__put_user_x(1, __pu_val, ptr, __ret_pu);	\
+		__put_user_x(1, __pu_val_1, ptr, __ret_pu);	\
 		break;						\
 	case 2:							\
-		__put_user_x(2, __pu_val, ptr, __ret_pu);	\
+		__put_user_x(2, __pu_val_1, ptr, __ret_pu);	\
 		break;						\
 	case 4:							\
-		__put_user_x(4, __pu_val, ptr, __ret_pu);	\
+		__put_user_x(4, __pu_val_1, ptr, __ret_pu);	\
 		break;						\
 	case 8:							\
-		__put_user_x8(__pu_val, ptr, __ret_pu);		\
+		__put_user_x8(__pu_val_1, ptr, __ret_pu);		\
 		break;						\
 	default:						\
-		__put_user_x(X, __pu_val, ptr, __ret_pu);	\
+		__put_user_x(X, __pu_val_1, ptr, __ret_pu);	\
 		break;						\
 	}							\
 	__builtin_expect(__ret_pu, 0);				\
@@ -280,11 +280,11 @@ extern void __put_user_8(void);
 
 #define __put_user_size(x, ptr, size, retval, errret)			\
 do {									\
-	__typeof__(*(ptr)) __pu_val;					\
+	__typeof__(*(ptr)) __pu_val_2;					\
 	retval = 0;							\
 	__chk_user_ptr(ptr);						\
-	__pu_val = x;							\
-	kmsan_check_memory(&(__pu_val), size);				\
+	__pu_val_2 = x;							\
+	kmsan_check_memory(&(__pu_val_2), size);				\
 	switch (size) {							\
 	case 1:								\
 		__put_user_asm(x, ptr, retval, "b", "b", "iq", errret);	\
@@ -310,10 +310,10 @@ do {									\
  */
 #define __put_user_size_ex(x, ptr, size)				\
 do {									\
-	__typeof__(*(ptr)) __pu_val;					\
+	__typeof__(*(ptr)) __pu_val_3;					\
 	__chk_user_ptr(ptr);						\
-	__pu_val = x;							\
-	kmsan_check_memory(&(__pu_val), size);				\
+	__pu_val_3 = x;							\
+	kmsan_check_memory(&(__pu_val_3), size);				\
 	switch (size) {							\
 	case 1:								\
 		__put_user_asm_ex(x, ptr, "b", "b", "iq");		\
@@ -447,10 +447,10 @@ do {									\
 
 #define __put_user_nocheck(x, ptr, size)			\
 ({								\
-	__typeof__(*(ptr)) __pu_val = x;			\
+	__typeof__(*(ptr)) __pu_val_4 = x;			\
 	int __pu_err;						\
 	__uaccess_begin();					\
-	kmsan_check_memory(&(__pu_val), size);			\
+	kmsan_check_memory(&(__pu_val_4), size);			\
 	__put_user_size((x), (ptr), (size), __pu_err, -EFAULT);	\
 	__uaccess_end();					\
 	__builtin_expect(__pu_err, 0);				\
@@ -459,11 +459,11 @@ do {									\
 #define __get_user_nocheck(x, ptr, size)				\
 ({									\
 	int __gu_err;							\
-	__inttype(*(ptr)) __gu_val;					\
+	__inttype(*(ptr)) __gu_val_1;					\
 	__uaccess_begin_nospec();					\
-	__get_user_size(__gu_val, (ptr), (size), __gu_err, -EFAULT);	\
+	__get_user_size(__gu_val_1, (ptr), (size), __gu_err, -EFAULT);	\
 	__uaccess_end();						\
-	(x) = (__force __typeof__(*(ptr)))__gu_val;			\
+	(x) = (__force __typeof__(*(ptr)))__gu_val_1;			\
 	__builtin_expect(__gu_err, 0);					\
 })
 
@@ -731,17 +731,17 @@ static __must_check inline bool user_access_begin(const void __user *ptr, size_t
 #define unsafe_put_user(x, ptr, err_label)					\
 do {										\
 	int __pu_err;								\
-	__typeof__(*(ptr)) __pu_val = (x);					\
-	__put_user_size(__pu_val, (ptr), sizeof(*(ptr)), __pu_err, -EFAULT);	\
+	__typeof__(*(ptr)) __pu_val_5 = (x);					\
+	__put_user_size(__pu_val_5, (ptr), sizeof(*(ptr)), __pu_err, -EFAULT);	\
 	if (unlikely(__pu_err)) goto err_label;					\
 } while (0)
 
 #define unsafe_get_user(x, ptr, err_label)					\
 do {										\
 	int __gu_err;								\
-	__inttype(*(ptr)) __gu_val;						\
-	__get_user_size(__gu_val, (ptr), sizeof(*(ptr)), __gu_err, -EFAULT);	\
-	(x) = (__force __typeof__(*(ptr)))__gu_val;				\
+	__inttype(*(ptr)) __gu_val_2;						\
+	__get_user_size(__gu_val_2, (ptr), sizeof(*(ptr)), __gu_err, -EFAULT);	\
+	(x) = (__force __typeof__(*(ptr)))__gu_val_2;				\
 	if (unlikely(__gu_err)) goto err_label;					\
 } while (0)
 
