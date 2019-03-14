@@ -280,11 +280,11 @@ extern void __put_user_8(void);
 
 #define __put_user_size(x, ptr, size, retval, errret)			\
 do {									\
-	__typeof__(*(ptr)) __pu_val_2;					\
+	__typeof__(*(ptr)) __pus_val;					\
 	retval = 0;							\
 	__chk_user_ptr(ptr);						\
-	__pu_val_2 = x;							\
-	kmsan_check_memory(&(__pu_val_2), size);				\
+	__pus_val = x;							\
+	kmsan_check_memory(&(__pus_val), size);				\
 	switch (size) {							\
 	case 1:								\
 		__put_user_asm(x, ptr, retval, "b", "b", "iq", errret);	\
@@ -310,10 +310,10 @@ do {									\
  */
 #define __put_user_size_ex(x, ptr, size)				\
 do {									\
-	__typeof__(*(ptr)) __pu_val_3;					\
+	__typeof__(*(ptr)) __puse_val;					\
 	__chk_user_ptr(ptr);						\
-	__pu_val_3 = x;							\
-	kmsan_check_memory(&(__pu_val_3), size);				\
+	__puse_val = x;							\
+	kmsan_check_memory(&(__puse_val), size);				\
 	switch (size) {							\
 	case 1:								\
 		__put_user_asm_ex(x, ptr, "b", "b", "iq");		\
@@ -447,10 +447,10 @@ do {									\
 
 #define __put_user_nocheck(x, ptr, size)			\
 ({								\
-	__typeof__(*(ptr)) __pu_val_4 = x;			\
+	__typeof__(*(ptr)) __pun_val = x;			\
 	int __pu_err;						\
 	__uaccess_begin();					\
-	kmsan_check_memory(&(__pu_val_4), size);			\
+	kmsan_check_memory(&(__pun_val), size);			\
 	__put_user_size((x), (ptr), (size), __pu_err, -EFAULT);	\
 	__uaccess_end();					\
 	__builtin_expect(__pu_err, 0);				\
@@ -722,7 +722,7 @@ static __must_check inline bool user_access_begin(const void __user *ptr, size_t
 {
 	if (unlikely(!access_ok(ptr,len)))
 		return 0;
-	__uaccess_begin_nospec();
+	__uaccess_begin();
 	return 1;
 }
 #define user_access_begin(a,b)	user_access_begin(a,b)
@@ -731,8 +731,8 @@ static __must_check inline bool user_access_begin(const void __user *ptr, size_t
 #define unsafe_put_user(x, ptr, err_label)					\
 do {										\
 	int __pu_err;								\
-	__typeof__(*(ptr)) __pu_val_5 = (x);					\
-	__put_user_size(__pu_val_5, (ptr), sizeof(*(ptr)), __pu_err, -EFAULT);	\
+	__typeof__(*(ptr)) __pu_val_2 = (x);					\
+	__put_user_size(__pu_val_2, (ptr), sizeof(*(ptr)), __pu_err, -EFAULT);	\
 	if (unlikely(__pu_err)) goto err_label;					\
 } while (0)
 
