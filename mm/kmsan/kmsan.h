@@ -31,6 +31,34 @@ extern spinlock_t report_lock;
 			pr_err(__VA_ARGS__); \
 	} while (0)
 
+#define shadow_page_for(page) \
+	((page)->shadow)
+
+#define shadow_ptr_for(page) \
+	(page_address((page)->shadow))
+
+#define origin_page_for(page) \
+	((page)->origin)
+
+#define origin_ptr_for(page) \
+	(page_address((page)->origin))
+
+#define has_shadow_page(page) \
+	(!!((page)->shadow))
+
+#define has_origin_page(page) \
+	(!!((page)->origin))
+
+#define set_no_shadow_page(page) 	\
+	do {				\
+		(page)->shadow = NULL;	\
+	} while(0) /**/
+
+#define set_no_origin_page(page) 	\
+	do {				\
+		(page)->origin = NULL;	\
+	} while(0) /**/
+
 enum KMSAN_BUG_REASON
 {
 	REASON_ANY = 0,
