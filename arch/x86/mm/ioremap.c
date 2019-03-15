@@ -431,7 +431,8 @@ void iounmap(volatile void __iomem *addr)
 		return;
 	}
 
-	kmsan_iounmap_page_range(addr, addr + get_vm_area_size(p));
+	kmsan_iounmap_page_range((unsigned long)addr,
+		(unsigned long)addr + get_vm_area_size(p));
 	free_memtype(p->phys_addr, p->phys_addr + get_vm_area_size(p));
 
 	/* Finally remove it */
