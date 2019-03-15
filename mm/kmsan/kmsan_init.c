@@ -56,13 +56,13 @@ void __init kmsan_alloc_meta_for_range(u64 start, u64 end)
 	for (addr = 0; addr < size; addr += PAGE_SIZE) {
 		page = virt_to_page_or_null((char*)start + addr);
 		shadow_p = virt_to_page_or_null((char*)shadow + addr);
-		shadow_p->shadow = NULL;
-		shadow_p->origin = NULL;
-		page->shadow = shadow_p;
+		shadow_page_for(shadow_p) = NULL;
+		origin_page_for(shadow_p) = NULL;
+		shadow_page_for(page) = shadow_p;
 		origin_p = virt_to_page_or_null((char*)origin + addr);
-		origin_p->shadow = NULL;
-		origin_p->origin = NULL;
-		page->origin = origin_p;
+		shadow_page_for(origin_p) = NULL;
+		origin_page_for(origin_p) = NULL;
+		origin_page_for(page) = origin_p;
 	}
 }
 
