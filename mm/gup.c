@@ -1859,8 +1859,8 @@ int __get_user_pages_fast(unsigned long start, int nr_pages, int write,
 int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 			struct page **pages)
 {
-	unsigned long addr, len, end, page_addr;
-	int nr = 0, ret = 0, i;
+	unsigned long addr, len, end;
+	int nr = 0, ret = 0;
 
 	start &= PAGE_MASK;
 	addr = start;
