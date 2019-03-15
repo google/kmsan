@@ -142,6 +142,10 @@ extern unsigned int ptrs_per_p4d;
 #ifndef CONFIG_KMSAN
 #define VMALLOC_END		(VMALLOC_START + (VMALLOC_SIZE_TB << 40) - 1)
 #else
+/*
+ * In KMSAN builds vmalloc area is four times smaller, and the remaining 3/4
+ * are used to keep the metadata for virtual pages.
+ */
 #define VMALLOC_QUARTER_SIZE	((VMALLOC_SIZE_TB << 40) >> 2)
 #define VMALLOC_END		(VMALLOC_START + VMALLOC_QUARTER_SIZE - 1)
 #define VMALLOC_SHADOW_OFFSET	VMALLOC_QUARTER_SIZE
