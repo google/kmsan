@@ -536,8 +536,8 @@ void kmsan_prep_pages(struct page *page, unsigned int order)
 	int i;
 
 	for (i = 0; i < 1 << order; i++) {
-		page->shadow = 0;
-		page->origin = 0;
+		shadow_page_for(page) = 0;
+		origin_page_for(page) = 0;
 	}
 }
 EXPORT_SYMBOL(kmsan_prep_pages);
@@ -791,11 +791,11 @@ void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin)
 	if (!page)
 		return NULL;
 next:
-        if (!page->shadow || !page->origin)
+        if (!has_shadow_page(page) || !has_origin_page(page))
 		return NULL;
 	offset = addr % PAGE_SIZE;
 
-	ret = page_address(is_origin ? page->origin : page->shadow) + offset;
+	ret = (is_origin ? origin_ptr_for(page) : shadow_ptr_for(page)) + offset;
 	return ret;
 }
 
@@ -847,7 +847,7 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
 	if (!page)
 		return ret;
 next:
-        if (!page->shadow || !page->origin)
+        if (!has_shadow_page(page) || !has_origin_page(page))
 		return ret;
 	offset = addr % PAGE_SIZE;
 	o_offset = o_addr % PAGE_SIZE;
@@ -861,10 +861,7 @@ next:
 		BUG_ON(!metadata_is_contiguous(addr, size, /*is_origin*/false));
 	}
 
-	shadow = page_address(page->shadow) + offset;
-	ret.s = shadow;
-
-	origin = page_address(page->origin) + o_offset;
-	ret.o = origin;
+	ret.s = shadow_ptr_for(page) + offset;
+	ret.o = origin_ptr_for(page) + o_offset;
 	return ret;
 }
