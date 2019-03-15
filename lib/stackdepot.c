@@ -203,14 +203,13 @@ unsigned int stack_depot_fetch(depot_stack_handle_t handle,
 	struct stack_record *stack;
 
 	if (parts.slabindex > depot_index) {
-		WARN(1, "slab index %d out of bounds (%d) for origin %px\n",
+		WARN(1, "slab index %d out of bounds (%d) for stack id %px\n",
 			parts.slabindex, depot_index, handle);
 		__memset(trace, 0, sizeof(*trace));
 		return;
 	}
 	slab = stack_slabs[parts.slabindex];
 	stack = slab + offset;
-	BUG_ON(!trace);
 	BUG_ON(!stack);
 
 	*entries = stack->entries;
