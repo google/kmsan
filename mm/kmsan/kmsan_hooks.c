@@ -63,8 +63,8 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 
 	if (flags & __GFP_NO_KMSAN_SHADOW) {
 		for (i = 0; i < pages; i++) {
-			page[i].shadow = NULL;
-			page[i].origin = NULL;
+			set_no_shadow_page(&page[i]);
+			set_no_origin_page(&page[i]);
 		}
 		return 0;
 	}
@@ -75,8 +75,8 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 	shadow = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
 	if (!shadow) {
 		for (i = 0; i < pages; i++) {
-			page[i].shadow = NULL;
-			page[i].origin = NULL;
+			set_no_shadow_page(&page[i]);
+			set_no_shadow_page(&page[i]);
 		}
 		return -ENOMEM;
 	}
@@ -88,8 +88,8 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 	if (!origin) {
 		__free_pages(shadow, order);
 		for (i = 0; i < pages; i++) {
-			page[i].shadow = NULL;
-			page[i].origin = NULL;
+			set_no_shadow_page(&page[i]);
+			set_no_origin_page(&page[i]);
 		}
 		return -ENOMEM;
 	}
@@ -104,17 +104,14 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 	}
 
 	for (i = 0; i < pages; i++) {
-		// TODO(glider): sometimes page[i].shadow is initialized. Let's skip the check for now.
-		///if (page[i].shadow) continue;
-		page[i].shadow = &shadow[i];
-		page[i].shadow->shadow = NULL;
-		page[i].shadow->origin = NULL;
-		// TODO(glider): sometimes page[i].origin is initialized. Let's skip the check for now.
-		BUG_ON(page[i].origin && 0);
-		// page.origin is struct page.
-		page[i].origin = &origin[i];
-		page[i].origin->shadow = NULL;
-		page[i].origin->origin = NULL;
+		// TODO(glider): sometimes shadow_page_for(&page[i]) is initialized. Let's skip the check for now.
+		///if (shadow_page_for(&page[i])) continue;
+		shadow_page_for(&page[i]) = &shadow[i];
+		set_no_shadow_page(shadow_page_for(&page[i]));
+		set_no_origin_page(shadow_page_for(&page[i]));
+		origin_page_for(&page[i]) = &origin[i];
+		set_no_shadow_page(origin_page_for(&page[i]));
+		set_no_origin_page(origin_page_for(&page[i]));
 	}
 	return 0;
 }
@@ -256,10 +253,10 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	int i;
 	unsigned long irq_flags;
 
-	if (!page->shadow) {
+	if (!shadow_page_for(page)) {
 		for (i = 0; i < pages; i++) {
 			cur_page = &page[i];
-			BUG_ON(cur_page->shadow);
+			BUG_ON(shadow_page_for(cur_page));
 		}
 		return;
 	}
@@ -267,8 +264,8 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	if (!kmsan_ready) {
 		for (i = 0; i < pages; i++) {
 			cur_page = &page[i];
-			cur_page->shadow = NULL;
-			cur_page->origin = NULL;
+			shadow_page_for(cur_page) = NULL;
+			origin_page_for(cur_page) = NULL;
 		}
 		return;
 	}
@@ -281,17 +278,17 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	}
 
 	ENTER_RUNTIME(irq_flags);
-	if (!page[0].shadow) {
+	if (!has_shadow_page(&page[0])) {
 		/* TODO(glider): can we free a page without a shadow?
 		 * Maybe if it was allocated at boot time?
 		 * Anyway, all shadow pages must be NULL then.
 		 */
 		for (i = 0; i < pages; i++)
-			if (page[i].shadow) {
+			if (has_shadow_page(&page[i])) {
 				current->kmsan.is_reporting = true;
 				for (i = 0; i < pages; i++)
-					kmsan_pr_err("page[%d].shadow=%px\n",
-							i, page[i].shadow);
+					kmsan_pr_err("shadow_page_for(&page[%d])=%px\n",
+							i, shadow_page_for(&page[i]));
 				current->kmsan.is_reporting = false;
 				break;
 			}
@@ -299,20 +296,20 @@ void kmsan_free_page(struct page *page, unsigned int order)
 		return;
 	}
 
-	shadow = page[0].shadow;
-	origin = page[0].origin;
+	shadow = shadow_page_for(&page[0]);
+	origin = origin_page_for(&page[0]);
 
 	/* TODO(glider): this is racy. */
 	for (i = 0; i < pages; i++) {
-		BUG_ON((page[i].shadow->shadow));
-		page[i].shadow = NULL;
-		BUG_ON(page[i].origin->shadow);
-		page[i].origin = NULL;
+		BUG_ON(has_shadow_page(shadow_page_for(&page[i])));
+		set_no_shadow_page(&page[i]);
+		BUG_ON(has_shadow_page(origin_page_for(&page[i])));
+		set_no_origin_page(&page[i]);
 	}
-	BUG_ON(shadow->shadow);
+	BUG_ON(has_shadow_page(shadow));
 	__free_pages(shadow, order);
 
-	BUG_ON(origin->shadow);
+	BUG_ON(has_shadow_page(origin));
 	__free_pages(origin, order);
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -328,15 +325,15 @@ void kmsan_split_page(struct page *page, unsigned int order)
 		return;
 
 	ENTER_RUNTIME(irq_flags);
-	if (!page[0].shadow) {
-		BUG_ON(page[0].origin);
+	if (!has_shadow_page(&page[0])) {
+		BUG_ON(has_origin_page(&page[0]));
 		LEAVE_RUNTIME(irq_flags);
 		return;
 	}
-	shadow = page[0].shadow;
+	shadow = shadow_page_for(&page[0]);
 	split_page(shadow, order);
 
-	origin = page[0].origin;
+	origin = origin_page_for(&page[0]);
 	split_page(origin, order);
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -360,8 +357,8 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 	if (!s_pages || !o_pages)
 		goto ret;
 	for (i = 0; i < nr; i++) {
-		s_pages[i] = pages[i]->shadow;
-		o_pages[i] = pages[i]->origin;
+		s_pages[i] = shadow_page_for(pages[i]);
+		o_pages[i] = origin_page_for(pages[i]);
 	}
 	ENTER_RUNTIME(irq_flags);
 	__vmap_page_range_noflush(start + VMALLOC_SHADOW_OFFSET, end + VMALLOC_SHADOW_OFFSET, prot, s_pages);
@@ -446,28 +443,21 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	if (!src->shadow) {
+	if (!has_shadow_page(src)) {
 		/* TODO(glider): are we leaking pages here? */
-		dst->shadow = 0;
-		dst->origin = 0;
+		set_no_shadow_page(dst);
+		set_no_origin_page(dst);
 		return;
 	}
-	if (!dst->shadow)
+	if (!has_shadow_page(dst))
 		return;
 
 	ENTER_RUNTIME(irq_flags);
-	if (!src->shadow || !dst->shadow) {
-		kmsan_pr_err("Copying %px (page %px, shadow %px) "
-				"to %px (page %px, shadow %px)\n",
-				page_address(src), src, src->shadow,
-				page_address(dst), dst, dst->shadow);
-		BUG();
-	}
-	__memcpy(page_address(dst->shadow), page_address(src->shadow),
-		 PAGE_SIZE);
-	BUG_ON(!src->origin || !dst->origin);
-	__memcpy(page_address(dst->origin), page_address(src->origin),
-		 PAGE_SIZE);
+	__memcpy(shadow_ptr_for(dst), shadow_ptr_for(src),
+		PAGE_SIZE);
+	BUG_ON(!has_origin_page(src) || !has_origin_page(dst));
+	__memcpy(origin_ptr_for(dst), origin_ptr_for(src),
+		PAGE_SIZE);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_copy_page_meta);
@@ -519,11 +509,11 @@ void kmsan_clear_page(void *page_addr)
 	page = vmalloc_to_page_or_null(page_addr);
 	if (!page)
 		page = virt_to_page_or_null(page_addr);
-	if (!page || !page->shadow)
+	if (!page || !has_shadow_page(page))
 		return;
-	__memset(page_address(page->shadow), 0, PAGE_SIZE);
-	BUG_ON(!page->origin);
-	__memset(page_address(page->origin), 0, PAGE_SIZE);
+	__memset(shadow_ptr_for(page), 0, PAGE_SIZE);
+	BUG_ON(!has_origin_page(page));
+	__memset(origin_ptr_for(page), 0, PAGE_SIZE);
 }
 EXPORT_SYMBOL(kmsan_clear_page);
 
