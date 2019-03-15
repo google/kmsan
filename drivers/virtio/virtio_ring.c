@@ -395,7 +395,8 @@ static void vring_unmap_one_split(const struct vring_virtqueue *vq,
 	 * memory to be unpoisoned.
 	 */
 	if (flags & VRING_DESC_F_WRITE)
-		kmsan_unpoison_shadow(desc->addr, desc->len);
+		kmsan_unpoison_shadow((const volatile void *)desc->addr,
+			desc->len);
 }
 
 static struct vring_desc *alloc_indirect_split(struct virtqueue *_vq,
