@@ -131,18 +131,18 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 		return result;
 
 	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = kmsan_get_metadata_or_null((u64)dst, n, /*is_origin*/false);
+	shadow_dst = kmsan_get_metadata_or_null(dst, n, /*is_origin*/false);
 	if (!shadow_dst)
 		/* Can happen e.g. if the memory is untracked. */
 		return result;
 
-	kmsan_memcpy_metadata(dst, src, n);
+	kmsan_memcpy_metadata(dst, (void *)src, n);
 
 	return result;
 }
 EXPORT_SYMBOL(__msan_memcpy);
 
-void *__msan_memcpy_nosanitize(void *dst, const void *src, u64 n)
+void *__msan_memcpy_nosanitize(void *dst, void *src, u64 n)
 {
 	return __memcpy(dst, src, n);
 }
@@ -204,7 +204,7 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 EXPORT_SYMBOL(__msan_chain_origin);
 
 inline
-void kmsan_write_aligned_origin_inline(const void *var, size_t size, u32 origin)
+void kmsan_write_aligned_origin_inline(void *var, size_t size, u32 origin)
 {
 	u32 *var_cast = (u32 *)var;
 	int i;
