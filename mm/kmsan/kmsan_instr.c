@@ -242,10 +242,9 @@ inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
 	}
 }
 
-void __msan_poison_alloca(u64 address, u64 size, char *descr)
+void __msan_poison_alloca(void *address, u64 size, char *descr)
 {
 	depot_stack_handle_t handle;
-	BUG_ON(size > PAGE_SIZE * 4);
 	unsigned long entries[4];
 	struct stack_trace trace = {
 		.nr_entries = 4,
@@ -255,7 +254,7 @@ void __msan_poison_alloca(u64 address, u64 size, char *descr)
 	};
 	unsigned long irq_flags;
 	u64 size_copy = size, to_fill;
-	u64 addr_copy = address;
+	u64 addr_copy = (u64)address;
 	u64 page_offset;
 	void *shadow_start;
 
