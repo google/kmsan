@@ -215,10 +215,10 @@ void kmsan_write_aligned_origin_inline(const void *var, size_t size, u32 origin)
 		var_cast[i] = origin;
 }
 
-inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
+inline void kmsan_set_origin_inline(void *addr, int size, u32 origin)
 {
 	void *origin_start;
-	u64 page_offset;
+	u64 address = addr, page_offset;
 	size_t to_fill, pad = 0;
 
 	if (!IS_ALIGNED(address, ORIGIN_SIZE)) {
@@ -232,7 +232,7 @@ inline void kmsan_set_origin_inline(u64 address, int size, u32 origin)
 		to_fill = min(PAGE_SIZE - page_offset, size);
 		to_fill = ALIGN(to_fill, ORIGIN_SIZE);	/* write at least ORIGIN_SIZE bytes */
 		BUG_ON(!to_fill);
-		origin_start = kmsan_get_metadata_or_null(address, to_fill, /*is_origin*/true);
+		origin_start = kmsan_get_metadata_or_null((void *)address, to_fill, /*is_origin*/true);
 		if (!origin_start)
 			/* Can happen e.g. if the memory is untracked. */
 			continue;
