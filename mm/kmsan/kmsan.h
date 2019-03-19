@@ -103,7 +103,7 @@ DECLARE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 		local_irq_restore(irq_flags);	\
 		preempt_enable(); } while(0)
 
-void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin);
+void *kmsan_get_metadata_or_null(void *addr, size_t size, bool is_origin);
 
 void kmsan_memcpy_metadata(u64 dst, u64 src, size_t n);
 void kmsan_memmove_metadata(u64 dst, u64 src, size_t n);
@@ -124,15 +124,15 @@ extern depot_stack_handle_t kmsan_dummy_retval_origin_tls;
 
 inline depot_stack_handle_t kmsan_save_stack(void);
 inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags);
-void kmsan_internal_poison_shadow(const volatile void *address, size_t size, gfp_t flags, bool checked);
-void kmsan_internal_unpoison_shadow(const volatile void *address, size_t size, bool checked);
-void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool checked);
+void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, bool checked);
+void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);
+void kmsan_internal_memset_shadow(void *address, int b, size_t size, bool checked);
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
 
 void do_kmsan_task_create(struct task_struct *task);
-void kmsan_set_origin(u64 address, int size, u32 origin, bool checked);
+void kmsan_set_origin(void *address, int size, u32 origin, bool checked);
 inline void kmsan_report(depot_stack_handle_t origin,
-			u64 address, int size,
+			void *address, int size,
 			int off_first, int off_last, u64 user_addr, bool deep, int reason);
 
 int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
@@ -140,14 +140,14 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 
 kmsan_context_state *task_kmsan_context_state(void);
 
-bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin);
+bool metadata_is_contiguous(void *addr, size_t size, bool is_origin);
 int order_from_size(unsigned long size);
-void kmsan_internal_check_memory(const volatile void *addr, size_t size, const void *user_addr, int reason);
+void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr, int reason);
 
-struct page *vmalloc_to_page_or_null(const void *vaddr);
-struct page *virt_to_page_or_null(const void *vaddr);
-void *get_cea_shadow_or_null(const void *addr);
-void *get_cea_origin_or_null(const void *addr);
+struct page *vmalloc_to_page_or_null(void *vaddr);
+struct page *virt_to_page_or_null(void *vaddr);
+void *get_cea_shadow_or_null(void *addr);
+void *get_cea_origin_or_null(void *addr);
 
 /* Declared in mm/vmalloc.c */
 void __vunmap_page_range(unsigned long addr, unsigned long end);
@@ -214,9 +214,9 @@ static inline bool my_virt_addr_valid(unsigned long x)
 	return pfn_valid(x >> PAGE_SHIFT);
 }
 
-static inline bool is_cpu_entry_area_addr(u64 addr)
+static inline bool is_cpu_entry_area_addr(void *addr)
 {
-	return (addr >= CPU_ENTRY_AREA_BASE) && (addr < CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE);
+	return ((u64)addr >= CPU_ENTRY_AREA_BASE) && ((u64)addr < (CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE));
 }
 
 #endif

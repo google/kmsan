@@ -14,7 +14,7 @@
 #include <linux/gfp.h>
 #include <linux/mm.h>
 
-bool is_bad_asm_addr(u64 addr, u64 size, bool is_store)
+bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
 {
 	if ((u64)addr < TASK_SIZE) {
 		return true;
@@ -172,9 +172,9 @@ void *__msan_memset(void *dst, int c, size_t n)
 	 *   new_origin = kmsan_internal_chain_origin(origin, true);
 	 */
 	shadow = 0;
-	kmsan_internal_memset_shadow((u64)dst, shadow, n, /*checked*/false);
+	kmsan_internal_memset_shadow(dst, shadow, n, /*checked*/false);
 	new_origin = 0;
-	kmsan_set_origin((u64)dst, n, new_origin, /*checked*/false);
+	kmsan_set_origin(dst, n, new_origin, /*checked*/false);
 	LEAVE_RUNTIME(irq_flags);
 
 	return result;
