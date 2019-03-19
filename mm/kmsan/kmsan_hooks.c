@@ -224,7 +224,7 @@ void kmsan_kfree_large(const void *ptr)
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
-	page = virt_to_page_or_null(ptr);
+	page = virt_to_page_or_null((void *)ptr);
 	kmsan_internal_poison_shadow(
 		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL, /*checked*/true);
 	LEAVE_RUNTIME(irq_flags);
@@ -483,7 +483,7 @@ void kmsan_copy_to_user(const void *to, const void *from,
 		return;
 	if ((u64)to < TASK_SIZE) {
 		/* This is a user memory access, check it. */
-		kmsan_internal_check_memory(from, to_copy - left, to,
+		kmsan_internal_check_memory((void *)from, to_copy - left, to,
 						REASON_COPY_TO_USER);
 		return;
 	}
@@ -525,7 +525,7 @@ void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
 		return;
 	ENTER_RUNTIME(irq_flags);
 	// The users may want to poison/unpoison random memory.
-	kmsan_internal_poison_shadow(address, size, flags, /*checked*/true);
+	kmsan_internal_poison_shadow((void *)address, size, flags, /*checked*/true);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_poison_shadow);
@@ -539,7 +539,7 @@ void kmsan_unpoison_shadow(const volatile void *address, size_t size)
 
 	ENTER_RUNTIME(irq_flags);
 	// The users may want to poison/unpoison random memory.
-	kmsan_internal_unpoison_shadow(address, size, /*checked*/false);
+	kmsan_internal_unpoison_shadow((void *)address, size, /*checked*/false);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);
