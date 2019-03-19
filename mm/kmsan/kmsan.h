@@ -69,7 +69,7 @@ typedef struct {
 	void* s;
 	void* o;
 } shadow_origin_ptr_t;
-shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store);
+shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *addr, u64 size, bool store);
 
 /*
  * When a compiler hook is invoked, it may make a call to instrumented code
