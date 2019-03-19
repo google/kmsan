@@ -800,12 +800,12 @@ next:
 }
 
 noinline
-shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(u64 addr, u64 size, bool store)
+shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool store)
 {
 	shadow_origin_ptr_t ret;
 	struct page *page;
 	u64 pad, offset, o_offset;
-	u64 o_addr = addr;
+	u64 addr = address, o_addr = address;
 	void *shadow, *origin;
 
 	if (size > PAGE_SIZE) {
