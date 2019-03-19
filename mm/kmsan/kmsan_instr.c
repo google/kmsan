@@ -16,7 +16,7 @@
 
 bool is_bad_asm_addr(u64 addr, u64 size, bool is_store)
 {
-	if (addr < TASK_SIZE) {
+	if ((u64)addr < TASK_SIZE) {
 		return true;
 	}
 	if (!kmsan_get_metadata_or_null(addr, size, /*is_origin*/false))
@@ -24,26 +24,26 @@ bool is_bad_asm_addr(u64 addr, u64 size, bool is_store)
 	return false;
 }
 
-shadow_origin_ptr_t __msan_metadata_ptr_for_load_n(u64 addr, u64 size)
+shadow_origin_ptr_t __msan_metadata_ptr_for_load_n(void *addr, u64 size)
 {
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_load_n);
 
-shadow_origin_ptr_t __msan_metadata_ptr_for_store_n(u64 addr, u64 size)
+shadow_origin_ptr_t __msan_metadata_ptr_for_store_n(void *addr, u64 size)
 {
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
 
 #define DECLARE_METADATA_PTR_GETTER(size)	\
-shadow_origin_ptr_t __msan_metadata_ptr_for_load_##size(u64 addr)	\
+shadow_origin_ptr_t __msan_metadata_ptr_for_load_##size(void *addr)	\
 {		\
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);	\
 }		\
 EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);			\
 		\
-shadow_origin_ptr_t __msan_metadata_ptr_for_store_##size(u64 addr)	\
+shadow_origin_ptr_t __msan_metadata_ptr_for_store_##size(void *addr)	\
 {									\
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);	\
 }									\
@@ -54,7 +54,7 @@ DECLARE_METADATA_PTR_GETTER(2);
 DECLARE_METADATA_PTR_GETTER(4);
 DECLARE_METADATA_PTR_GETTER(8);
 
-void __msan_instrument_asm_load(u64 addr, u64 size)
+void __msan_instrument_asm_load(void *addr, u64 size)
 {
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
@@ -68,7 +68,7 @@ void __msan_instrument_asm_load(u64 addr, u64 size)
 }
 EXPORT_SYMBOL(__msan_instrument_asm_load);
 
-void __msan_instrument_asm_store(u64 addr, u64 size)
+void __msan_instrument_asm_store(void *addr, u64 size)
 {
 	unsigned long irq_flags;
 
@@ -99,7 +99,7 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 		return result;
 
 	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = (void*)kmsan_get_metadata_or_null((u64)dst, n, /*is_origin*/false);
+	shadow_dst = kmsan_get_metadata_or_null((u64)dst, n, /*is_origin*/false);
 
 	if (!shadow_dst)
 		/* Can happen e.g. if the memory is untracked. */
@@ -276,8 +276,8 @@ void __msan_poison_alloca(u64 address, u64 size, char *descr)
 
 	entries[0] = KMSAN_ALLOCA_MAGIC_ORIGIN;
 	entries[1] = (u64)descr;
-	entries[2] = __builtin_return_address(0);
-	entries[3] = kmsan_internal_return_address(1);
+	entries[2] = (u64)__builtin_return_address(0);
+	entries[3] = (u64)kmsan_internal_return_address(1);
 
 	/* depot_save_stack() may allocate memory. */
 	ENTER_RUNTIME(irq_flags);
@@ -303,7 +303,6 @@ EXPORT_SYMBOL(__msan_unpoison_alloca);
 
 void __msan_warning(u32 origin)
 {
-	void *caller;
 	unsigned long irq_flags;
 
 	if (!kmsan_ready || IN_RUNTIME())
