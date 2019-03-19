@@ -564,7 +564,7 @@ DEFINE_SPINLOCK(report_lock);
  * TODO(glider): |deep| is a dirty hack to skip an additional frame when
  * calling kmsan_report() from kmsan_copy_to_user().
  */
-inline void kmsan_report(void *caller, depot_stack_handle_t origin,
+inline void kmsan_report(depot_stack_handle_t origin,
 			u64 address, int size, int off_first, int off_last, u64 user_addr, bool deep, int reason)
 {
 	unsigned long flags;
@@ -646,7 +646,7 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 			 */
 			if (cur_origin) {
 				ENTER_RUNTIME(irq_flags);
-				kmsan_report(_THIS_IP_, cur_origin, addr, size, cur_off_start, pos - 1, user_addr, /*deep*/true, reason);
+				kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1, user_addr, /*deep*/true, reason);
 				LEAVE_RUNTIME(irq_flags);
 			}
 			cur_origin = 0;
@@ -662,7 +662,7 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 				 */
 				if (cur_origin) {
 					ENTER_RUNTIME(irq_flags);
-					kmsan_report(_THIS_IP_, cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, /*deep*/true, reason);
+					kmsan_report(cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, /*deep*/true, reason);
 					LEAVE_RUNTIME(irq_flags);
 				}
 				cur_origin = 0;
@@ -679,7 +679,7 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 			if (cur_origin != new_origin) {
 				if (cur_origin) {
 					ENTER_RUNTIME(irq_flags);
-					kmsan_report(_THIS_IP_, cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, /*deep*/true, reason);
+					kmsan_report(cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, /*deep*/true, reason);
 					LEAVE_RUNTIME(irq_flags);
 				}
 				cur_origin = new_origin;
@@ -691,7 +691,7 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 	BUG_ON(pos != size);
 	if (cur_origin) {
 		ENTER_RUNTIME(irq_flags);
-		kmsan_report(_THIS_IP_, cur_origin, addr, size, cur_off_start, pos - 1, user_addr, /*deep*/true, reason);
+		kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1, user_addr, /*deep*/true, reason);
 		LEAVE_RUNTIME(irq_flags);
 	}
 }
