@@ -309,9 +309,9 @@ void __msan_warning(u32 origin)
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
-	caller = __builtin_return_address(0);
-	kmsan_report(caller, origin, /*address*/0, /*size*/0,
-			/*off_first*/0, /*off_last*/0, /*user_addr*/0, /*deep*/false, REASON_ANY);
+	kmsan_report(origin, /*address*/0, /*size*/0,
+		/*off_first*/0, /*off_last*/0, /*user_addr*/0, /*deep*/false,
+		REASON_ANY);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(__msan_warning);
