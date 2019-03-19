@@ -124,10 +124,10 @@ void inline do_kmsan_task_create(struct task_struct *task)
 	state->is_reporting = false;
 }
 
-inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool checked)
+inline void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
 {
 	void *shadow_start;
-	u64 page_offset;
+	u64 page_offset, address = (u64)addr;
 	size_t to_fill;
 
 	BUG_ON(!metadata_is_contiguous(address, size, /*is_origin*/false));
@@ -151,20 +151,20 @@ inline void kmsan_internal_memset_shadow(u64 address, int b, size_t size, bool c
 	}
 }
 
-void kmsan_internal_poison_shadow(const volatile void *address, size_t size,
+void kmsan_internal_poison_shadow(void *address, size_t size,
 				gfp_t flags, bool checked)
 {
 	depot_stack_handle_t handle;
 	kmsan_internal_memset_shadow((u64)address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags);
-	kmsan_set_origin((u64)address, size, handle, checked);
+	kmsan_set_origin(address, size, handle, checked);
 }
 
 
-void kmsan_internal_unpoison_shadow(const volatile void *address, size_t size, bool checked)
+void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked)
 {
 	kmsan_internal_memset_shadow((u64)address, 0, size, checked);
-	kmsan_set_origin((u64)address, size, 0, checked);
+	kmsan_set_origin(address, size, 0, checked);
 }
 
 static inline int in_irqentry_text(unsigned long ptr)
@@ -234,7 +234,7 @@ inline depot_stack_handle_t kmsan_save_stack()
  *   with the shadow.
  */
 inline
-void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
+void kmsan_memcpy_memmove_metadata(void *dst, u64 src, size_t n, bool is_memmove)
 {
 	void *shadow_src, *shadow_dst;
 	depot_stack_handle_t *origin_src, *origin_dst;
@@ -266,8 +266,8 @@ void kmsan_memcpy_memmove_metadata(u64 dst, u64 src, size_t n, bool is_memmove)
 	BUG_ON(!origin_dst || !origin_src);
 	BUG_ON(!metadata_is_contiguous(dst, n, /*is_origin*/true));
 	BUG_ON(!metadata_is_contiguous(src, n, /*is_origin*/true));
-	src_slots = (ALIGN(src + n, ORIGIN_SIZE) - ALIGN_DOWN(src, ORIGIN_SIZE)) / ORIGIN_SIZE;
-	dst_slots = (ALIGN(dst + n, ORIGIN_SIZE) - ALIGN_DOWN(dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
+	src_slots = (ALIGN((u64)src + n, ORIGIN_SIZE) - ALIGN_DOWN((u64)src, ORIGIN_SIZE)) / ORIGIN_SIZE;
+	dst_slots = (ALIGN((u64)dst + n, ORIGIN_SIZE) - ALIGN_DOWN((u64)dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
 	BUG_ON(!src_slots || !dst_slots);
 	BUG_ON((src_slots < 1) || (dst_slots < 1));
 	BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
@@ -430,7 +430,7 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 }
 
 inline
-void kmsan_write_aligned_origin(const void *var, size_t size, u32 origin)
+void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
 {
 	u32 *var_cast = (u32 *)var;
 	int i;
@@ -445,10 +445,10 @@ void kmsan_write_aligned_origin(const void *var, size_t size, u32 origin)
  * TODO(glider): writing an initialized byte shouldn't zero out the origin, if
  * the remaining three bytes are uninitialized.
  */
-void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
+void kmsan_set_origin(void *addr, int size, u32 origin, bool checked)
 {
 	void *origin_start;
-	u64 page_offset;
+	u64 address = (u64)addr, page_offset;
 	size_t to_fill, pad = 0;
 
 	if (!IS_ALIGNED(address, ORIGIN_SIZE)) {
@@ -478,12 +478,12 @@ void kmsan_set_origin(u64 address, int size, u32 origin, bool checked)
 	}
 }
 
-static bool is_module_addr(const void *vaddr)
+static bool is_module_addr(void *vaddr)
 {
 	return (vaddr >= MODULES_VADDR) && (vaddr < MODULES_END);
 }
 
-void *get_cea_shadow_or_null(const void *addr)
+void *get_cea_shadow_or_null(void *addr)
 {
 	int cpu = smp_processor_id();
 	int off;
@@ -496,7 +496,7 @@ void *get_cea_shadow_or_null(const void *addr)
 	return &per_cpu(cpu_entry_area_shadow[off], cpu);
 }
 
-void *get_cea_origin_or_null(const void *addr)
+void *get_cea_origin_or_null(void *addr)
 {
 	int cpu = smp_processor_id();
 	int off;
@@ -509,7 +509,7 @@ void *get_cea_origin_or_null(const void *addr)
 	return &per_cpu(cpu_entry_area_origin[off], cpu);
 }
 
-struct page *vmalloc_to_page_or_null(const void *vaddr)
+struct page *vmalloc_to_page_or_null(void *vaddr)
 {
 	struct page *page;
 
@@ -522,7 +522,7 @@ struct page *vmalloc_to_page_or_null(const void *vaddr)
 		return NULL;
 }
 
-struct page *virt_to_page_or_null(const void *vaddr)
+struct page *virt_to_page_or_null(void *vaddr)
 {
 	if (my_virt_addr_valid(vaddr))
 		return virt_to_page(vaddr);
@@ -565,7 +565,7 @@ DEFINE_SPINLOCK(report_lock);
  * calling kmsan_report() from kmsan_copy_to_user().
  */
 inline void kmsan_report(depot_stack_handle_t origin,
-			u64 address, int size, int off_first, int off_last, u64 user_addr, bool deep, int reason)
+			void *address, int size, int off_first, int off_last, u64 user_addr, bool deep, int reason)
 {
 	unsigned long flags;
 	struct stack_trace trace;
@@ -622,7 +622,7 @@ inline void kmsan_report(depot_stack_handle_t origin,
 	current->kmsan.allow_reporting = true;
 }
 
-void kmsan_internal_check_memory(const volatile void *addr, size_t size, const void *user_addr, int reason)
+void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr, int reason)
 {
 	unsigned long irq_flags;
 	u64 addr64 = (u64)addr;
@@ -698,7 +698,7 @@ void kmsan_internal_check_memory(const volatile void *addr, size_t size, const v
 
 void kmsan_check_memory(const volatile void *addr, size_t size)
 {
-	return kmsan_internal_check_memory(addr, size, /*user_addr*/ 0, REASON_ANY);
+	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0, REASON_ANY);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
 
@@ -707,17 +707,16 @@ EXPORT_SYMBOL(kmsan_check_memory);
  * they're always accessed after the shadow pages.
  * TODO(glider): call this check kmsan_get_metadata_or_null().
  */
-bool metadata_is_contiguous(u64 addr, size_t size, bool is_origin) {
-	u64 cur_addr, next_addr;
+bool metadata_is_contiguous(void *addr, size_t size, bool is_origin) {
+	u64 cur_addr = (u64)addr, next_addr;
 	char *cur_meta = NULL, *next_meta = NULL;
 	depot_stack_handle_t *origin_p;
 	bool all_untracked = false;
 	const char *fname = is_origin ? "origin" : "shadow";
 
 	/* The whole range belongs to the same page. */
-	if (ALIGN_DOWN(addr + size, PAGE_SIZE) == ALIGN_DOWN(addr, PAGE_SIZE))
+	if (ALIGN_DOWN(cur_addr + size, PAGE_SIZE) == ALIGN_DOWN(cur_addr, PAGE_SIZE))
 		return true;
-	cur_addr = addr;
 	cur_meta = kmsan_get_metadata_or_null(cur_addr, 1, is_origin);
 	if (!cur_meta)
 		all_untracked = true;
@@ -761,11 +760,11 @@ report:
  * runtime or not.
  */
 __always_inline
-void *kmsan_get_metadata_or_null(u64 addr, size_t size, bool is_origin)
+void *kmsan_get_metadata_or_null(void *address, size_t size, bool is_origin)
 {
 	struct page *page;
 	void *ret;
-	u64 pad, offset;
+	u64 addr = address, pad, offset;
 
 	if (is_origin && !IS_ALIGNED(addr, ORIGIN_SIZE)) {
 		pad = addr % ORIGIN_SIZE;
