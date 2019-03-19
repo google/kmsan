@@ -18,7 +18,7 @@
 
 #define NUM_FUTURE_RANGES 128
 struct start_end_pair {
-	u64 start, end;
+	void *start, *end;
 };
 
 static __initdata struct start_end_pair start_end_pairs[NUM_FUTURE_RANGES];
@@ -30,7 +30,7 @@ static __initdata bool ranges_processed = false;
  * the page allocator becomes available.
  * TODO(glider): squash together ranges belonging to the same page.
  */
-static void __init kmsan_record_future_shadow_range(u64 start, u64 end)
+static void __init kmsan_record_future_shadow_range(void *start, void *end)
 {
 	BUG_ON(future_index == NUM_FUTURE_RANGES);
 	BUG_ON(ranges_processed);
@@ -42,15 +42,15 @@ static void __init kmsan_record_future_shadow_range(u64 start, u64 end)
 
 extern char _sdata[], _edata[];
 
-void __init kmsan_alloc_meta_for_range(u64 start, u64 end)
+void __init kmsan_alloc_meta_for_range(void *start, void *end)
 {
-	u64 addr;
+	u64 addr, size;
 	struct page *page;
-	start = ALIGN_DOWN(start, PAGE_SIZE);
-	u64 size = ALIGN(end - start, PAGE_SIZE);
 	void *shadow, *origin;
 	struct page *shadow_p, *origin_p;
 
+	start = (void *)ALIGN_DOWN((u64)start, PAGE_SIZE);
+	size = ALIGN((u64)end - (u64)start, PAGE_SIZE);
 	shadow = memblock_alloc(size, PAGE_SIZE);
 	origin = memblock_alloc(size, PAGE_SIZE);
 	for (addr = 0; addr < size; addr += PAGE_SIZE) {
@@ -102,8 +102,8 @@ void __init kmsan_initialize_shadow(void)
 	 * sizeof(pg_data_t).
 	 */
 	for_each_online_node(nid)
-		kmsan_record_future_shadow_range((u64)NODE_DATA(nid),
-						(u64)NODE_DATA(nid) + nd_size);
+		kmsan_record_future_shadow_range(NODE_DATA(nid),
+						(char *)NODE_DATA(nid) + nd_size);
 	process_future_ranges();
 }
 EXPORT_SYMBOL(kmsan_initialize_shadow);
