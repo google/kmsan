@@ -131,7 +131,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
 
 void do_kmsan_task_create(struct task_struct *task);
 void kmsan_set_origin(u64 address, int size, u32 origin, bool checked);
-inline void kmsan_report(void *caller, depot_stack_handle_t origin,
+inline void kmsan_report(depot_stack_handle_t origin,
 			u64 address, int size,
 			int off_first, int off_last, u64 user_addr, bool deep, int reason);
 
