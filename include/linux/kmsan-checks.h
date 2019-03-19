@@ -45,16 +45,20 @@ static inline unsigned long KMSAN_INIT_8(unsigned long value) {
 		typeof(val) __ret;	\
 		switch (sizeof(val)) {	\
 		case 1:						\
-			__ret = (typeof(val))KMSAN_INIT_1(val);	\
+			*(unsigned char *)&__ret = KMSAN_INIT_1(	\
+					(unsigned char)val);	\
 			break;					\
 		case 2:						\
-			__ret = (typeof(val))KMSAN_INIT_2(val);	\
+			*(unsigned short *)&__ret = KMSAN_INIT_2(	\
+					(unsigned short)val);	\
 			break;					\
 		case 4:						\
-			__ret = (typeof(val))KMSAN_INIT_4(val);	\
+			*(unsigned int *)&__ret = KMSAN_INIT_4(	\
+					(unsigned int)val);	\
 			break;					\
 		case 8:						\
-			__ret = (typeof(val))KMSAN_INIT_8(val);	\
+			*(unsigned long *)&__ret = KMSAN_INIT_8(	\
+					(unsigned long)val);	\
 			break;					\
 		default:					\
 			BUG();					\
