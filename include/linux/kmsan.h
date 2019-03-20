@@ -54,7 +54,6 @@ extern kmsan_context_state kmsan_dummy_state;
 void kmsan_task_create(struct task_struct *task);
 void kmsan_task_exit(struct task_struct *task);
 void kmsan_alloc_shadow_for_region(void *start, size_t size);
-void kmsan_prep_pages(struct page *page, unsigned int order);
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
 void kmsan_gup_pgd_range(struct page **pages, int nr);
 void kmsan_free_page(struct page *page, unsigned int order);
@@ -95,7 +94,6 @@ static inline void __init kmsan_initialize(void) { }
 static inline void kmsan_task_create(struct task_struct *task) {}
 static inline void kmsan_task_exit(struct task_struct *task) {}
 static inline void kmsan_alloc_shadow_for_region(void *start, size_t size) {}
-static inline void kmsan_prep_pages(struct page *page, unsigned int order) {}
 static inline int kmsan_alloc_page(
 	struct page *page, unsigned int order, gfp_t flags)
 {
