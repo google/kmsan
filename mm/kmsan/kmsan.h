@@ -105,8 +105,8 @@ DECLARE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 
 void *kmsan_get_metadata_or_null(void *addr, size_t size, bool is_origin);
 
-void kmsan_memcpy_metadata(u64 dst, u64 src, size_t n);
-void kmsan_memmove_metadata(u64 dst, u64 src, size_t n);
+void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
+void kmsan_memmove_metadata(void *dst, void *src, size_t n);
 
 extern char dummy_shadow_load_page[PAGE_SIZE];
 extern char dummy_origin_load_page[PAGE_SIZE];
@@ -133,7 +133,8 @@ void do_kmsan_task_create(struct task_struct *task);
 void kmsan_set_origin(void *address, int size, u32 origin, bool checked);
 inline void kmsan_report(depot_stack_handle_t origin,
 			void *address, int size,
-			int off_first, int off_last, u64 user_addr, bool deep, int reason);
+			int off_first, int off_last,
+			const void *user_addr, bool deep, int reason);
 
 int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 				unsigned int actual_size, gfp_t flags, int node);
@@ -180,39 +181,6 @@ static inline void *kmsan_internal_return_address(int arg)
 #endif
 }
 
-// Taken from arch/x86/mm/physaddr.h
-// TODO(glider): do we need it?
-static inline int my_phys_addr_valid(resource_size_t addr)
-{
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-	return !(addr >> boot_cpu_data.x86_phys_bits);
-#else
-	return 1;
-#endif
-}
-
-// Taken from arch/x86/mm/physaddr.c
-// TODO(glider): do we need it?
-static inline bool my_virt_addr_valid(unsigned long x)
-{
-	unsigned long y = x - __START_KERNEL_map;
-
-	/* use the carry flag to determine if x was < __START_KERNEL_map */
-	if (unlikely(x > y)) {
-		x = y + phys_base;
-
-		if (y >= KERNEL_IMAGE_SIZE)
-			return false;
-	} else {
-		x = y + (__START_KERNEL_map - PAGE_OFFSET);
-
-		/* carry flag will be set if starting x was >= PAGE_OFFSET */
-		if ((x > y) || !my_phys_addr_valid(x))
-			return false;
-	}
-
-	return pfn_valid(x >> PAGE_SHIFT);
-}
 
 static inline bool is_cpu_entry_area_addr(void *addr)
 {

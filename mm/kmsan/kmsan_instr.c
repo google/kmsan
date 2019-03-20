@@ -99,7 +99,7 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 		return result;
 
 	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = kmsan_get_metadata_or_null((u64)dst, n, /*is_origin*/false);
+	shadow_dst = kmsan_get_metadata_or_null(dst, n, /*is_origin*/false);
 
 	if (!shadow_dst)
 		/* Can happen e.g. if the memory is untracked. */
@@ -218,7 +218,7 @@ void kmsan_write_aligned_origin_inline(void *var, size_t size, u32 origin)
 inline void kmsan_set_origin_inline(void *addr, int size, u32 origin)
 {
 	void *origin_start;
-	u64 address = addr, page_offset;
+	u64 address = (u64)addr, page_offset;
 	size_t to_fill, pad = 0;
 
 	if (!IS_ALIGNED(address, ORIGIN_SIZE)) {
@@ -229,7 +229,7 @@ inline void kmsan_set_origin_inline(void *addr, int size, u32 origin)
 
 	while (size > 0) {
 		page_offset = address % PAGE_SIZE;
-		to_fill = min(PAGE_SIZE - page_offset, size);
+		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
 		to_fill = ALIGN(to_fill, ORIGIN_SIZE);	/* write at least ORIGIN_SIZE bytes */
 		BUG_ON(!to_fill);
 		origin_start = kmsan_get_metadata_or_null((void *)address, to_fill, /*is_origin*/true);
@@ -264,7 +264,7 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	while (size_copy) {
 		page_offset = addr_copy % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, size_copy);
-		shadow_start = kmsan_get_metadata_or_null(addr_copy, to_fill, /*is_origin*/false);
+		shadow_start = kmsan_get_metadata_or_null((void *)addr_copy, to_fill, /*is_origin*/false);
 		if (!shadow_start)
 			/* Can happen e.g. if the memory is untracked. */
 			continue;
