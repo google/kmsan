@@ -428,9 +428,9 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 		__vunmap_page_range(v_shadow, v_shadow + PAGE_SIZE);
 		__vunmap_page_range(v_origin, v_origin + PAGE_SIZE);
 		if (shadow)
-			free_pages(shadow, 1);
+			__free_pages(shadow, 1);
 		if (origin)
-			free_pages(origin, 1);
+			__free_pages(origin, 1);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
