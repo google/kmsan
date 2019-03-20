@@ -412,7 +412,6 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 {
 	int i, nr;
 	struct page *shadow, *origin;
-	unsigned long off = 0;
 	unsigned long v_shadow, v_origin;
 	unsigned long irq_flags;
 
@@ -424,8 +423,8 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	v_shadow = start + VMALLOC_SHADOW_OFFSET;
 	v_origin = start + VMALLOC_ORIGIN_OFFSET;
 	for (i = 0; i < nr; i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
-		shadow = vmalloc_to_page_or_null(v_shadow);
-		origin = vmalloc_to_page_or_null(v_origin);
+		shadow = vmalloc_to_page_or_null((void *)v_shadow);
+		origin = vmalloc_to_page_or_null((void *)v_origin);
 		__vunmap_page_range(v_shadow, v_shadow + PAGE_SIZE);
 		__vunmap_page_range(v_origin, v_origin + PAGE_SIZE);
 		if (shadow)
@@ -492,9 +491,9 @@ void kmsan_copy_to_user(const void *to, const void *from,
 	 * syscall.
 	 * Don't check anything, just copy the shadow of the copied bytes.
 	 */
-	shadow = kmsan_get_metadata_or_null((u64)to, to_copy - left, /*origin*/false);
+	shadow = kmsan_get_metadata_or_null((void *)to, to_copy - left, /*origin*/false);
 	if (shadow) {
-		kmsan_memcpy_metadata(to, from, to_copy - left);
+		kmsan_memcpy_metadata((void *)to, (void *)from, to_copy - left);
 	}
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
@@ -547,7 +546,7 @@ EXPORT_SYMBOL(kmsan_unpoison_shadow);
 void kmsan_gup_pgd_range(struct page **pages, int nr)
 {
 	int i;
-	unsigned long page_addr;
+	void *page_addr;
 
 	/*
 	 * gup_pgd_range() has just created a number of new pages that KMSAN
@@ -556,7 +555,7 @@ void kmsan_gup_pgd_range(struct page **pages, int nr)
 	 */
 	for (i = 0; i < nr; i++) {
 		page_addr = page_address(pages[i]);
-		if ((page_addr < TASK_SIZE) && (page_addr + PAGE_SIZE < TASK_SIZE))
+		if (((u64)page_addr < TASK_SIZE) && ((u64)page_addr + PAGE_SIZE < TASK_SIZE))
 			kmsan_unpoison_shadow(page_addr, PAGE_SIZE);
 	}
 
