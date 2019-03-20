@@ -565,18 +565,6 @@ struct page *virt_to_page_or_null(void *vaddr)
 		return NULL;
 }
 
-/* TODO(glider): unite with kmsan_alloc_page()? */
-void kmsan_prep_pages(struct page *page, unsigned int order)
-{
-	int i;
-
-	for (i = 0; i < 1 << order; i++) {
-		shadow_page_for(page) = 0;
-		origin_page_for(page) = 0;
-	}
-}
-EXPORT_SYMBOL(kmsan_prep_pages);
-
 int order_from_size(unsigned long size)
 {
 	unsigned long pages = size >> PAGE_SHIFT;
