@@ -535,8 +535,9 @@ static inline int my_phys_addr_valid(resource_size_t addr)
 
 // Taken from arch/x86/mm/physaddr.c
 // TODO(glider): do we need it?
-static bool my_virt_addr_valid(unsigned long x)
+bool my_virt_addr_valid(void *addr)
 {
+	unsigned long x = (unsigned long)addr;
 	unsigned long y = x - __START_KERNEL_map;
 
 	/* use the carry flag to determine if x was < __START_KERNEL_map */
@@ -807,14 +808,14 @@ void *kmsan_get_metadata_or_null(void *address, size_t size, bool is_origin)
 		addr -= pad;
 		size += pad;
 	}
+	if ((addr >= VMALLOC_START) && (addr < VMALLOC_END)) {
+		if (is_origin)
+			return (void *)(addr + VMALLOC_ORIGIN_OFFSET);
+		else
+			return (void *)(addr + VMALLOC_SHADOW_OFFSET);
+	}
 
-	if (!my_virt_addr_valid(addr)) {
-		if (addr >= VMALLOC_START && addr < VMALLOC_END) {
-			if (is_origin)
-				return (void *)(addr + VMALLOC_ORIGIN_OFFSET);
-			else
-				return (void *)(addr + VMALLOC_SHADOW_OFFSET);
-		}
+	if (!my_virt_addr_valid((void *)addr)) {
 		page = vmalloc_to_page_or_null((void *)addr);
 		if (page)
 			goto next;
@@ -864,12 +865,13 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 		o_addr -= pad;
 	}
 
+	if (addr >= VMALLOC_START && addr < VMALLOC_END) {
+		ret.s = (void *)(addr + VMALLOC_SHADOW_OFFSET);
+		ret.o = (void *)(o_addr + VMALLOC_ORIGIN_OFFSET);
+		return ret;
+	}
+
 	if (!my_virt_addr_valid(address)) {
-		if (addr >= VMALLOC_START && addr < VMALLOC_END) {
-			ret.s = (void *)(addr + VMALLOC_SHADOW_OFFSET);
-			ret.o = (void *)(o_addr + VMALLOC_ORIGIN_OFFSET);
-			return ret;
-		}
 		page = vmalloc_to_page_or_null(address);
 		if (page)
 			goto next;
@@ -901,8 +903,4 @@ next:
 	ret.s = shadow_ptr_for(page) + offset;
 	ret.o = origin_ptr_for(page) + o_offset;
 	return ret;
-}
-
-bool kmsan_virt_addr_valid(unsigned long x) {
-	return my_virt_addr_valid(x);
 }
