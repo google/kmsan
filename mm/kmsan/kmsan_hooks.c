@@ -264,8 +264,8 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	if (!kmsan_ready) {
 		for (i = 0; i < pages; i++) {
 			cur_page = &page[i];
-			shadow_page_for(cur_page) = NULL;
-			origin_page_for(cur_page) = NULL;
+			set_no_shadow_page(cur_page);
+			set_no_origin_page(cur_page);
 		}
 		return;
 	}
