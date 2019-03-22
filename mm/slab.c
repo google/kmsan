@@ -1410,8 +1410,6 @@ static void kmem_freepages(struct kmem_cache *cachep, struct page *page)
 	int order = cachep->gfporder;
 	unsigned long nr_freed = (1 << order);
 
-	kmsan_free_page(page, order);
-
 	if (cachep->flags & SLAB_RECLAIM_ACCOUNT)
 		mod_lruvec_page_state(page, NR_SLAB_RECLAIMABLE, -nr_freed);
 	else
