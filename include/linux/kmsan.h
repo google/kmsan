@@ -123,13 +123,13 @@ static inline void kmsan_slab_setup_object(
 static inline void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 	size_t size, void *object) {}
 
-void void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
+static void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 				   pgprot_t prot, struct page **pages) {}
-kmsan_vunmap_page_range(unsigned long start, unsigned long end) {}
+static void kmsan_vunmap_page_range(unsigned long start, unsigned long end) {}
 
-void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
+static void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	phys_addr_t phys_addr, pgprot_t prot) {}
-void kmsan_iounmap_page_range(unsigned long start, unsigned long end) {}
+static void kmsan_iounmap_page_range(unsigned long start, unsigned long end) {}
 static inline void kmsan_softirq_enter(void) {}
 static inline void kmsan_softirq_exit(void) {}
 
