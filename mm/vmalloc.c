@@ -2208,7 +2208,6 @@ static void __vunmap(const void *addr, int deallocate_pages)
 		return;
 
 	area = find_vm_area(addr);
-	kmsan_vunmap(addr, area, deallocate_pages);
 	if (unlikely(!area)) {
 		WARN(1, KERN_ERR "Trying to vfree() nonexistent vm area (%p)\n",
 				addr);
