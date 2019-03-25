@@ -102,6 +102,7 @@ config KMSAN
 endif # HAVE_ARCH_KMSAN
 endchoice
 
+if HAVE_ARCH_KASAN
 choice
 	prompt "Instrumentation type"
 	depends on KASAN

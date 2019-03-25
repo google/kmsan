@@ -11,11 +11,12 @@
    function. */
 
 #define __HAVE_ARCH_MEMCPY 1
-#ifndef CONFIG_KMSAN
-extern void *memcpy(void *to, const void *from, size_t len);
-#else
-void *__msan_memcpy(void *dst, const void *src, u64 size);
+#if defined(CONFIG_KMSAN)
+// __msan_memcpy() defined in compiler.h
+#undef memcpy
 #define memcpy(dst, src, len) __msan_memcpy(dst, src, len)
+#else
+extern void *memcpy(void *to, const void *from, size_t len);
 #endif
 extern void *__memcpy(void *to, const void *from, size_t len);
 
