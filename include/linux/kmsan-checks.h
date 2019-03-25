@@ -83,7 +83,7 @@ static inline void kmsan_unpoison_shadow(const volatile void *address, size_t si
 static inline void kmsan_check_memory(const volatile void *address, size_t size) {}
 static inline void kmsan_copy_to_user(
 	const void *to, const void *from, size_t to_copy, size_t left) {}
-static inline void *__msan_memcpy(void *dst, const void *src, u64 n)
+static inline void *__msan_memcpy(void *dst, const void *src, size_t n)
 {
 	return NULL;
 }
