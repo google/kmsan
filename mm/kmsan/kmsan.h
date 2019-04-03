@@ -1,7 +1,9 @@
 #ifndef __MM_KMSAN_KMSAN_H
 #define __MM_KMSAN_KMSAN_H
 
+#include <asm/cpu_entry_area.h>  // for CPU_ENTRY_AREA_MAP_SIZE
 #include <asm/current.h>
+#include <asm/pgtable_64_types.h>
 #include <linux/irqflags.h>
 #include <linux/sched.h>
 #include <linux/stackdepot.h>
@@ -9,7 +11,6 @@
 #include <linux/nmi.h>
 #include <linux/mm.h>
 #include <linux/printk.h>
-#include <asm/cpu_entry_area.h>  // for CPU_ENTRY_AREA_MAP_SIZE
 
 #define KMSAN_MAGIC_MASK 0xffffffffff00
 #define KMSAN_ALLOCA_MAGIC_ORIGIN 0x4110c4071900
@@ -181,10 +182,40 @@ static inline void *kmsan_internal_return_address(int arg)
 #endif
 }
 
+static bool is_module_addr(void *vaddr)
+{
+	return ((u64)vaddr >= MODULES_VADDR) && ((u64)vaddr < MODULES_END);
+}
 
 static inline bool is_cpu_entry_area_addr(void *addr)
 {
 	return ((u64)addr >= CPU_ENTRY_AREA_BASE) && ((u64)addr < (CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE));
+}
+
+static inline
+void *vmalloc_meta(void *addr, bool is_origin)
+{
+	u64 addr64 = (u64)addr, off;
+	void *ret;
+
+	BUG_ON(is_origin && !IS_ALIGNED(addr64, ORIGIN_SIZE));
+	if ((addr64 >= VMALLOC_START) && (addr64 < VMALLOC_END)) {
+		return (void *)(addr64 + (is_origin ? VMALLOC_ORIGIN_OFFSET
+						: VMALLOC_SHADOW_OFFSET));
+	}
+	return NULL;
+}
+
+static inline
+void *vmalloc_shadow(void *addr)
+{
+	return vmalloc_meta(addr, /*is_origin*/false);
+}
+
+static inline
+void *vmalloc_origin(void *addr)
+{
+	return vmalloc_meta(addr, /*is_origin*/true);
 }
 
 #endif

@@ -478,11 +478,6 @@ void kmsan_set_origin(void *addr, int size, u32 origin, bool checked)
 	}
 }
 
-static bool is_module_addr(void *vaddr)
-{
-	return ((u64)vaddr >= MODULES_VADDR) && ((u64)vaddr < MODULES_END);
-}
-
 void *get_cea_shadow_or_null(void *addr)
 {
 	int cpu = smp_processor_id();
@@ -796,11 +791,8 @@ void *kmsan_get_metadata_or_null(void *address, size_t size, bool is_origin)
 		addr -= pad;
 		size += pad;
 	}
-	if ((addr >= VMALLOC_START) && (addr < VMALLOC_END)) {
-		if (is_origin)
-			return (void *)(addr + VMALLOC_ORIGIN_OFFSET);
-		else
-			return (void *)(addr + VMALLOC_SHADOW_OFFSET);
+	if (((addr >= VMALLOC_START) && (addr < VMALLOC_END))) {
+		return vmalloc_meta(addr, is_origin);
 	}
 
 	if (!my_virt_addr_valid((void *)addr)) {
@@ -853,9 +845,9 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 		o_addr -= pad;
 	}
 
-	if (addr >= VMALLOC_START && addr < VMALLOC_END) {
-		ret.s = (void *)(addr + VMALLOC_SHADOW_OFFSET);
-		ret.o = (void *)(o_addr + VMALLOC_ORIGIN_OFFSET);
+	if ((addr >= VMALLOC_START && addr < VMALLOC_END)) {
+		ret.s = vmalloc_shadow(addr);
+		ret.o = vmalloc_origin(o_addr);
 		return ret;
 	}
 
