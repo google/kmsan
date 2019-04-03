@@ -349,6 +349,8 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
+	if (!vmalloc_shadow(start))
+		return;
 
 	BUG_ON(start >= end);
 	nr = (end - start) / PAGE_SIZE;
@@ -361,8 +363,8 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 		o_pages[i] = origin_page_for(pages[i]);
 	}
 	ENTER_RUNTIME(irq_flags);
-	__vmap_page_range_noflush(start + VMALLOC_SHADOW_OFFSET, end + VMALLOC_SHADOW_OFFSET, prot, s_pages);
-	__vmap_page_range_noflush(start + VMALLOC_ORIGIN_OFFSET, end + VMALLOC_ORIGIN_OFFSET, prot, o_pages);
+	__vmap_page_range_noflush(vmalloc_shadow(start), vmalloc_shadow(end), prot, s_pages);
+	__vmap_page_range_noflush(vmalloc_origin(start), vmalloc_origin(end), prot, o_pages);
 	LEAVE_RUNTIME(irq_flags);
 ret:
 	if (s_pages)
@@ -374,8 +376,8 @@ ret:
 /* Called from mm/vmalloc.c */
 void kmsan_vunmap_page_range(unsigned long start, unsigned long end)
 {
-	__vunmap_page_range(start + VMALLOC_SHADOW_OFFSET, end + VMALLOC_SHADOW_OFFSET);
-	__vunmap_page_range(start + VMALLOC_ORIGIN_OFFSET, end + VMALLOC_ORIGIN_OFFSET);
+	__vunmap_page_range(vmalloc_shadow(start), vmalloc_shadow(end));
+	__vunmap_page_range(vmalloc_origin(start), vmalloc_origin(end));
 }
 
 /* Called from lib/ioremap.c */
@@ -400,11 +402,11 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	for (i = 0; i < nr; i++, off += PAGE_SIZE) {
 		shadow = alloc_pages(gfp_mask, 1);
 		origin = alloc_pages(gfp_mask, 1);
-		__vmap_page_range_noflush(start + VMALLOC_SHADOW_OFFSET + off, start + VMALLOC_SHADOW_OFFSET + off + PAGE_SIZE, prot, &shadow);
-		__vmap_page_range_noflush(start + VMALLOC_ORIGIN_OFFSET + off, start + VMALLOC_ORIGIN_OFFSET + off + PAGE_SIZE, prot, &origin);
+		__vmap_page_range_noflush(vmalloc_shadow(start + off), vmalloc_shadow(start + off + PAGE_SIZE), prot, &shadow);
+		__vmap_page_range_noflush(vmalloc_origin(start + off), vmalloc_origin(start + off + PAGE_SIZE), prot, &origin);
 	}
-	flush_cache_vmap(start + VMALLOC_SHADOW_OFFSET, end + VMALLOC_SHADOW_OFFSET);
-	flush_cache_vmap(start + VMALLOC_ORIGIN_OFFSET, end + VMALLOC_ORIGIN_OFFSET);
+	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
+	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
 	LEAVE_RUNTIME(irq_flags);
 }
 
@@ -420,8 +422,8 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 
 	nr = (end - start) / PAGE_SIZE;
 	ENTER_RUNTIME(irq_flags);
-	v_shadow = start + VMALLOC_SHADOW_OFFSET;
-	v_origin = start + VMALLOC_ORIGIN_OFFSET;
+	v_shadow = (unsigned long)vmalloc_shadow(start);
+	v_origin = (unsigned long)vmalloc_origin(start);
 	for (i = 0; i < nr; i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
 		shadow = vmalloc_to_page_or_null((void *)v_shadow);
 		origin = vmalloc_to_page_or_null((void *)v_origin);
