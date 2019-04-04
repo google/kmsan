@@ -508,7 +508,7 @@ struct page *vmalloc_to_page_or_null(void *vaddr)
 {
 	struct page *page;
 
-	if (!is_vmalloc_addr(vaddr) && !is_module_addr(vaddr))
+	if (!_is_vmalloc_addr(vaddr) && !is_module_addr(vaddr))
 		return NULL;
 	page = vmalloc_to_page(vaddr);
 	if (pfn_valid(page_to_pfn(page)))
@@ -791,7 +791,7 @@ void *kmsan_get_metadata_or_null(void *address, size_t size, bool is_origin)
 		addr -= pad;
 		size += pad;
 	}
-	if (((addr >= VMALLOC_START) && (addr < VMALLOC_END))) {
+	if (_is_vmalloc_addr(addr) || is_module_addr(addr)) {
 		return vmalloc_meta(addr, is_origin);
 	}
 
@@ -845,7 +845,7 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 		o_addr -= pad;
 	}
 
-	if ((addr >= VMALLOC_START && addr < VMALLOC_END)) {
+	if (_is_vmalloc_addr(addr) || is_module_addr(addr)) {
 		ret.s = vmalloc_shadow(addr);
 		ret.o = vmalloc_origin(o_addr);
 		return ret;
