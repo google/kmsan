@@ -363,7 +363,6 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 		s_pages[i] = shadow_page_for(pages[i]);
 		o_pages[i] = origin_page_for(pages[i]);
 	}
-	ENTER_RUNTIME(irq_flags);
 	prot = __pgprot(pgprot_val(prot) | _PAGE_NX);
 	prot = PAGE_KERNEL;
 	mapped = __vmap_page_range_noflush(vmalloc_shadow(start), vmalloc_shadow(end), prot, s_pages);
@@ -372,7 +371,6 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 	mapped = __vmap_page_range_noflush(vmalloc_origin(start), vmalloc_origin(end), prot, o_pages);
 	BUG_ON(mapped != nr);
 	flush_tlb_kernel_range(vmalloc_origin(start), vmalloc_origin(end));
-	LEAVE_RUNTIME(irq_flags);
 ret:
 	if (s_pages)
 		kfree(s_pages);
