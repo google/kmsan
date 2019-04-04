@@ -14,6 +14,7 @@
 
 
 
+#include <asm/tlbflush.h>
 #include <linux/gfp.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
@@ -343,7 +344,7 @@ EXPORT_SYMBOL(kmsan_split_page);
 void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 				   pgprot_t prot, struct page **pages)
 {
-	int nr, i;
+	int nr, i, mapped;
 	struct page **s_pages, **o_pages;
 	unsigned long irq_flags;
 
@@ -363,8 +364,14 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 		o_pages[i] = origin_page_for(pages[i]);
 	}
 	ENTER_RUNTIME(irq_flags);
-	__vmap_page_range_noflush(vmalloc_shadow(start), vmalloc_shadow(end), prot, s_pages);
-	__vmap_page_range_noflush(vmalloc_origin(start), vmalloc_origin(end), prot, o_pages);
+	prot = __pgprot(pgprot_val(prot) | _PAGE_NX);
+	prot = PAGE_KERNEL;
+	mapped = __vmap_page_range_noflush(vmalloc_shadow(start), vmalloc_shadow(end), prot, s_pages);
+	BUG_ON(mapped != nr);
+	flush_tlb_kernel_range(vmalloc_shadow(start), vmalloc_shadow(end));
+	mapped = __vmap_page_range_noflush(vmalloc_origin(start), vmalloc_origin(end), prot, o_pages);
+	BUG_ON(mapped != nr);
+	flush_tlb_kernel_range(vmalloc_origin(start), vmalloc_origin(end));
 	LEAVE_RUNTIME(irq_flags);
 ret:
 	if (s_pages)
