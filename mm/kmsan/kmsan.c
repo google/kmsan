@@ -733,8 +733,11 @@ bool metadata_is_contiguous(void *addr, size_t size, bool is_origin) {
 	bool all_untracked = false;
 	const char *fname = is_origin ? "origin" : "shadow";
 
+	if (!size)
+		return true;
+
 	/* The whole range belongs to the same page. */
-	if (ALIGN_DOWN(cur_addr + size, PAGE_SIZE) == ALIGN_DOWN(cur_addr, PAGE_SIZE))
+	if (ALIGN_DOWN(cur_addr + size - 1, PAGE_SIZE) == ALIGN_DOWN(cur_addr, PAGE_SIZE))
 		return true;
 	cur_meta = kmsan_get_metadata_or_null((void *)cur_addr, 1, is_origin);
 	if (!cur_meta)
@@ -791,19 +794,20 @@ void *kmsan_get_metadata_or_null(void *address, size_t size, bool is_origin)
 		addr -= pad;
 		size += pad;
 	}
-	if (_is_vmalloc_addr(addr) || is_module_addr(addr)) {
-		return vmalloc_meta(addr, is_origin);
+	address = (void *)addr;
+	if (_is_vmalloc_addr(address) || is_module_addr(address)) {
+		return vmalloc_meta(address, is_origin);
 	}
 
-	if (!my_virt_addr_valid((void *)addr)) {
-		page = vmalloc_to_page_or_null((void *)addr);
+	if (!my_virt_addr_valid(address)) {
+		page = vmalloc_to_page_or_null(address);
 		if (page)
 			goto next;
-		ret = is_origin ? get_cea_origin_or_null((void *)addr) : get_cea_shadow_or_null((void *)addr);
+		ret = is_origin ? get_cea_origin_or_null(address) : get_cea_shadow_or_null(address);
 		if (ret)
 			return ret;
 	}
-	page = virt_to_page_or_null((void *)addr);
+	page = virt_to_page_or_null(address);
 	if (!page)
 		return NULL;
 next:
@@ -821,12 +825,13 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 	shadow_origin_ptr_t ret;
 	struct page *page;
 	u64 pad, offset, o_offset;
-	const u64 addr = (u64)address;
-	u64 o_addr = (u64)address;
+	const u64 addr64 = (u64)address;
+	u64 o_addr64 = (u64)address;
 	void *shadow;
 
 	if (size > PAGE_SIZE) {
-		WARN(1, "size too big in kmsan_get_shadow_origin_ptr(%px, %d, %d)\n", addr, size, store);
+		WARN(1, "size too big in kmsan_get_shadow_origin_ptr("
+			"%px, %d, %d)\n", address, size, store);
 		BUG();
 	}
 	if (store) {
@@ -840,14 +845,14 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 		return ret;
 	BUG_ON(!metadata_is_contiguous(address, size, /*is_origin*/false));
 
-	if (!IS_ALIGNED(addr, ORIGIN_SIZE)) {
-		pad = addr % ORIGIN_SIZE;
-		o_addr -= pad;
+	if (!IS_ALIGNED(addr64, ORIGIN_SIZE)) {
+		pad = addr64 % ORIGIN_SIZE;
+		o_addr64 -= pad;
 	}
 
-	if (_is_vmalloc_addr(addr) || is_module_addr(addr)) {
-		ret.s = vmalloc_shadow(addr);
-		ret.o = vmalloc_origin(o_addr);
+	if (_is_vmalloc_addr(address) || is_module_addr(address)) {
+		ret.s = vmalloc_shadow(address);
+		ret.o = vmalloc_origin((void *)o_addr64);
 		return ret;
 	}
 
@@ -858,7 +863,7 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 		shadow = get_cea_shadow_or_null(address);
 		if (shadow) {
 			ret.s = shadow;
-			ret.o = get_cea_origin_or_null((void *)o_addr);
+			ret.o = get_cea_origin_or_null((void *)o_addr64);
 			return ret;
 		}
 	}
@@ -868,8 +873,8 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 next:
         if (!has_shadow_page(page) || !has_origin_page(page))
 		return ret;
-	offset = addr % PAGE_SIZE;
-	o_offset = o_addr % PAGE_SIZE;
+	offset = addr64 % PAGE_SIZE;
+	o_offset = o_addr64 % PAGE_SIZE;
 
 	if (offset + size - 1 > PAGE_SIZE) {
 		/*
