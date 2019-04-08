@@ -201,7 +201,6 @@ static inline
 void *vmalloc_meta(void *addr, bool is_origin)
 {
 	u64 addr64 = (u64)addr, off;
-	void *ret;
 
 	BUG_ON(is_origin && !IS_ALIGNED(addr64, ORIGIN_SIZE));
 	if (_is_vmalloc_addr(addr)) {
@@ -210,7 +209,8 @@ void *vmalloc_meta(void *addr, bool is_origin)
 	}
 	if (is_module_addr(addr)) {
 		off = addr64 - MODULES_VADDR;
-		return off + (is_origin ? MODULES_ORIGIN_START : MODULES_SHADOW_START);
+		return (void *)(off + (is_origin ? MODULES_ORIGIN_START
+						: MODULES_SHADOW_START));
 	}
 	return NULL;
 }
