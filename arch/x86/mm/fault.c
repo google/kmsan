@@ -191,7 +191,7 @@ static inline pmd_t *vmalloc_sync_one(pgd_t *pgd, unsigned long address)
 	return pmd_k;
 }
 
-void arch_sync_kernel_mappings(unsigned long start, unsigned long end)
+void _arch_sync_kernel_mappings(unsigned long start, unsigned long end)
 {
 	unsigned long addr;
 
@@ -213,6 +213,19 @@ void arch_sync_kernel_mappings(unsigned long start, unsigned long end)
 		}
 		spin_unlock(&pgd_lock);
 	}
+}
+
+void arch_sync_kernel_mappings(unsigned long start, unsigned long end)
+{
+	_arch_sync_kernel_mappings(start, end);
+#ifdef CONFIG_KMSAN
+	if (start >= VMALLOC_START && end < VMALLOC_END) {
+		_arch_sync_kernel_mappings(start - VMALLOC_START + KMSAN_VMALLOC_SHADOW_OFFSET,
+					   end - VMALLOC_START + KMSAN_VMALLOC_SHADOW_OFFSET);
+		_arch_sync_kernel_mappings(start - VMALLOC_START + KMSAN_VMALLOC_ORIGIN_OFFSET,
+					   end - VMALLOC_START + KMSAN_VMALLOC_ORIGIN_OFFSET);
+	}
+#endif
 }
 
 /*
