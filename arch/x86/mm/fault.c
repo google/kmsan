@@ -320,7 +320,17 @@ out:
 
 void vmalloc_sync_all(void)
 {
+#ifdef CONFIG_KMSAN
+	/*
+	 * For KMSAN, make sure metadata pages for vmalloc area and modules are
+	 * also synced.
+	 */
+	sync_global_pgds(VMALLOC_START & PGDIR_MASK, VMALLOC_META_END);
+	sync_global_pgds(MODULES_SHADOW_START & PGDIR_MASK,
+		MODULES_ORIGIN_END);
+#else
 	sync_global_pgds(VMALLOC_START & PGDIR_MASK, VMALLOC_END);
+#endif
 }
 
 /*
@@ -337,7 +347,17 @@ static noinline int vmalloc_fault(unsigned long address)
 	pte_t *pte;
 
 	/* Make sure we are in vmalloc area: */
+#ifdef CONFIG_KMSAN
+	/*
+	 * For KMSAN, make sure metadata pages for vmalloc area and modules are
+	 * also synced.
+	 */
+	if (!(address >= VMALLOC_START && address < VMALLOC_META_END) &&
+		!(address >= MODULES_SHADOW_START &&
+		  address < MODULES_ORIGIN_END))
+#else
 	if (!(address >= VMALLOC_START && address < VMALLOC_END))
+#endif
 		return -1;
 
 	/*
