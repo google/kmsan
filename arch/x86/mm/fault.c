@@ -331,11 +331,21 @@ out:
 
 void vmalloc_sync_mappings(void)
 {
+#ifndef CONFIG_KMSAN
 	/*
 	 * 64-bit mappings might allocate new p4d/pud pages
 	 * that need to be propagated to all tasks' PGDs.
 	 */
 	sync_global_pgds(VMALLOC_START & PGDIR_MASK, VMALLOC_END);
+#else
+	/*
+	 * For KMSAN, make sure metadata pages for vmalloc area and modules are
+	 * also synced.
+	 */
+	sync_global_pgds(VMALLOC_START & PGDIR_MASK, KMSAN_VMALLOC_META_END);
+	sync_global_pgds(KMSAN_MODULES_SHADOW_START & PGDIR_MASK,
+		KMSAN_MODULES_ORIGIN_END);
+#endif
 }
 
 void vmalloc_sync_unmappings(void)
@@ -360,7 +370,17 @@ static noinline int vmalloc_fault(unsigned long address)
 	pte_t *pte;
 
 	/* Make sure we are in vmalloc area: */
+#ifdef CONFIG_KMSAN
+	/*
+	 * For KMSAN, make sure metadata pages for vmalloc area and modules are
+	 * also synced.
+	 */
+	if (!(address >= VMALLOC_START && address < KMSAN_VMALLOC_META_END) &&
+		!(address >= KMSAN_MODULES_SHADOW_START &&
+		  address < KMSAN_MODULES_ORIGIN_END))
+#else
 	if (!(address >= VMALLOC_START && address < VMALLOC_END))
+#endif
 		return -1;
 
 	/*
