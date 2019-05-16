@@ -717,7 +717,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 
 void kmsan_check_memory(const volatile void *addr, size_t size)
 {
-	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0, REASON_ANY);
+	kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0, REASON_ANY);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
 
