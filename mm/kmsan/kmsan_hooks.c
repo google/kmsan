@@ -15,6 +15,7 @@
 
 
 #include <asm/tlbflush.h>
+#include <asm/cacheflush.h>
 #include <linux/gfp.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
