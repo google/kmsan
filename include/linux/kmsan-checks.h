@@ -5,6 +5,7 @@
 #include <linux/types.h>
 
 struct sk_buff;
+struct urb;
 
 #define KMSAN_DISABLE(flags) \
 	do {	\
@@ -71,6 +72,7 @@ void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
 void kmsan_unpoison_shadow(const volatile void *address, size_t size);
 void kmsan_check_memory(const volatile void *address, size_t size);
 void kmsan_check_skb(const struct sk_buff *skb);
+void kmsan_check_urb(const struct urb *urb);
 void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy, size_t left);
 void *__msan_memcpy(void *dst, const void *src, u64 n);
 void kmsan_enter_runtime(unsigned long *flags);
@@ -84,6 +86,7 @@ static inline void kmsan_poison_shadow(const volatile void *address, size_t size
 static inline void kmsan_unpoison_shadow(const volatile void *address, size_t size) {}
 static inline void kmsan_check_memory(const volatile void *address, size_t size) {}
 static void kmsan_check_skb(const struct sk_buff *skb) {}
+static void kmsan_check_urb(const struct urb *urb) {}
 static inline void kmsan_copy_to_user(
 	const void *to, const void *from, size_t to_copy, size_t left) {}
 static inline void *__msan_memcpy(void *dst, const void *src, size_t n)

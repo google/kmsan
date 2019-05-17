@@ -10,6 +10,7 @@
  *
  */
 
+#include <asm/page.h>
 #include <linux/compiler.h>
 #include <linux/console.h>
 #include <linux/export.h>
@@ -27,8 +28,8 @@
 #include <linux/stackdepot.h>
 #include <linux/stacktrace.h>
 #include <linux/types.h>
-#include <asm/page.h>
 #include <linux/vmalloc.h>
+#include <linux/usb.h>
 
 #include <linux/mmzone.h>
 
@@ -747,7 +748,7 @@ void kmsan_check_skb(const struct sk_buff *skb)
 					      copy, p, p_off, p_len, copied) {
 				vaddr = kmap_atomic(p);
 				kmsan_internal_check_memory(vaddr + p_off,
-						p_len, /* user_addr*/ 0,
+						p_len, /*user_addr*/ 0,
 						REASON_ANY);
 				kunmap_atomic(vaddr);
 			}
@@ -757,6 +758,17 @@ void kmsan_check_skb(const struct sk_buff *skb)
 		kmsan_check_skb(frag_iter);
 }
 EXPORT_SYMBOL(kmsan_check_skb);
+
+/* Helper function to check an URB. */
+void kmsan_check_urb(const struct urb *urb)
+{
+	if (!urb)
+		return;
+	kmsan_internal_check_memory(urb->transfer_buffer,
+				    urb->transfer_buffer_length,
+				    /*user_addr*/ 0, REASON_ANY);
+}
+EXPORT_SYMBOL(kmsan_check_urb);
 
 /*
  * TODO(glider): this check shouldn't be performed for origin pages, because
