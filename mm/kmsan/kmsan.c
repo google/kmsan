@@ -13,6 +13,7 @@
 #include <linux/compiler.h>
 #include <linux/console.h>
 #include <linux/export.h>
+#include <linux/highmem.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/kmsan.h>
@@ -21,6 +22,7 @@
 #include <linux/preempt.h>
 #include <linux/percpu-defs.h>
 #include <linux/mm_types.h>
+#include <linux/skbuff.h>
 #include <linux/slab.h>
 #include <linux/stackdepot.h>
 #include <linux/stacktrace.h>
@@ -720,6 +722,41 @@ void kmsan_check_memory(const volatile void *addr, size_t size)
 	kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0, REASON_ANY);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
+
+/* Helper function to check an SKB. */
+void kmsan_check_skb(const struct sk_buff *skb)
+{
+	int start = skb_headlen(skb);
+	struct sk_buff *frag_iter;
+	int i, copy;
+	skb_frag_t *f;
+	u32 p_off, p_len, copied;
+	struct page *p;
+	u8 *vaddr;
+
+	if (!skb || !skb->len)
+		return;
+
+	kmsan_internal_check_memory(skb->data, skb_headlen(skb), 0, REASON_ANY);
+	if (skb_is_nonlinear(skb)) {
+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+			f = &skb_shinfo(skb)->frags[i];
+
+			skb_frag_foreach_page(f,
+					      f->page_offset  - start,
+					      copy, p, p_off, p_len, copied) {
+				vaddr = kmap_atomic(p);
+				kmsan_internal_check_memory(vaddr + p_off,
+						p_len, /* user_addr*/ 0,
+						REASON_ANY);
+				kunmap_atomic(vaddr);
+			}
+		}
+	}
+	skb_walk_frags(skb, frag_iter)
+		kmsan_check_skb(frag_iter);
+}
+EXPORT_SYMBOL(kmsan_check_skb);
 
 /*
  * TODO(glider): this check shouldn't be performed for origin pages, because
