@@ -760,15 +760,20 @@ void kmsan_check_skb(const struct sk_buff *skb)
 EXPORT_SYMBOL(kmsan_check_skb);
 
 /* Helper function to check an URB. */
-void kmsan_check_urb(const struct urb *urb)
+void kmsan_handle_urb(const struct urb *urb, bool is_out)
 {
 	if (!urb)
 		return;
-	kmsan_internal_check_memory(urb->transfer_buffer,
-				    urb->transfer_buffer_length,
-				    /*user_addr*/ 0, REASON_ANY);
+	if (is_out)
+		kmsan_internal_check_memory(urb->transfer_buffer,
+					    urb->transfer_buffer_length,
+					    /*user_addr*/ 0, REASON_ANY);
+	else
+		kmsan_internal_unpoison_shadow(urb->transfer_buffer,
+					       urb->transfer_buffer_length,
+					       /*checked*/false);
 }
-EXPORT_SYMBOL(kmsan_check_urb);
+EXPORT_SYMBOL(kmsan_handle_urb);
 
 /*
  * TODO(glider): this check shouldn't be performed for origin pages, because
