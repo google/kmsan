@@ -19,7 +19,9 @@
 #include <linux/gfp.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
+#include <linux/skbuff.h>
 #include <linux/slab.h>
+#include <linux/usb.h>
 
 #include "../slab.h"
 #include "kmsan.h"
@@ -569,3 +571,54 @@ void kmsan_gup_pgd_range(struct page **pages, int nr)
 
 }
 EXPORT_SYMBOL(kmsan_gup_pgd_range);
+
+/* Helper function to check an SKB. */
+void kmsan_check_skb(const struct sk_buff *skb)
+{
+	int start = skb_headlen(skb);
+	struct sk_buff *frag_iter;
+	int i, copy;
+	skb_frag_t *f;
+	u32 p_off, p_len, copied;
+	struct page *p;
+	u8 *vaddr;
+
+	if (!skb || !skb->len)
+		return;
+
+	kmsan_internal_check_memory(skb->data, skb_headlen(skb), 0, REASON_ANY);
+	if (skb_is_nonlinear(skb)) {
+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+			f = &skb_shinfo(skb)->frags[i];
+
+			skb_frag_foreach_page(f,
+					      f->page_offset  - start,
+					      copy, p, p_off, p_len, copied) {
+				vaddr = kmap_atomic(p);
+				kmsan_internal_check_memory(vaddr + p_off,
+						p_len, /*user_addr*/ 0,
+						REASON_ANY);
+				kunmap_atomic(vaddr);
+			}
+		}
+	}
+	skb_walk_frags(skb, frag_iter)
+		kmsan_check_skb(frag_iter);
+}
+EXPORT_SYMBOL(kmsan_check_skb);
+
+/* Helper function to check an URB. */
+void kmsan_handle_urb(const struct urb *urb, bool is_out)
+{
+	if (!urb)
+		return;
+	if (is_out)
+		kmsan_internal_check_memory(urb->transfer_buffer,
+					    urb->transfer_buffer_length,
+					    /*user_addr*/ 0, REASON_ANY);
+	else
+		kmsan_internal_unpoison_shadow(urb->transfer_buffer,
+					       urb->transfer_buffer_length,
+					       /*checked*/false);
+}
+EXPORT_SYMBOL(kmsan_handle_urb);
