@@ -615,7 +615,7 @@ void kmsan_handle_urb(const struct urb *urb, bool is_out)
 	if (is_out)
 		kmsan_internal_check_memory(urb->transfer_buffer,
 					    urb->transfer_buffer_length,
-					    /*user_addr*/ 0, REASON_ANY);
+					    /*user_addr*/ 0, REASON_SUBMIT_URB);
 	else
 		kmsan_internal_unpoison_shadow(urb->transfer_buffer,
 					       urb->transfer_buffer_length,

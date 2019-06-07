@@ -616,6 +616,9 @@ inline void kmsan_report(depot_stack_handle_t origin,
 		case REASON_COPY_TO_USER:
 			kmsan_pr_err("BUG: KMSAN: kernel-infoleak in %pS\n", deep ? kmsan_internal_return_address(2) : kmsan_internal_return_address(1));
 			break;
+		case REASON_SUBMIT_URB:
+			kmsan_pr_err("BUG: KMSAN: kernel-usb-infoleak in %pS\n", deep ? kmsan_internal_return_address(2) : kmsan_internal_return_address(1));
+			break;
 	}
 	dump_stack();
 	kmsan_pr_err("\n");

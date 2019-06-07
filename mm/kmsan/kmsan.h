@@ -64,6 +64,7 @@ enum KMSAN_BUG_REASON
 {
 	REASON_ANY = 0,
 	REASON_COPY_TO_USER = 1,
+	REASON_SUBMIT_URB = 2,
 };
 
 typedef struct {
