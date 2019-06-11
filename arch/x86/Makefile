@@ -297,9 +297,9 @@ vdso_install:
 
 archprepare: checkbin
 checkbin:
-#
 ifndef CONFIG_CC_HAS_ASM_GOTO
-KBUILD_CFLAGS += -D__BPF_TRACING__
+	@echo Compiler lacks asm-goto support.
+	@exit 1
 endif
 ifdef CONFIG_RETPOLINE
 ifeq ($(RETPOLINE_CFLAGS),)
