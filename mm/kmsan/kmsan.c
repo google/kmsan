@@ -176,18 +176,19 @@ static inline int in_irqentry_text(unsigned long ptr)
 		 ptr < (unsigned long)&__softirqentry_text_end);
 }
 
-static inline void filter_irq_stacks(struct stack_trace *trace)
+/* TODO(glider): this function is shared with KASAN. */
+static inline unsigned int filter_irq_stacks(unsigned long *entries,
+					     unsigned int nr_entries)
 {
-	int i;
+	unsigned int i;
 
-	if (!trace->nr_entries)
-		return;
-	for (i = 0; i < trace->nr_entries; i++)
-		if (in_irqentry_text(trace->entries[i])) {
+	for (i = 0; i < nr_entries; i++) {
+		if (in_irqentry_text(entries[i])) {
 			/* Include the irqentry function into the stack. */
-			trace->nr_entries = i + 1;
-			break;
+			return i + 1;
 		}
+	}
+	return nr_entries;
 }
 
 /* static */
@@ -195,24 +196,15 @@ inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[KMSAN_STACK_DEPTH];
-	struct stack_trace trace = {
-		.nr_entries = 0,
-		.entries = entries,
-		.max_entries = KMSAN_STACK_DEPTH,
-		.skip = 0
-	};
+	unsigned int nr_entries;
 
-	kmsan_internal_unpoison_shadow(&trace, sizeof(trace), /*checked*/false);
-	save_stack_trace(&trace);
-	filter_irq_stacks(&trace);
-	if (trace.nr_entries != 0 &&
-	    trace.entries[trace.nr_entries-1] == ULONG_MAX)
-		trace.nr_entries--;
+	nr_entries = stack_trace_save(entries, KMSAN_STACK_DEPTH, 0);
+	filter_irq_stacks(entries, nr_entries);
 
 	/* Don't sleep (see might_sleep_if() in __alloc_pages_nodemask()). */
 	flags &= ~__GFP_DIRECT_RECLAIM;
 
-	handle = depot_save_stack(&trace, flags);
+	handle = stack_depot_save(entries, nr_entries, flags);
 	return handle;
 }
 
@@ -332,7 +324,8 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 
 static inline void kmsan_print_origin(depot_stack_handle_t origin)
 {
-	struct stack_trace trace, chained_trace;
+	unsigned long *entries = NULL, *chained_entries = NULL;
+	unsigned long nr_entries, chained_nr_entries;
 	char *descr = NULL;
 	void *pc1 = NULL, *pc2 = NULL;
 	depot_stack_handle_t head;
@@ -343,32 +336,32 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 	}
 
 	while (true) {
-		depot_fetch_stack(origin, &trace);
-		if ((trace.nr_entries == 4) &&
-		    ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_ALLOCA_MAGIC_ORIGIN)) {
-			descr = (char *)trace.entries[1];
-			pc1 = (void *)trace.entries[2];
-			pc2 = (void *)trace.entries[3];
+		nr_entries = stack_depot_fetch(origin, &entries);
+		if ((nr_entries == 4) &&
+		    ((entries[0] & KMSAN_MAGIC_MASK) == KMSAN_ALLOCA_MAGIC_ORIGIN)) {
+			descr = (char *)entries[1];
+			pc1 = (void *)entries[2];
+			pc2 = (void *)entries[3];
 			kmsan_pr_err("Local variable description: %s\n", descr);
 			kmsan_pr_err("Variable was created at:\n");
 			kmsan_pr_err(" %pS\n", pc1);
 			kmsan_pr_err(" %pS\n", pc2);
 			break;
 		}
-		if (trace.nr_entries == 3) {
-			if ((trace.entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
-				head = trace.entries[1];
-				origin = trace.entries[2];
+		if (nr_entries == 3) {
+			if ((entries[0] & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
+				head = entries[1];
+				origin = entries[2];
 				kmsan_pr_err("Uninit was stored to memory at:\n");
-				depot_fetch_stack(head, &chained_trace);
-				print_stack_trace(&chained_trace, 0);
+				chained_nr_entries = stack_depot_fetch(head, &chained_entries);
+				stack_trace_print(chained_entries, chained_nr_entries, 0);
 				kmsan_pr_err("\n");
 				continue;
 			}
 		}
 		kmsan_pr_err("Uninit was created at:\n");
-		if (trace.entries)
-			print_stack_trace(&trace, 0);
+		if (entries)
+			stack_trace_print(entries, nr_entries, 0);
 		else
 			kmsan_pr_err("No stack\n");
 		break;
@@ -378,15 +371,9 @@ static inline void kmsan_print_origin(depot_stack_handle_t origin)
 depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 {
 	depot_stack_handle_t handle;
-	unsigned long entries[3];
-	struct stack_trace trace = {
-		.nr_entries = 3,
-		.entries = entries,
-		.max_entries = 3,
-		.skip = 0
-	};
+	unsigned long entries[3], *old_entries;
+	unsigned int nr_old_entries;
 	u64 magic = KMSAN_CHAIN_MAGIC_ORIGIN_FULL;
-	struct stack_trace old_trace;
 	int depth = 0;
 	u64 old_magic;
 	static int skipped = 0;
@@ -405,10 +392,10 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 	 * Let us store the chain length in the lowest byte of the magic.
 	 * Maybe we can cache the ids somehow to avoid fetching them?
 	 */
-	depot_fetch_stack(id, &old_trace);
-	if (!old_trace.nr_entries)
+	nr_old_entries = stack_depot_fetch(id, &old_entries);
+	if (!nr_old_entries)
 		return id;
-	old_magic = old_trace.entries[0];
+	old_magic = old_entries[0];
 	if ((old_magic & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
 		depth = old_magic & 0xff;
 	}
@@ -426,7 +413,7 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 	entries[0] = magic + depth;
 	entries[1] = kmsan_save_stack();
 	entries[2] = id;
-	handle = depot_save_stack(&trace, GFP_ATOMIC);
+	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
 	return handle;
 }
 
@@ -588,7 +575,8 @@ inline void kmsan_report(depot_stack_handle_t origin,
 			const void *user_addr, bool deep, int reason)
 {
 	unsigned long flags;
-	struct stack_trace trace;
+	unsigned long *entries;
+	unsigned int nr_entries;
 
 	if (!kmsan_ready)
 		return;
@@ -601,7 +589,7 @@ inline void kmsan_report(depot_stack_handle_t origin,
 	if (!origin)
 		return;
 
-	depot_fetch_stack(origin, &trace);
+	nr_entries = stack_depot_fetch(origin, &entries);
 
 	/* TODO(glider) */
 	current->kmsan.allow_reporting = false;
@@ -721,7 +709,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 
 void kmsan_check_memory(const volatile void *addr, size_t size)
 {
-	kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0, REASON_ANY);
+	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0, REASON_ANY);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
 
