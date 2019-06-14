@@ -246,12 +246,6 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[4];
-	struct stack_trace trace = {
-		.nr_entries = 4,
-		.entries = entries,
-		.max_entries = 4,
-		.skip = 0
-	};
 	unsigned long irq_flags;
 	u64 size_copy = size, to_fill;
 	u64 addr_copy = (u64)address;
@@ -278,9 +272,9 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	entries[2] = (u64)__builtin_return_address(0);
 	entries[3] = (u64)kmsan_internal_return_address(1);
 
-	/* depot_save_stack() may allocate memory. */
+	/* stack_depot_save() may allocate memory. */
 	ENTER_RUNTIME(irq_flags);
-	handle = depot_save_stack(&trace, GFP_ATOMIC);
+	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
 	LEAVE_RUNTIME(irq_flags);
 	kmsan_set_origin_inline(address, size, handle);
 }
