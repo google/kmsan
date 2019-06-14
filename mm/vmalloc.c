@@ -1970,6 +1970,7 @@ int map_vm_area(struct vm_struct *area, pgprot_t prot, struct page **pages)
 	int err;
 
 	err = vmap_page_range(addr, end, prot, pages);
+
 	return err > 0 ? 0 : err;
 }
 EXPORT_SYMBOL_GPL(map_vm_area);
@@ -2414,7 +2415,6 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 
 	if (map_vm_area(area, prot, pages))
 		goto fail;
-
 	return area->addr;
 
 fail:
