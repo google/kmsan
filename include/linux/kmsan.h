@@ -99,7 +99,7 @@ static inline int kmsan_alloc_page(
 {
 	return 0;
 }
-static void kmsan_gup_pgd_range(struct page **pages, int nr) {}
+static inline void kmsan_gup_pgd_range(struct page **pages, int nr) {}
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
 static inline void kmsan_split_page(struct page *page, unsigned int order) {}
 static inline void kmsan_copy_page_meta(struct page *dst, struct page *src) {}
@@ -123,17 +123,17 @@ static inline void kmsan_slab_setup_object(
 static inline void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 	size_t size, void *object) {}
 
-static void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
+static inline void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 				   pgprot_t prot, struct page **pages) {}
-static void kmsan_vunmap_page_range(unsigned long start, unsigned long end) {}
+static inline void kmsan_vunmap_page_range(unsigned long start, unsigned long end) {}
 
-static void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
+static inline void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	phys_addr_t phys_addr, pgprot_t prot) {}
-static void kmsan_iounmap_page_range(unsigned long start, unsigned long end) {}
+static inline void kmsan_iounmap_page_range(unsigned long start, unsigned long end) {}
 static inline void kmsan_softirq_enter(void) {}
 static inline void kmsan_softirq_exit(void) {}
 
-static void kmsan_clear_page(void *page_addr) {}
+static inline void kmsan_clear_page(void *page_addr) {}
 #endif
 
 #endif /* LINUX_KMSAN_H */
