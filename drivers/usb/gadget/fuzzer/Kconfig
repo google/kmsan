@@ -1,0 +1,4 @@
+config USB_FUZZER
+	tristate "USB Gadget Fuzzer"
+	help
+	  USB Gadget Fuzzer
