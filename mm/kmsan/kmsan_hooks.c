@@ -17,6 +17,7 @@
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
 #include <linux/gfp.h>
+#include <linux/i2c.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
 #include <linux/skbuff.h>
@@ -622,3 +623,22 @@ void kmsan_handle_urb(const struct urb *urb, bool is_out)
 					       /*checked*/false);
 }
 EXPORT_SYMBOL(kmsan_handle_urb);
+
+/* Helper function to check I2C-transferred data. */
+void kmsan_handle_i2c_transfer(struct i2c_msg *msgs, int num)
+{
+	int i;
+
+	if (!msgs)
+		return;
+	for (i = 0; i < num; i++) {
+		if (msgs[i].flags & I2C_M_RD)
+			kmsan_internal_unpoison_shadow(msgs[i].buf,
+						       msgs[i].len,
+						       /*checked*/false);
+		else
+			kmsan_internal_check_memory(msgs[i].buf, msgs[i].len,
+						    /*user_addr*/0,
+						    REASON_ANY);
+	}
+}
