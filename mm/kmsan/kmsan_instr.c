@@ -74,8 +74,12 @@ void __msan_instrument_asm_store(void *addr, u64 size)
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	/* It's unlikely that the assembly will touch more than 32 bytes. */
-	if (size > 32)
+	/*
+	 * Most of the accesses are below 32 bytes. The two exceptions so far
+	 * are clwb() (64 bytes) and FPU state (512 bytes).
+	 * It's unlikely that the assembly will touch more than 512 bytes.
+	 */
+	if (size > 512)
 		size = 8;
 	if (is_bad_asm_addr(addr, size, /*is_store*/true))
 		return;
