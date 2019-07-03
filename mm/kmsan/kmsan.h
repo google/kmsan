@@ -32,6 +32,11 @@ extern spinlock_t report_lock;
 			pr_err(__VA_ARGS__); \
 	} while (0)
 
+void kmsan_print_origin(depot_stack_handle_t origin);
+void kmsan_report(depot_stack_handle_t origin,
+		  void *address, int size, int off_first, int off_last,
+		  const void *user_addr, bool deep, int reason);
+
 #define shadow_page_for(page) \
 	((page)->shadow)
 
