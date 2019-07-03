@@ -548,22 +548,6 @@ struct page *virt_to_page_or_null(void *vaddr)
 		return NULL;
 }
 
-int order_from_size(unsigned long size)
-{
-	unsigned long pages = size >> PAGE_SHIFT;
-
-	if (!pages)
-		pages = 1;
-	if (hweight64(pages) > 1)
-		/*
-		 * TODO(glider): round up to the next power of 2.
-		 * This is a bit excessive.
-		 */
-		return fls(pages);
-	else
-		return fls(pages) - 1;
-}
-
 DEFINE_SPINLOCK(report_lock);
 
 /*
