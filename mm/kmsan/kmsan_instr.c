@@ -54,20 +54,6 @@ DECLARE_METADATA_PTR_GETTER(2);
 DECLARE_METADATA_PTR_GETTER(4);
 DECLARE_METADATA_PTR_GETTER(8);
 
-void __msan_instrument_asm_load(void *addr, u64 size)
-{
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-	/* It's unlikely that the assembly will touch more than 32 bytes. */
-	if (size > 32)
-		size = 8;
-	if (is_bad_asm_addr(addr, size, /*is_store*/false))
-		return;
-	/* kmsan_internal_check_memory() may take locks. */
-	kmsan_internal_check_memory(addr, size, /*user_addr*/0, REASON_ANY);
-}
-EXPORT_SYMBOL(__msan_instrument_asm_load);
-
 void __msan_instrument_asm_store(void *addr, u64 size)
 {
 	unsigned long irq_flags;
