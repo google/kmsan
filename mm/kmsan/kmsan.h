@@ -144,7 +144,6 @@ int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 kmsan_context_state *task_kmsan_context_state(void);
 
 bool metadata_is_contiguous(void *addr, size_t size, bool is_origin);
-int order_from_size(unsigned long size);
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr, int reason);
 
 struct page *vmalloc_to_page_or_null(void *vaddr);
