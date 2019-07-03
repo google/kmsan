@@ -115,20 +115,6 @@ void *kmsan_get_metadata_or_null(void *addr, size_t size, bool is_origin);
 void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
 void kmsan_memmove_metadata(void *dst, void *src, size_t n);
 
-extern char dummy_shadow_load_page[PAGE_SIZE];
-extern char dummy_origin_load_page[PAGE_SIZE];
-extern char dummy_shadow_store_page[PAGE_SIZE];
-extern char dummy_origin_store_page[PAGE_SIZE];
-
-extern void *kmsan_dummy_retval_tls[];
-extern u64 kmsan_dummy_va_arg_overflow_size_tls;
-extern void *kmsan_dummy_va_arg_tls[];
-extern void *kmsan_dummy_va_arg_origin_tls[];
-extern void *kmsan_dummy_param_tls[];
-extern depot_stack_handle_t kmsan_dummy_origin_tls;
-extern depot_stack_handle_t kmsan_dummy_param_origin_tls[];
-extern depot_stack_handle_t kmsan_dummy_retval_origin_tls;
-
 inline depot_stack_handle_t kmsan_save_stack(void);
 inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags);
 void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, bool checked);
