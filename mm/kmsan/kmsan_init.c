@@ -23,7 +23,6 @@ struct start_end_pair {
 
 static __initdata struct start_end_pair start_end_pairs[NUM_FUTURE_RANGES];
 static __initdata int future_index = 0;
-static __initdata bool ranges_processed = false;
 
 /*
  * Record a range of memory for which the metadata pages will be created once
@@ -33,7 +32,6 @@ static __initdata bool ranges_processed = false;
 static void __init kmsan_record_future_shadow_range(void *start, void *end)
 {
 	BUG_ON(future_index == NUM_FUTURE_RANGES);
-	BUG_ON(ranges_processed);
 	BUG_ON((start >= end) || !start || !end);
 	start_end_pairs[future_index].start = start;
 	start_end_pairs[future_index].end = end;
@@ -66,17 +64,6 @@ void __init kmsan_alloc_meta_for_range(void *start, void *end)
 	}
 }
 
-/* Was intended to be called several times, but better not do that. */
-void __init process_future_ranges(void)
-{
-	int i = 0;
-
-	for (; i < future_index; i++)
-		kmsan_alloc_meta_for_range(start_end_pairs[i].start,
-						start_end_pairs[i].end);
-	ranges_processed = true;
-}
-
 /*
  * Initialize the shadow for existing mappings during kernel initialization.
  * These include kernel text/data sections, NODE_DATA and future ranges
@@ -104,7 +91,10 @@ void __init kmsan_initialize_shadow(void)
 	for_each_online_node(nid)
 		kmsan_record_future_shadow_range(NODE_DATA(nid),
 						(char *)NODE_DATA(nid) + nd_size);
-	process_future_ranges();
+
+	for (i = 0; i < future_index; i++)
+		kmsan_alloc_meta_for_range(start_end_pairs[i].start,
+						start_end_pairs[i].end);
 }
 EXPORT_SYMBOL(kmsan_initialize_shadow);
 
