@@ -115,8 +115,8 @@ void *kmsan_get_metadata_or_null(void *addr, size_t size, bool is_origin);
 void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
 void kmsan_memmove_metadata(void *dst, void *src, size_t n);
 
-inline depot_stack_handle_t kmsan_save_stack(void);
-inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags);
+depot_stack_handle_t kmsan_save_stack(void);
+depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags);
 void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, bool checked);
 void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);
 void kmsan_internal_memset_shadow(void *address, int b, size_t size, bool checked);
@@ -124,10 +124,10 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
 
 void do_kmsan_task_create(struct task_struct *task);
 void kmsan_set_origin(void *address, int size, u32 origin, bool checked);
-inline void kmsan_report(depot_stack_handle_t origin,
-			void *address, int size,
-			int off_first, int off_last,
-			const void *user_addr, bool deep, int reason);
+void kmsan_report(depot_stack_handle_t origin,
+		  void *address, int size,
+		  int off_first, int off_last,
+		  const void *user_addr, bool deep, int reason);
 
 int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 				unsigned int actual_size, gfp_t flags, int node);
@@ -188,8 +188,7 @@ static inline bool _is_vmalloc_addr(void *addr)
 	return ((u64)addr >= VMALLOC_START) && ((u64)addr < VMALLOC_END);
 }
 
-static inline
-void *vmalloc_meta(void *addr, bool is_origin)
+static inline void *vmalloc_meta(void *addr, bool is_origin)
 {
 	u64 addr64 = (u64)addr, off;
 
@@ -206,16 +205,14 @@ void *vmalloc_meta(void *addr, bool is_origin)
 	return NULL;
 }
 
-static inline
-void *vmalloc_shadow(void *addr)
+static inline void *vmalloc_shadow(void *addr)
 {
 	return vmalloc_meta(addr, /*is_origin*/false);
 }
 
-static inline
-void *vmalloc_origin(void *addr)
+static inline void *vmalloc_origin(void *addr)
 {
 	return vmalloc_meta(addr, /*is_origin*/true);
 }
 
-#endif
+#endif  /* __MM_KMSAN_KMSAN_H */
