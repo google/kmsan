@@ -207,11 +207,6 @@ inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
 	return handle;
 }
 
-inline depot_stack_handle_t kmsan_save_stack()
-{
-	return kmsan_save_stack_with_flags(GFP_ATOMIC);
-}
-
 /*
  * As with the regular memmove, do the following:
  * - if src and dst don't overlap, use memcpy;
@@ -364,7 +359,7 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 	depth++;
 	/* TODO(glider): how do we figure out we've dropped some frames? */
 	entries[0] = magic + depth;
-	entries[1] = kmsan_save_stack();
+	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC);
 	entries[2] = id;
 	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
 	return handle;
