@@ -49,6 +49,24 @@ You can refer to https://github.com/ramosian-glider/clang-kernel-build for the i
 on running the freshly built kernel in a QEMU VM.
 Also consider running a KMSAN-instrumented kernel under [syzkaller](https://github.com/google/syzkaller).
 
+ ### Linux kernel
+
+There are several guides for kernel developers and users. These guides can
+be rendered in a number of formats, like HTML and PDF. Please read
+this [README](https://github.com/google/kmsan/blob/master/Documentation/admin-guide/README.rst) first.
+
+In order to build the documentation, use ``make htmldocs`` or
+``make pdfdocs``.  The formatted documentation can also be read online at:
+
+    https://www.kernel.org/doc/html/latest/
+
+There are various text files in the Documentation/ subdirectory,
+several of them using the Restructured Text markup notation.
+
+Please read the Documentation/process/changes.rst file, as it contains the
+requirements for building and running the kernel, and information about
+the problems which may result by upgrading your kernel.
+
 ## Trophies
 
 See https://github.com/google/kmsan/wiki/KMSAN-Trophies for the list of trophies.
