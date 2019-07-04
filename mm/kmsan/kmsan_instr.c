@@ -14,7 +14,7 @@
 #include <linux/gfp.h>
 #include <linux/mm.h>
 
-bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
+static inline bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
 {
 	if ((u64)addr < TASK_SIZE) {
 		return true;
