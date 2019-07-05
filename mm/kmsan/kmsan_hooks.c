@@ -12,8 +12,6 @@
  *
  */
 
-
-
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
 #include <linux/gfp.h>
@@ -36,6 +34,19 @@
  * ENTER_RUNTIME()/LEAVE_RUNTIME(), because this will lead to skipping
  * effects of functions like memset() inside instrumented code.
  */
+
+/* For KMSAN_ENABLE and KMSAN_DISABLE */
+void kmsan_enter_runtime(unsigned long *flags)
+{
+	ENTER_RUNTIME(*flags);
+}
+EXPORT_SYMBOL(kmsan_enter_runtime);
+
+void kmsan_leave_runtime(unsigned long *flags)
+{
+	LEAVE_RUNTIME(*flags);
+}
+EXPORT_SYMBOL(kmsan_leave_runtime);
 
 /* Called from kernel/kthread.c, kernel/fork.c */
 void kmsan_task_create(struct task_struct *task)
@@ -553,6 +564,12 @@ void kmsan_unpoison_shadow(const volatile void *address, size_t size)
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);
+
+void kmsan_check_memory(const volatile void *addr, size_t size)
+{
+	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0, REASON_ANY);
+}
+EXPORT_SYMBOL(kmsan_check_memory);
 
 void kmsan_gup_pgd_range(struct page **pages, int nr)
 {
