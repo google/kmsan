@@ -101,19 +101,6 @@ kmsan_context_state *task_kmsan_context_state(void)
 	return ret;
 }
 
-/* For KMSAN_ENABLE and KMSAN_DISABLE */
-void kmsan_enter_runtime(unsigned long *flags)
-{
-	ENTER_RUNTIME(*flags);
-}
-EXPORT_SYMBOL(kmsan_enter_runtime);
-
-void kmsan_leave_runtime(unsigned long *flags)
-{
-	LEAVE_RUNTIME(*flags);
-}
-EXPORT_SYMBOL(kmsan_leave_runtime);
-
 void inline do_kmsan_task_create(struct task_struct *task)
 {
 	kmsan_task_state *state = &task->kmsan;
@@ -569,12 +556,6 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 		LEAVE_RUNTIME(irq_flags);
 	}
 }
-
-void kmsan_check_memory(const volatile void *addr, size_t size)
-{
-	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0, REASON_ANY);
-}
-EXPORT_SYMBOL(kmsan_check_memory);
 
 /*
  * TODO(glider): this check shouldn't be performed for origin pages, because
