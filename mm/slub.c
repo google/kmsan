@@ -3153,7 +3153,7 @@ int kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
 			  void **p)
 {
 	struct kmem_cache_cpu *c;
-	int i;
+	int i, j;
 
 	/* memcg and kmem_cache debug support */
 	s = slab_pre_alloc_hook(s, flags);
@@ -3191,12 +3191,10 @@ int kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
 
 	/* Clear memory outside IRQ disabled fastpath loop */
 	if (unlikely(flags & __GFP_ZERO)) {
-		int j;
-
 		for (j = 0; j < i; j++)
 			memset(p[j], 0, s->object_size);
 	}
-	for (int j = 0; j < i; j++)
+	for (j = 0; j < i; j++)
 		kmsan_slab_alloc(s, p[j], flags);
 
 	/* memcg and kmem_cache debug support */
