@@ -193,23 +193,52 @@ void kmsan_kmalloc(struct kmem_cache *cache, const void *object, size_t size,
 }
 
 /* Called from mm/slab.c, mm/slab.h */
+// TODO(glider): this'll be the ultimate slub callback.
 void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 {
-	kmsan_kmalloc(s, object, s->object_size, flags);
+	unsigned long irq_flags;
+
+	if (unlikely(object == NULL))
+		return;
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+	/*
+	 * There's a ctor or this is an RCU cache - do nothing. The memory
+	 * status hasn't changed since last use.
+	 */
+	if (s->ctor || (s->flags & SLAB_TYPESAFE_BY_RCU))
+		return;
+
+	ENTER_RUNTIME(irq_flags);
+	if (flags & __GFP_ZERO) {
+		kmsan_internal_unpoison_shadow(object, s->object_size,
+					       /*checked*/true);
+	} else {
+		kmsan_internal_poison_shadow(object, s->object_size, flags,
+					     /*checked*/true);
+	}
+	LEAVE_RUNTIME(irq_flags);
 }
 
 /* Called from mm/slab.c, mm/slub.c */
-bool kmsan_slab_free(struct kmem_cache *s, void *object)
+void kmsan_slab_free(struct kmem_cache *s, void *object)
 {
+	unsigned long irq_flags;
+
 	if (!kmsan_ready || IN_RUNTIME())
-		return true;
+		return;
+	ENTER_RUNTIME(irq_flags);
 
 	/* RCU slabs could be legally used after free within the RCU period */
-	if (unlikely(s->flags & SLAB_TYPESAFE_BY_RCU))
-		return false;
-	kmsan_internal_poison_shadow((void *)object, s->object_size,
-					GFP_KERNEL, /*checked*/true);
-	return true;
+	if (unlikely(s->flags & (SLAB_TYPESAFE_BY_RCU | SLAB_POISON)))
+		goto leave;
+	if (s->ctor)
+		goto leave;
+	kmsan_internal_poison_shadow(object, s->object_size,
+				     GFP_KERNEL, /*checked*/true);
+leave:
+	LEAVE_RUNTIME(irq_flags);
+	return;
 }
 
 /* Called from mm/slub.c */
