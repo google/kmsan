@@ -66,7 +66,7 @@ void kmsan_kfree_large(const void *ptr);
 void kmsan_kmalloc(struct kmem_cache *s, const void *object, size_t size,
 		  gfp_t flags);
 void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags);
-bool kmsan_slab_free(struct kmem_cache *s, void *object);
+void kmsan_slab_free(struct kmem_cache *s, void *object);
 
 void kmsan_slab_setup_object(struct kmem_cache *s, void *object);
 void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
@@ -112,11 +112,7 @@ static inline void kmsan_kmalloc(
 	struct kmem_cache *s, const void *object, size_t size, gfp_t flags) {}
 static inline void kmsan_slab_alloc(
 	struct kmem_cache *s, void *object, gfp_t flags) {}
-// TODO(glider): make it return void.
-static inline bool kmsan_slab_free(struct kmem_cache *s, void *object)
-{
-	return false;
-}
+static inline void kmsan_slab_free(struct kmem_cache *s, void *object) {}
 
 static inline void kmsan_slab_setup_object(
 	struct kmem_cache *s, void *object) {}
