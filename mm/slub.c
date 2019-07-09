@@ -1431,7 +1431,6 @@ static __always_inline bool slab_free_hook(struct kmem_cache *s, void *x)
 	if (!(s->flags & SLAB_DEBUG_OBJECTS))
 		debug_check_no_obj_freed(x, s->object_size);
 
-	kmsan_slab_free(s, x);
 	/* KASAN might put x into memory quarantine, delaying its reuse */
 	return kasan_slab_free(s, x, _RET_IP_);
 }
@@ -1439,6 +1438,17 @@ static __always_inline bool slab_free_hook(struct kmem_cache *s, void *x)
 static inline bool slab_free_freelist_hook(struct kmem_cache *s,
 					   void **head, void **tail)
 {
+
+	void *object;
+	void *next = *head;
+	void *old_tail = *tail ? *tail : *head;
+
+	do {
+		object = next;
+		next = get_freepointer(s, object);
+		kmsan_slab_free(s, object);
+	} while (object != old_tail);
+
 /*
  * Compiler cannot detect this function can be removed if slab_free_hook()
  * evaluates to nothing.  Thus, catch all relevant config debug options here.
@@ -2760,6 +2770,7 @@ redo:
 	if (unlikely(gfpflags & __GFP_ZERO) && object)
 		memset(object, 0, s->object_size);
 
+	kmsan_slab_alloc(s, object, gfpflags);
 	slab_post_alloc_hook(s, gfpflags, 1, &object);
 
 	return object;
@@ -2778,8 +2789,6 @@ void *kmem_cache_alloc(struct kmem_cache *s, gfp_t gfpflags)
 	trace_kmem_cache_alloc(_RET_IP_, ret, s->object_size,
 				s->size, gfpflags);
 
-	kmsan_kmalloc(s, ret, s->object_size, gfpflags);
-
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc);
@@ -2790,7 +2799,6 @@ void *kmem_cache_alloc_trace(struct kmem_cache *s, gfp_t gfpflags, size_t size)
 	void *ret = slab_alloc(s, gfpflags, _RET_IP_);
 	trace_kmalloc(_RET_IP_, ret, size, s->size, gfpflags);
 	ret = kasan_kmalloc(s, ret, size, gfpflags);
-	kmsan_kmalloc(s, ret, size, gfpflags);
 
 	return ret;
 }
@@ -2804,7 +2812,6 @@ void *kmem_cache_alloc_node(struct kmem_cache *s, gfp_t gfpflags, int node)
 
 	trace_kmem_cache_alloc_node(_RET_IP_, ret,
 				    s->object_size, s->size, gfpflags, node);
-	// TODO(glider): do we want to tell KMSAN about this allocation?
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_node);
@@ -2820,7 +2827,6 @@ void *kmem_cache_alloc_node_trace(struct kmem_cache *s,
 			   size, s->size, gfpflags, node);
 
 	ret = kasan_kmalloc(s, ret, size, gfpflags);
-	kmsan_kmalloc(s, ret, size, gfpflags);
 
 	return ret;
 }
@@ -3190,6 +3196,8 @@ int kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
 		for (j = 0; j < i; j++)
 			memset(p[j], 0, s->object_size);
 	}
+	for (int j = 0; j < i; j++)
+		kmsan_slab_alloc(s, p[j], flags);
 
 	/* memcg and kmem_cache debug support */
 	slab_post_alloc_hook(s, flags, size, p);
@@ -3398,9 +3406,6 @@ static void early_kmem_cache_node_alloc(int node)
 	page->inuse = 1;
 	page->frozen = 0;
 	kmem_cache_node->node[node] = n;
-	// TODO(glider): get rid of kmsan_kmalloc here?
-	kmsan_kmalloc(kmem_cache_node, n, sizeof(struct kmem_cache_node),
-		      GFP_KERNEL);
 	init_kmem_cache_node(n);
 	inc_slabs_node(kmem_cache_node, node, page->objects);
 
@@ -3816,7 +3821,6 @@ void *__kmalloc(size_t size, gfp_t flags)
 	trace_kmalloc(_RET_IP_, ret, size, s->size, flags);
 
 	ret = kasan_kmalloc(s, ret, size, flags);
-	kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
 }
@@ -3861,7 +3865,6 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
 	trace_kmalloc_node(_RET_IP_, ret, size, s->size, flags, node);
 
 	ret = kasan_kmalloc(s, ret, size, flags);
-	kmsan_kmalloc(s, ret, size, flags);
 
 	return ret;
 }

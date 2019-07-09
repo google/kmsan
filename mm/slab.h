@@ -43,7 +43,6 @@ struct kmem_cache {
 #include <linux/memcontrol.h>
 #include <linux/fault-inject.h>
 #include <linux/kasan.h>
-#include <linux/kmsan.h>
 #include <linux/kmemleak.h>
 #include <linux/random.h>
 #include <linux/sched/mm.h>
@@ -439,7 +438,6 @@ static inline void slab_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
 		/* As p[i] might get tagged, call kmemleak hook after KASAN. */
 		kmemleak_alloc_recursive(p[i], s->object_size, 1,
 					 s->flags, flags);
-		kmsan_slab_alloc(s, p[i], flags);
 	}
 
 	if (memcg_kmem_enabled())
