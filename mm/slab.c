@@ -100,7 +100,6 @@
 #include	<linux/seq_file.h>
 #include	<linux/notifier.h>
 #include	<linux/kallsyms.h>
-#include	<linux/kmsan.h>
 #include	<linux/cpu.h>
 #include	<linux/sysctl.h>
 #include	<linux/module.h>
@@ -1393,12 +1392,6 @@ static struct page *kmem_getpages(struct kmem_cache *cachep, gfp_t flags,
 	if (sk_memalloc_socks() && page_is_pfmemalloc(page))
 		SetPageSlabPfmemalloc(page);
 
-	if (kmsan_alloc_page(page, cachep->gfporder, cachep->flags, nodeid) == -ENOMEM) {
-		__free_pages(page, cachep->gfporder);
-		slab_out_of_memory(cachep, flags, nodeid);
-		return NULL;
-	}
-
 	return page;
 }
 
@@ -2516,7 +2509,6 @@ static void cache_init_objs(struct kmem_cache *cachep,
 	for (i = 0; i < cachep->num; i++) {
 		objp = index_to_obj(cachep, page, i);
 		objp = kasan_init_slab_obj(cachep, objp);
-		kmsan_init_slab_obj(cachep, objp);
 
 		/* constructor could break poison info */
 		if (DEBUG == 0 && cachep->ctor) {
@@ -2644,8 +2636,6 @@ static struct page *cache_grow_begin(struct kmem_cache *cachep,
 
 	slab_map_pages(cachep, page, freelist);
 
-	/* TODO(glider): v5.0 dropped KASAN hook here. */
-	kmsan_poison_slab(page);
 	cache_init_objs(cachep, page);
 
 	if (gfpflags_allow_blocking(local_flags))
@@ -3441,7 +3431,6 @@ static __always_inline void __cache_free(struct kmem_cache *cachep, void *objp,
 	/* Put the object into the quarantine, don't touch it for now. */
 	if (kasan_slab_free(cachep, objp, _RET_IP_))
 		return;
-	kmsan_slab_free(cachep, objp);
 
 	___cache_free(cachep, objp, caller);
 }
@@ -3498,8 +3487,6 @@ void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
 {
 	void *ret = slab_alloc(cachep, flags, _RET_IP_);
 
-	/* TODO(glider): v5.0 dropped KASAN hook here. */
-	kmsan_slab_alloc(cachep, ret, flags);
 	trace_kmem_cache_alloc(_RET_IP_, ret,
 			       cachep->object_size, cachep->size, flags);
 
@@ -3566,7 +3553,6 @@ kmem_cache_alloc_trace(struct kmem_cache *cachep, gfp_t flags, size_t size)
 	ret = slab_alloc(cachep, flags, _RET_IP_);
 
 	ret = kasan_kmalloc(cachep, ret, size, flags);
-	kmsan_kmalloc(cachep, ret, size, flags);
 	trace_kmalloc(_RET_IP_, ret,
 		      size, cachep->size, flags);
 	return ret;
@@ -3592,8 +3578,6 @@ void *kmem_cache_alloc_node(struct kmem_cache *cachep, gfp_t flags, int nodeid)
 {
 	void *ret = slab_alloc_node(cachep, flags, nodeid, _RET_IP_);
 
-	/* TODO(glider): v5.0 dropped KASAN hook here. */
-	kmsan_slab_alloc(cachep, ret, flags);
 	trace_kmem_cache_alloc_node(_RET_IP_, ret,
 				    cachep->object_size, cachep->size,
 				    flags, nodeid);
@@ -3613,7 +3597,6 @@ void *kmem_cache_alloc_node_trace(struct kmem_cache *cachep,
 	ret = slab_alloc_node(cachep, flags, nodeid, _RET_IP_);
 
 	ret = kasan_kmalloc(cachep, ret, size, flags);
-	kmsan_kmalloc(cachep, ret, size, flags);
 	trace_kmalloc_node(_RET_IP_, ret,
 			   size, cachep->size,
 			   flags, nodeid);
@@ -3635,7 +3618,6 @@ __do_kmalloc_node(size_t size, gfp_t flags, int node, unsigned long caller)
 		return cachep;
 	ret = kmem_cache_alloc_node_trace(cachep, flags, node, size);
 	ret = kasan_kmalloc(cachep, ret, size, flags);
-	kmsan_kmalloc(cachep, ret, size, flags);
 
 	return ret;
 }
@@ -3676,7 +3658,6 @@ static __always_inline void *__do_kmalloc(size_t size, gfp_t flags,
 	ret = slab_alloc(cachep, flags, caller);
 
 	ret = kasan_kmalloc(cachep, ret, size, flags);
-	kmsan_kmalloc(cachep, ret, size, flags);
 	trace_kmalloc(caller, ret,
 		      size, cachep->size, flags);
 
