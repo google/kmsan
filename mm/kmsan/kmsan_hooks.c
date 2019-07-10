@@ -151,49 +151,7 @@ void kmsan_task_exit(struct task_struct *task)
 }
 EXPORT_SYMBOL(kmsan_task_exit);
 
-/* Called from mm/slab.c */
-void kmsan_poison_slab(struct page *page, gfp_t flags)
-{
-	unsigned long irq_flags;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	if (flags & __GFP_ZERO) {
-		kmsan_internal_unpoison_shadow(
-			page_address(page), PAGE_SIZE << compound_order(page), /*checked*/true);
-	} else {
-		kmsan_internal_poison_shadow(
-			page_address(page), PAGE_SIZE << compound_order(page),
-			flags, /*checked*/true);
-	}
-	LEAVE_RUNTIME(irq_flags);
-}
-
-/* Called from mm/slab.c, mm/slub.c */
-void kmsan_kmalloc(struct kmem_cache *cache, const void *object, size_t size,
-		   gfp_t flags)
-{
-	unsigned long irq_flags;
-
-	if (unlikely(object == NULL))
-		return;
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	if (flags & __GFP_ZERO) {
-		// TODO(glider) do we poison by default?
-		kmsan_internal_unpoison_shadow((void *)object, size, /*checked*/true);
-	} else {
-		if (!cache->ctor)
-			kmsan_internal_poison_shadow((void *)object, size,
-							flags, /*checked*/true);
-	}
-	LEAVE_RUNTIME(irq_flags);
-}
-
-/* Called from mm/slab.c, mm/slab.h */
-// TODO(glider): this'll be the ultimate slub callback.
+/* Called from mm/slub.c */
 void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 {
 	unsigned long irq_flags;
@@ -220,7 +178,7 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 	LEAVE_RUNTIME(irq_flags);
 }
 
-/* Called from mm/slab.c, mm/slub.c */
+/* Called from mm/slub.c */
 void kmsan_slab_free(struct kmem_cache *s, void *object)
 {
 	unsigned long irq_flags;
@@ -252,7 +210,6 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 		return;
 	ENTER_RUNTIME(irq_flags);
 	if (flags & __GFP_ZERO) {
-		// TODO(glider) do we poison by default?
 		kmsan_internal_unpoison_shadow((void *)ptr, size, /*checked*/true);
 	} else {
 		kmsan_internal_poison_shadow((void *)ptr, size, flags, /*checked*/true);
@@ -275,7 +232,7 @@ void kmsan_kfree_large(const void *ptr)
 	LEAVE_RUNTIME(irq_flags);
 }
 
-/* Called from mm/page_alloc.c, mm/slab.c */
+/* Called from mm/page_alloc.c */
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 {
 	unsigned long irq_flags;
@@ -290,7 +247,7 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	return ret;
 }
 
-/* Called from mm/page_alloc.c, mm/slab.c */
+/* Called from mm/page_alloc.c */
 void kmsan_free_page(struct page *page, unsigned int order)
 {
 	struct page *shadow, *origin, *cur_page;
@@ -549,6 +506,7 @@ void kmsan_copy_to_user(const void *to, const void *from,
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
 
+/* Called from include/linux/highmem.h */
 void kmsan_clear_page(void *page_addr)
 {
 	struct page *page;
