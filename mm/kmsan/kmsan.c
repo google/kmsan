@@ -316,10 +316,6 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 	if (!kmsan_ready)
 		return 0;
 
-	/*
-	 * TODO(glider): invalid id may denote we've hit the stack depot
-	 * capacity. We can either return the same id or generate a new one.
-	 */
 	if (!id) return id;
 
 	/*
