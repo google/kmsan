@@ -513,4 +513,6 @@ source "drivers/usb/gadget/legacy/Kconfig"
 
 endchoice
 
+source "drivers/usb/gadget/fuzzer/Kconfig"
+
 endif # USB_GADGET
