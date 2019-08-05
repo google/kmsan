@@ -2,6 +2,7 @@
 #ifndef LINUX_KMSAN_H
 #define LINUX_KMSAN_H
 
+#include <linux/gfp.h>
 #include <linux/stackdepot.h>
 #include <linux/types.h>
 #include <linux/vmalloc.h>
