@@ -1678,10 +1678,11 @@ end_repeat_nmi:
 	call	paranoid_entry
 	UNWIND_HINT_REGS
 
+	KMSAN_NMI_ENTER
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
-	KMSAN_NMI_ENTER
+	KMSAN_UNPOISON_PT_REGS
 	call	do_nmi
 	KMSAN_NMI_EXIT
 
