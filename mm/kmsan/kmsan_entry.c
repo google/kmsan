@@ -10,8 +10,6 @@
  *
  */
 
-#include <linux/percpu-defs.h>
-
 #include "kmsan.h"
 
 static inline void kmsan_context_enter(void)
