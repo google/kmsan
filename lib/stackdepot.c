@@ -163,6 +163,11 @@ int stackdepot_memcmp(const unsigned long *u1, const unsigned long *u2,
 			unsigned int n)
 {
 	for ( ; n-- ; u1++, u2++) {
+		/*
+		 * Prevent Clang from replacing this function with a bcmp()
+		 * call.
+		 */
+		barrier();
 		if (*u1 != *u2)
 			return 1;
 	}
