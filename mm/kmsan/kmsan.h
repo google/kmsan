@@ -16,6 +16,9 @@
 #define KMSAN_ALLOCA_MAGIC_ORIGIN 0x4110c4071900
 #define KMSAN_CHAIN_MAGIC_ORIGIN_FULL 0xd419170cba00
 
+#define KMSAN_POISON_NOCHECK	0x0
+#define KMSAN_POISON_CHECK	0x1
+
 #define ORIGIN_SIZE 4
 
 #define KMSAN_NESTED_CONTEXT_MAX (8)
@@ -117,7 +120,7 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n);
 
 depot_stack_handle_t kmsan_save_stack(void);
 depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags);
-void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, bool checked);
+void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, unsigned int poison_flags);
 void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);
 void kmsan_internal_memset_shadow(void *address, int b, size_t size, bool checked);
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);

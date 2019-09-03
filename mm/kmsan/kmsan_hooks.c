@@ -170,10 +170,10 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 	ENTER_RUNTIME(irq_flags);
 	if (flags & __GFP_ZERO) {
 		kmsan_internal_unpoison_shadow(object, s->object_size,
-					       /*checked*/true);
+					       KMSAN_POISON_CHECK);
 	} else {
 		kmsan_internal_poison_shadow(object, s->object_size, flags,
-					     /*checked*/true);
+					     KMSAN_POISON_CHECK);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -193,7 +193,7 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 	if (s->ctor)
 		goto leave;
 	kmsan_internal_poison_shadow(object, s->object_size,
-				     GFP_KERNEL, /*checked*/true);
+				     GFP_KERNEL, KMSAN_POISON_CHECK);
 leave:
 	LEAVE_RUNTIME(irq_flags);
 	return;
@@ -212,7 +212,7 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 	if (flags & __GFP_ZERO) {
 		kmsan_internal_unpoison_shadow((void *)ptr, size, /*checked*/true);
 	} else {
-		kmsan_internal_poison_shadow((void *)ptr, size, flags, /*checked*/true);
+		kmsan_internal_poison_shadow((void *)ptr, size, flags, KMSAN_POISON_CHECK);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -228,7 +228,7 @@ void kmsan_kfree_large(const void *ptr)
 	ENTER_RUNTIME(irq_flags);
 	page = virt_to_page_or_null((void *)ptr);
 	kmsan_internal_poison_shadow(
-		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL, /*checked*/true);
+		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL, KMSAN_POISON_CHECK);
 	LEAVE_RUNTIME(irq_flags);
 }
 
@@ -532,8 +532,8 @@ void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
-	// The users may want to poison/unpoison random memory.
-	kmsan_internal_poison_shadow((void *)address, size, flags, /*checked*/true);
+	/* The users may want to poison/unpoison random memory. */
+	kmsan_internal_poison_shadow((void *)address, size, flags, KMSAN_POISON_NOCHECK);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_poison_shadow);
@@ -546,8 +546,8 @@ void kmsan_unpoison_shadow(const volatile void *address, size_t size)
 		return;
 
 	ENTER_RUNTIME(irq_flags);
-	// The users may want to poison/unpoison random memory.
-	kmsan_internal_unpoison_shadow((void *)address, size, /*checked*/false);
+	/* The users may want to poison/unpoison random memory. */
+	kmsan_internal_unpoison_shadow((void *)address, size, KMSAN_POISON_NOCHECK);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);

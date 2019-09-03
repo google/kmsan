@@ -139,9 +139,11 @@ inline void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool ch
 }
 
 void kmsan_internal_poison_shadow(void *address, size_t size,
-				gfp_t flags, bool checked)
+				gfp_t flags, unsigned int poison_flags)
 {
+	bool checked = poison_flags & KMSAN_POISON_CHECK;
 	depot_stack_handle_t handle;
+
 	kmsan_internal_memset_shadow(address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags);
 	kmsan_set_origin(address, size, handle, checked);
