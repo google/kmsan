@@ -126,6 +126,8 @@ static void kcov_remote_area_put(struct kcov_remote_area *area,
 {
 	INIT_LIST_HEAD(&area->list);
 	area->size = size;
+	/* Assume |area| is initialized. */
+	kmsan_unpoison_shadow(area, sizeof(area));
 	list_add(&area->list, &kcov_remote_areas);
 }
 
