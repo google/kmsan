@@ -181,6 +181,18 @@ void noinline init_vmalloc(void)
 	vfree(buf);
 }
 
+void noinline uaf_test(void)
+{
+	volatile int *var;
+
+	pr_info("-----------------------------\n");
+	pr_info("use-after-free in kmalloc-ed buffer\n");
+	var = kmalloc(80, GFP_KERNEL);
+	var[3] = 0xfeedface;
+	kfree((int *)var);
+	CHECK(var[3]);
+}
+
 static noinline int __init kmsan_tests_init(void)
 {
 	uninit_kmalloc_test();
@@ -192,6 +204,7 @@ static noinline int __init kmsan_tests_init(void)
 	uninit_kmsan_check_memory_test();
 	init_kmsan_vmap_vunmap_test();
 	init_vmalloc();
+	uaf_test();
 	return -EAGAIN;
 }
 
