@@ -646,3 +646,26 @@ void kmsan_handle_i2c_transfer(struct i2c_msg *msgs, int num)
 						    REASON_ANY);
 	}
 }
+
+/*
+ * Helper function to check printk.
+ * Some optimizations may cause *fmt to be uninitialized, that's why it's
+ * passed by reference.
+ */
+void kmsan_handle_vprintk(const char **fmt, va_list args)
+{
+	unsigned long irq_flags;
+	size_t fmt_size;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+	ENTER_RUNTIME(irq_flags);
+	fmt_size = strlen(*fmt);
+	LEAVE_RUNTIME(irq_flags);
+	/* TODO(glider): check |args|. */
+	kmsan_internal_check_memory(fmt, sizeof(char*), /*user_addr*/0,
+				    REASON_ANY);
+	kmsan_internal_check_memory((void *)(*fmt), fmt_size, /*user_addr*/0,
+				    REASON_ANY);
+}
+EXPORT_SYMBOL(kmsan_handle_vprintk);

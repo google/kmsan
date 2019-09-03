@@ -74,6 +74,7 @@ void kmsan_unpoison_shadow(const volatile void *address, size_t size);
 void kmsan_check_memory(const volatile void *address, size_t size);
 void kmsan_check_skb(const struct sk_buff *skb);
 void kmsan_handle_urb(const struct urb *urb, bool is_out);
+void kmsan_handle_vprintk(const char **fmt, va_list args);
 void kmsan_handle_i2c_transfer(struct i2c_msg *msgs, int num);
 void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy, size_t left);
 void *__msan_memcpy(void *dst, const void *src, u64 n);
@@ -89,6 +90,7 @@ static inline void kmsan_unpoison_shadow(const volatile void *address, size_t si
 static inline void kmsan_check_memory(const volatile void *address, size_t size) {}
 static inline void kmsan_check_skb(const struct sk_buff *skb) {}
 static inline void kmsan_handle_urb(const struct urb *urb, bool is_out) {}
+static inline void kmsan_handle_vprintk(const char **fmt, va_list args) {}
 static inline void kmsan_handle_i2c_transfer(struct i2c_msg *msgs, int num) {}
 static inline void kmsan_copy_to_user(
 	const void *to, const void *from, size_t to_copy, size_t left) {}
