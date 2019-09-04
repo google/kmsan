@@ -72,6 +72,9 @@ void noinline uninit_multiple_args_test(void)
 {
 	volatile int a;
 	volatile char b = 3, c;
+
+	pr_info("-----------------------------\n");
+	pr_info("uninitialized local passed to fn (UMR report)\n");
 	CHECK(signed_sum3(a, b, c));
 }
 
@@ -135,7 +138,7 @@ void noinline uninit_kmsan_check_memory_test(void)
 	volatile char local_array[8];
 
 	pr_info("-----------------------------\n");
-	pr_info("uninitialized stack local checked with kmsan_check_memory()\n");
+	pr_info("uninitialized stack local checked with kmsan_check_memory() (UMR report)\n");
 	do_uninit_local_array((char*)local_array, 5, 7);
 
 	kmsan_check_memory((char*)local_array, 8);
@@ -186,7 +189,7 @@ void noinline uaf_test(void)
 	volatile int *var;
 
 	pr_info("-----------------------------\n");
-	pr_info("use-after-free in kmalloc-ed buffer\n");
+	pr_info("use-after-free in kmalloc-ed buffer (UMR report)\n");
 	var = kmalloc(80, GFP_KERNEL);
 	var[3] = 0xfeedface;
 	kfree((int *)var);
