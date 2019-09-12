@@ -1,3 +1,15 @@
+/*
+ * KMSAN internal declarations.
+ *
+ * Copyright (C) 2017-2019 Google LLC
+ * Author: Alexander Potapenko <glider@google.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ */
+
 #ifndef __MM_KMSAN_KMSAN_H
 #define __MM_KMSAN_KMSAN_H
 
@@ -11,6 +23,8 @@
 #include <linux/nmi.h>
 #include <linux/mm.h>
 #include <linux/printk.h>
+
+#include "kmsan_shadow.h"
 
 #define KMSAN_MAGIC_MASK 0xffffffffff00
 #define KMSAN_ALLOCA_MAGIC_ORIGIN 0x4110c4071900
@@ -40,35 +54,6 @@ void kmsan_report(depot_stack_handle_t origin,
 		  void *address, int size, int off_first, int off_last,
 		  const void *user_addr, bool deep, int reason);
 
-#define shadow_page_for(page) \
-	((page)->shadow)
-
-#define shadow_ptr_for(page) \
-	(page_address((page)->shadow))
-
-#define origin_page_for(page) \
-	((page)->origin)
-
-#define origin_ptr_for(page) \
-	(page_address((page)->origin))
-
-#define has_shadow_page(page) \
-	(!!((page)->shadow))
-
-#define has_origin_page(page) \
-	(!!((page)->origin))
-
-#define set_no_shadow_page(page) 	\
-	do {				\
-		(page)->shadow = NULL;	\
-	} while(0) /**/
-
-#define set_no_origin_page(page) 	\
-	do {				\
-		(page)->origin = NULL;	\
-	} while(0) /**/
-
-void *vmalloc_meta(void *addr, bool is_origin);
 
 enum KMSAN_BUG_REASON
 {
@@ -76,12 +61,6 @@ enum KMSAN_BUG_REASON
 	REASON_COPY_TO_USER = 1,
 	REASON_SUBMIT_URB = 2,
 };
-
-typedef struct {
-	void* s;
-	void* o;
-} shadow_origin_ptr_t;
-shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *addr, u64 size, bool store);
 
 /*
  * When a compiler hook is invoked, it may make a call to instrumented code
@@ -115,7 +94,6 @@ DECLARE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 		local_irq_restore(irq_flags);	\
 		preempt_enable(); } while(0)
 
-void *kmsan_get_metadata_or_null(void *addr, size_t size, bool is_origin);
 
 void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
 void kmsan_memmove_metadata(void *dst, void *src, size_t n);

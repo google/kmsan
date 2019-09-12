@@ -40,29 +40,7 @@ static void __init kmsan_record_future_shadow_range(void *start, void *end)
 
 extern char _sdata[], _edata[];
 
-void __init kmsan_alloc_meta_for_range(void *start, void *end)
-{
-	u64 addr, size;
-	struct page *page;
-	void *shadow, *origin;
-	struct page *shadow_p, *origin_p;
 
-	start = (void *)ALIGN_DOWN((u64)start, PAGE_SIZE);
-	size = ALIGN((u64)end - (u64)start, PAGE_SIZE);
-	shadow = memblock_alloc(size, PAGE_SIZE);
-	origin = memblock_alloc(size, PAGE_SIZE);
-	for (addr = 0; addr < size; addr += PAGE_SIZE) {
-		page = virt_to_page_or_null((char*)start + addr);
-		shadow_p = virt_to_page_or_null((char*)shadow + addr);
-		shadow_page_for(shadow_p) = NULL;
-		origin_page_for(shadow_p) = NULL;
-		shadow_page_for(page) = shadow_p;
-		origin_p = virt_to_page_or_null((char*)origin + addr);
-		shadow_page_for(origin_p) = NULL;
-		origin_page_for(origin_p) = NULL;
-		origin_page_for(page) = origin_p;
-	}
-}
 
 /*
  * Initialize the shadow for existing mappings during kernel initialization.
@@ -93,7 +71,7 @@ void __init kmsan_initialize_shadow(void)
 						(char *)NODE_DATA(nid) + nd_size);
 
 	for (i = 0; i < future_index; i++)
-		kmsan_alloc_meta_for_range(start_end_pairs[i].start,
+		kmsan_init_alloc_meta_for_range(start_end_pairs[i].start,
 						start_end_pairs[i].end);
 }
 EXPORT_SYMBOL(kmsan_initialize_shadow);
