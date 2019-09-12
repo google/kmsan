@@ -68,8 +68,6 @@ DEFINE_PER_CPU(bool, kmsan_in_nmi);
 DEFINE_PER_CPU(int, kmsan_in_runtime);
 DEFINE_PER_CPU(unsigned long, kmsan_runtime_last_caller);  // TODO(glider): debug-only
 
-extern int oops_in_progress;
-
 kmsan_context_state *task_kmsan_context_state(void)
 {
 	int cpu = smp_processor_id();
