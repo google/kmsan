@@ -142,8 +142,6 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 
 struct page *vmalloc_to_page_or_null(void *vaddr);
 struct page *virt_to_page_or_null(void *vaddr);
-void *get_cea_shadow_or_null(void *addr);
-void *get_cea_origin_or_null(void *addr);
 
 /* Declared in mm/vmalloc.c */
 void __vunmap_page_range(unsigned long addr, unsigned long end);
@@ -179,11 +177,6 @@ static inline void *kmsan_internal_return_address(int arg)
 static bool is_module_addr(void *vaddr)
 {
 	return ((u64)vaddr >= MODULES_VADDR) && ((u64)vaddr < MODULES_END);
-}
-
-static inline bool is_cpu_entry_area_addr(void *addr)
-{
-	return ((u64)addr >= CPU_ENTRY_AREA_BASE) && ((u64)addr < (CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE));
 }
 
 static inline bool _is_vmalloc_addr(void *addr)
