@@ -68,6 +68,8 @@ void kmsan_report(depot_stack_handle_t origin,
 		(page)->origin = NULL;	\
 	} while(0) /**/
 
+void *vmalloc_meta(void *addr, bool is_origin);
+
 enum KMSAN_BUG_REASON
 {
 	REASON_ANY = 0,
@@ -182,23 +184,6 @@ static bool is_module_addr(void *vaddr)
 static inline bool _is_vmalloc_addr(void *addr)
 {
 	return ((u64)addr >= VMALLOC_START) && ((u64)addr < VMALLOC_END);
-}
-
-static inline void *vmalloc_meta(void *addr, bool is_origin)
-{
-	u64 addr64 = (u64)addr, off;
-
-	BUG_ON(is_origin && !IS_ALIGNED(addr64, ORIGIN_SIZE));
-	if (_is_vmalloc_addr(addr)) {
-		return (void *)(addr64 + (is_origin ? VMALLOC_ORIGIN_OFFSET
-						: VMALLOC_SHADOW_OFFSET));
-	}
-	if (is_module_addr(addr)) {
-		off = addr64 - MODULES_VADDR;
-		return (void *)(off + (is_origin ? MODULES_ORIGIN_START
-						: MODULES_SHADOW_START));
-	}
-	return NULL;
 }
 
 static inline void *vmalloc_shadow(void *addr)

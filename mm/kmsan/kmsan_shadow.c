@@ -87,6 +87,23 @@ static void *get_cea_shadow_or_null(void *addr)
 	return &per_cpu(cpu_entry_area_shadow[off], cpu);
 }
 
+void *vmalloc_meta(void *addr, bool is_origin)
+{
+	u64 addr64 = (u64)addr, off;
+
+	BUG_ON(is_origin && !IS_ALIGNED(addr64, ORIGIN_SIZE));
+	if (_is_vmalloc_addr(addr)) {
+		return (void *)(addr64 + (is_origin ? VMALLOC_ORIGIN_OFFSET
+						: VMALLOC_SHADOW_OFFSET));
+	}
+	if (is_module_addr(addr)) {
+		off = addr64 - MODULES_VADDR;
+		return (void *)(off + (is_origin ? MODULES_ORIGIN_START
+						: MODULES_SHADOW_START));
+	}
+	return NULL;
+}
+
 static void *get_cea_origin_or_null(void *addr)
 {
 	int cpu = smp_processor_id();
