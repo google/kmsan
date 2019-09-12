@@ -1,13 +1,12 @@
 /*
  * KMSAN runtime library.
  *
- * Copyright (C) 2017 Google, Inc
+ * Copyright (C) 2017-2019 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- *
  */
 
 #include <asm/page.h>

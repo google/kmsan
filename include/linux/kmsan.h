@@ -1,4 +1,14 @@
-/* KMSAN */
+/*
+ * KMSAN API for subsystems.
+ *
+ * Copyright (C) 2017-2019 Google LLC
+ * Author: Alexander Potapenko <glider@google.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ */
 #ifndef LINUX_KMSAN_H
 #define LINUX_KMSAN_H
 

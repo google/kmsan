@@ -3,7 +3,7 @@
  *
  * These functions handle creation of KMSAN metadata for memory allocations.
  *
- * Copyright (C) 2018 Google, Inc
+ * Copyright (C) 2018-2019 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
  * This program is free software; you can redistribute it and/or modify

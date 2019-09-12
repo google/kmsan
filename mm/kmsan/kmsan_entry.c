@@ -1,7 +1,7 @@
 /*
  * KMSAN hooks for entry_64.S
  *
- * Copyright (C) 2018 Google, Inc
+ * Copyright (C) 2018-2019 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
  * This program is free software; you can redistribute it and/or modify
