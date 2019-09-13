@@ -23,6 +23,9 @@
 #include "kmsan.h"
 #include "kmsan_shadow.h"
 
+#define SELECT_SHADOW	(false)
+#define SELECT_ORIGIN	(true)
+
 #define shadow_page_for(page) \
 	((page)->shadow)
 
@@ -170,7 +173,7 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 	}
 	if (!kmsan_ready || IN_RUNTIME())
 		return ret;
-	BUG_ON(!metadata_is_contiguous(address, size, /*is_origin*/false));
+	BUG_ON(!metadata_is_contiguous(address, size, SELECT_SHADOW));
 
 	if (!IS_ALIGNED(addr64, ORIGIN_SIZE)) {
 		pad = addr64 % ORIGIN_SIZE;
@@ -178,8 +181,8 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 	}
 
 	if (_is_vmalloc_addr(address) || is_module_addr(address)) {
-		ret.s = vmalloc_meta(address, /*is_origin*/false);
-		ret.o = vmalloc_meta((void *)o_addr64, /*is_origin*/true);
+		ret.s = vmalloc_meta(address, SELECT_SHADOW);
+		ret.o = vmalloc_meta((void *)o_addr64, SELECT_ORIGIN);
 		return ret;
 	}
 
@@ -187,10 +190,10 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 		page = vmalloc_to_page_or_null(address);
 		if (page)
 			goto next;
-		shadow = get_cea_meta_or_null(address, /*is_origin*/false);
+		shadow = get_cea_meta_or_null(address, SELECT_SHADOW);
 		if (shadow) {
 			ret.s = shadow;
-			ret.o = get_cea_meta_or_null((void *)o_addr64, /*is_origin*/true);
+			ret.o = get_cea_meta_or_null((void *)o_addr64, SELECT_ORIGIN);
 			return ret;
 		}
 	}
@@ -209,7 +212,7 @@ next:
 		 * subsequent ones. Make sure the shadow/origin pages are also
 		 * consequent.
 		 */
-		BUG_ON(!metadata_is_contiguous(address, size, /*is_origin*/false));
+		BUG_ON(!metadata_is_contiguous(address, size, SELECT_SHADOW));
 	}
 
 	ret.s = shadow_ptr_for(page) + offset;
@@ -517,10 +520,11 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 	int nr, i, mapped;
 	struct page **s_pages, **o_pages;
 	unsigned long irq_flags;
+	void *shadow_start, *shadow_end, *origin_start, *origin_end;
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	if (!vmalloc_meta(start, /*is_origin*/false))
+	if (!vmalloc_meta(start, SELECT_SHADOW))
 		return;
 
 	BUG_ON(start >= end);
@@ -535,12 +539,16 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 	}
 	prot = __pgprot(pgprot_val(prot) | _PAGE_NX);
 	prot = PAGE_KERNEL;
-	mapped = __vmap_page_range_noflush(vmalloc_meta(start, /*is_origin*/false), vmalloc_meta(end, /*is_origin*/false), prot, s_pages);
+	shadow_start = vmalloc_meta(start, SELECT_SHADOW);
+	shadow_end = vmalloc_meta(end, SELECT_SHADOW);
+	origin_start = vmalloc_meta(start, SELECT_ORIGIN);
+	origin_end = vmalloc_meta(end, SELECT_ORIGIN);
+	mapped = __vmap_page_range_noflush(shadow_start, shadow_end, prot, s_pages);
 	BUG_ON(mapped != nr);
-	flush_tlb_kernel_range(vmalloc_meta(start, /*is_origin*/false), vmalloc_meta(end, /*is_origin*/false));
-	mapped = __vmap_page_range_noflush(vmalloc_meta(start, /*is_origin*/true), vmalloc_meta(end, /*is_origin*/true), prot, o_pages);
+	flush_tlb_kernel_range(shadow_start, shadow_end);
+	mapped = __vmap_page_range_noflush(origin_start, origin_end, prot, o_pages);
 	BUG_ON(mapped != nr);
-	flush_tlb_kernel_range(vmalloc_meta(start, /*is_origin*/true), vmalloc_meta(end, /*is_origin*/true));
+	flush_tlb_kernel_range(origin_start, origin_end);
 ret:
 	if (s_pages)
 		kfree(s_pages);
