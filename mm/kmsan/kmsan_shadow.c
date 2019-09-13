@@ -123,30 +123,20 @@ void *vmalloc_meta(void *addr, bool is_origin)
 	return NULL;
 }
 
-static void *get_cea_shadow_or_null(void *addr)
+static void *get_cea_meta_or_null(void *addr, bool is_origin)
 {
 	int cpu = smp_processor_id();
 	int off;
+	char *metadata_array;
 
 	if (!is_cpu_entry_area_addr(addr))
 		return NULL;
 	off = (char*)addr - (char*)get_cpu_entry_area(cpu);
 	if ((off < 0) || (off >= CPU_ENTRY_AREA_SIZE))
 		return NULL;
-	return &per_cpu(cpu_entry_area_shadow[off], cpu);
-}
-
-static void *get_cea_origin_or_null(void *addr)
-{
-	int cpu = smp_processor_id();
-	int off;
-
-	if (!is_cpu_entry_area_addr(addr))
-		return NULL;
-	off = (char*)addr - (char*)get_cpu_entry_area(cpu);
-	if ((off < 0) || (off >= CPU_ENTRY_AREA_SIZE))
-		return NULL;
-	return &per_cpu(cpu_entry_area_origin[off], cpu);
+	metadata_array = is_origin ? cpu_entry_area_origin :
+				     cpu_entry_area_shadow;
+	return &per_cpu(metadata_array[off], cpu);
 }
 
 static struct page *virt_to_page_or_null(void *vaddr)
@@ -197,10 +187,10 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 		page = vmalloc_to_page_or_null(address);
 		if (page)
 			goto next;
-		shadow = get_cea_shadow_or_null(address);
+		shadow = get_cea_meta_or_null(address, /*is_origin*/false);
 		if (shadow) {
 			ret.s = shadow;
-			ret.o = get_cea_origin_or_null((void *)o_addr64);
+			ret.o = get_cea_meta_or_null((void *)o_addr64, /*is_origin*/true);
 			return ret;
 		}
 	}
@@ -255,7 +245,7 @@ void *kmsan_get_metadata_or_null(void *address, size_t size, bool is_origin)
 		page = vmalloc_to_page_or_null(address);
 		if (page)
 			goto next;
-		ret = is_origin ? get_cea_origin_or_null(address) : get_cea_shadow_or_null(address);
+		ret = get_cea_meta_or_null(address, is_origin);
 		if (ret)
 			return ret;
 	}
