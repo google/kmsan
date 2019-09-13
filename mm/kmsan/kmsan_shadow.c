@@ -44,13 +44,9 @@
 #define has_origin_page(page) \
 	(!!((page)->origin))
 
-#define set_no_shadow_page(page) 	\
+#define set_no_shadow_origin_page(page) 	\
 	do {				\
 		(page)->shadow = NULL;	\
-	} while(0) /**/
-
-#define set_no_origin_page(page) 	\
-	do {				\
 		(page)->origin = NULL;	\
 	} while(0) /**/
 
@@ -278,12 +274,10 @@ void __init kmsan_init_alloc_meta_for_range(void *start, void *end)
 	for (addr = 0; addr < size; addr += PAGE_SIZE) {
 		page = virt_to_page_or_null((char*)start + addr);
 		shadow_p = virt_to_page_or_null((char*)shadow + addr);
-		shadow_page_for(shadow_p) = NULL;
-		origin_page_for(shadow_p) = NULL;
+		set_no_shadow_origin_page(shadow_p);
 		shadow_page_for(page) = shadow_p;
 		origin_p = virt_to_page_or_null((char*)origin + addr);
-		shadow_page_for(origin_p) = NULL;
-		origin_page_for(origin_p) = NULL;
+		set_no_shadow_origin_page(origin_p);
 		origin_page_for(page) = origin_p;
 	}
 }
@@ -297,8 +291,7 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 		return;
 	if (!has_shadow_page(src)) {
 		/* TODO(glider): are we leaking pages here? */
-		set_no_shadow_page(dst);
-		set_no_origin_page(dst);
+		set_no_shadow_origin_page(dst);
 		return;
 	}
 	if (!has_shadow_page(dst))
@@ -332,8 +325,7 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int o
 
 	if (flags & __GFP_NO_KMSAN_SHADOW) {
 		for (i = 0; i < pages; i++) {
-			set_no_shadow_page(&page[i]);
-			set_no_origin_page(&page[i]);
+			set_no_shadow_origin_page(&page[i]);
 		}
 		return 0;
 	}
@@ -344,8 +336,8 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int o
 	shadow = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
 	if (!shadow) {
 		for (i = 0; i < pages; i++) {
-			set_no_shadow_page(&page[i]);
-			set_no_shadow_page(&page[i]);
+			set_no_shadow_origin_page(&page[i]);
+			set_no_shadow_origin_page(&page[i]);
 		}
 		return -ENOMEM;
 	}
@@ -357,8 +349,7 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int o
 	if (!origin) {
 		__free_pages(shadow, order);
 		for (i = 0; i < pages; i++) {
-			set_no_shadow_page(&page[i]);
-			set_no_origin_page(&page[i]);
+			set_no_shadow_origin_page(&page[i]);
 		}
 		return -ENOMEM;
 	}
@@ -376,11 +367,9 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int o
 		// TODO(glider): sometimes shadow_page_for(&page[i]) is initialized. Let's skip the check for now.
 		///if (shadow_page_for(&page[i])) continue;
 		shadow_page_for(&page[i]) = &shadow[i];
-		set_no_shadow_page(shadow_page_for(&page[i]));
-		set_no_origin_page(shadow_page_for(&page[i]));
+		set_no_shadow_origin_page(shadow_page_for(&page[i]));
 		origin_page_for(&page[i]) = &origin[i];
-		set_no_shadow_page(origin_page_for(&page[i]));
-		set_no_origin_page(origin_page_for(&page[i]));
+		set_no_shadow_origin_page(origin_page_for(&page[i]));
 	}
 	return 0;
 }
@@ -419,8 +408,7 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	if (!kmsan_ready) {
 		for (i = 0; i < pages; i++) {
 			cur_page = &page[i];
-			set_no_shadow_page(cur_page);
-			set_no_origin_page(cur_page);
+			set_no_shadow_origin_page(cur_page);
 		}
 		return;
 	}
@@ -457,9 +445,8 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	/* TODO(glider): this is racy. */
 	for (i = 0; i < pages; i++) {
 		BUG_ON(has_shadow_page(shadow_page_for(&page[i])));
-		set_no_shadow_page(&page[i]);
 		BUG_ON(has_shadow_page(origin_page_for(&page[i])));
-		set_no_origin_page(&page[i]);
+		set_no_shadow_origin_page(&page[i]);
 	}
 	BUG_ON(has_shadow_page(shadow));
 	__free_pages(shadow, order);
