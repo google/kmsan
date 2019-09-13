@@ -110,9 +110,6 @@ void kmsan_report(depot_stack_handle_t origin,
 		  int off_first, int off_last,
 		  const void *user_addr, bool deep, int reason);
 
-int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
-				unsigned int actual_size, gfp_t flags, int node);
-
 kmsan_context_state *task_kmsan_context_state(void);
 
 bool metadata_is_contiguous(void *addr, size_t size, bool is_origin);

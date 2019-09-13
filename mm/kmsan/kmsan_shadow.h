@@ -28,7 +28,6 @@ static inline void *vmalloc_origin(void *addr)
 	return vmalloc_meta(addr, /*is_origin*/true);
 }
 
-
 typedef struct {
 	void* s;
 	void* o;

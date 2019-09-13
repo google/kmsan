@@ -322,7 +322,7 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 EXPORT_SYMBOL(kmsan_copy_page_meta);
 
 /* Helper function to allocate page metadata. */
-int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
+static int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
 					unsigned int actual_size, gfp_t flags, int node)
 {
 	struct page *shadow, *origin;
