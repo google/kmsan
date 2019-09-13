@@ -51,9 +51,6 @@
 		(page)->origin = NULL;	\
 	} while(0) /**/
 
-
-
-
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
 
@@ -109,19 +106,6 @@ static inline bool is_cpu_entry_area_addr(void *addr)
         return ((u64)addr >= CPU_ENTRY_AREA_BASE) && ((u64)addr < (CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE));
 }
 
-static void *get_cea_shadow_or_null(void *addr)
-{
-	int cpu = smp_processor_id();
-	int off;
-
-	if (!is_cpu_entry_area_addr(addr))
-		return NULL;
-	off = (char*)addr - (char*)get_cpu_entry_area(cpu);
-	if ((off < 0) || (off >= CPU_ENTRY_AREA_SIZE))
-		return NULL;
-	return &per_cpu(cpu_entry_area_shadow[off], cpu);
-}
-
 void *vmalloc_meta(void *addr, bool is_origin)
 {
 	u64 addr64 = (u64)addr, off;
@@ -137,6 +121,19 @@ void *vmalloc_meta(void *addr, bool is_origin)
 						: MODULES_SHADOW_START));
 	}
 	return NULL;
+}
+
+static void *get_cea_shadow_or_null(void *addr)
+{
+	int cpu = smp_processor_id();
+	int off;
+
+	if (!is_cpu_entry_area_addr(addr))
+		return NULL;
+	off = (char*)addr - (char*)get_cpu_entry_area(cpu);
+	if ((off < 0) || (off >= CPU_ENTRY_AREA_SIZE))
+		return NULL;
+	return &per_cpu(cpu_entry_area_shadow[off], cpu);
 }
 
 static void *get_cea_origin_or_null(void *addr)

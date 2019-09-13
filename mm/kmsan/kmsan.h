@@ -13,8 +13,6 @@
 #ifndef __MM_KMSAN_KMSAN_H
 #define __MM_KMSAN_KMSAN_H
 
-#include <asm/cpu_entry_area.h>  // for CPU_ENTRY_AREA_MAP_SIZE
-#include <asm/current.h>
 #include <asm/pgtable_64_types.h>
 #include <linux/irqflags.h>
 #include <linux/sched.h>
@@ -162,16 +160,6 @@ static bool is_module_addr(void *vaddr)
 static inline bool _is_vmalloc_addr(void *addr)
 {
 	return ((u64)addr >= VMALLOC_START) && ((u64)addr < VMALLOC_END);
-}
-
-static inline void *vmalloc_shadow(void *addr)
-{
-	return vmalloc_meta(addr, /*is_origin*/false);
-}
-
-static inline void *vmalloc_origin(void *addr)
-{
-	return vmalloc_meta(addr, /*is_origin*/true);
 }
 
 #endif  /* __MM_KMSAN_KMSAN_H */

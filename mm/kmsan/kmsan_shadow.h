@@ -15,7 +15,19 @@
 #ifndef __MM_KMSAN_KMSAN_SHADOW_H
 #define __MM_KMSAN_KMSAN_SHADOW_H
 
+#include <asm/cpu_entry_area.h>  // for CPU_ENTRY_AREA_MAP_SIZE
+
 void *vmalloc_meta(void *addr, bool is_origin);
+static inline void *vmalloc_shadow(void *addr)
+{
+	return vmalloc_meta(addr, /*is_origin*/false);
+}
+
+static inline void *vmalloc_origin(void *addr)
+{
+	return vmalloc_meta(addr, /*is_origin*/true);
+}
+
 
 typedef struct {
 	void* s;
