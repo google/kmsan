@@ -162,7 +162,15 @@ void kmsan_kfree_large(const void *ptr)
 }
 
 
+static inline void *vmalloc_shadow(void *addr)
+{
+	return kmsan_get_metadata_or_null(addr, 1, /*is_origin*/false);
+}
 
+static inline void *vmalloc_origin(void *addr)
+{
+	return kmsan_get_metadata_or_null(addr, 1, /*is_origin*/true);
+}
 
 /* Called from mm/vmalloc.c */
 void kmsan_vunmap_page_range(unsigned long start, unsigned long end)

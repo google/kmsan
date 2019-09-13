@@ -188,8 +188,8 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size, bool st
 	}
 
 	if (_is_vmalloc_addr(address) || is_module_addr(address)) {
-		ret.s = vmalloc_shadow(address);
-		ret.o = vmalloc_origin((void *)o_addr64);
+		ret.s = vmalloc_meta(address, /*is_origin*/false);
+		ret.o = vmalloc_meta((void *)o_addr64, /*is_origin*/true);
 		return ret;
 	}
 
@@ -530,7 +530,7 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	if (!vmalloc_shadow(start))
+	if (!vmalloc_meta(start, /*is_origin*/false))
 		return;
 
 	BUG_ON(start >= end);
@@ -545,12 +545,12 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 	}
 	prot = __pgprot(pgprot_val(prot) | _PAGE_NX);
 	prot = PAGE_KERNEL;
-	mapped = __vmap_page_range_noflush(vmalloc_shadow(start), vmalloc_shadow(end), prot, s_pages);
+	mapped = __vmap_page_range_noflush(vmalloc_meta(start, /*is_origin*/false), vmalloc_meta(end, /*is_origin*/false), prot, s_pages);
 	BUG_ON(mapped != nr);
-	flush_tlb_kernel_range(vmalloc_shadow(start), vmalloc_shadow(end));
-	mapped = __vmap_page_range_noflush(vmalloc_origin(start), vmalloc_origin(end), prot, o_pages);
+	flush_tlb_kernel_range(vmalloc_meta(start, /*is_origin*/false), vmalloc_meta(end, /*is_origin*/false));
+	mapped = __vmap_page_range_noflush(vmalloc_meta(start, /*is_origin*/true), vmalloc_meta(end, /*is_origin*/true), prot, o_pages);
 	BUG_ON(mapped != nr);
-	flush_tlb_kernel_range(vmalloc_origin(start), vmalloc_origin(end));
+	flush_tlb_kernel_range(vmalloc_meta(start, /*is_origin*/true), vmalloc_meta(end, /*is_origin*/true));
 ret:
 	if (s_pages)
 		kfree(s_pages);
