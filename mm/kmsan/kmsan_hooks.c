@@ -154,7 +154,8 @@ void kmsan_kfree_large(const void *ptr)
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	ENTER_RUNTIME(irq_flags);
-	page = virt_to_page_or_null((void *)ptr);
+	page = virt_to_head_page((void *)ptr);
+	BUG_ON(ptr != page_address(page));
 	kmsan_internal_poison_shadow(
 		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL, KMSAN_POISON_CHECK);
 	LEAVE_RUNTIME(irq_flags);

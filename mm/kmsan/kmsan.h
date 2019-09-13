@@ -119,7 +119,6 @@ bool metadata_is_contiguous(void *addr, size_t size, bool is_origin);
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr, int reason);
 
 struct page *vmalloc_to_page_or_null(void *vaddr);
-struct page *virt_to_page_or_null(void *vaddr);
 
 /* Declared in mm/vmalloc.c */
 void __vunmap_page_range(unsigned long addr, unsigned long end);

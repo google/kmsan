@@ -149,7 +149,7 @@ static void *get_cea_origin_or_null(void *addr)
 	return &per_cpu(cpu_entry_area_origin[off], cpu);
 }
 
-struct page *virt_to_page_or_null(void *vaddr)
+static struct page *virt_to_page_or_null(void *vaddr)
 {
 	if (my_virt_addr_valid(vaddr))
 		return virt_to_page(vaddr);
