@@ -100,11 +100,6 @@ static bool my_virt_addr_valid(void *addr)
 	return pfn_valid(x >> PAGE_SHIFT);
 }
 
-static inline bool is_cpu_entry_area_addr(void *addr)
-{
-        return ((u64)addr >= CPU_ENTRY_AREA_BASE) && ((u64)addr < (CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE));
-}
-
 void *vmalloc_meta(void *addr, bool is_origin)
 {
 	u64 addr64 = (u64)addr, off;
@@ -128,7 +123,8 @@ static void *get_cea_meta_or_null(void *addr, bool is_origin)
 	int off;
 	char *metadata_array;
 
-	if (!is_cpu_entry_area_addr(addr))
+        if (((u64)addr < CPU_ENTRY_AREA_BASE) ||
+	    ((u64)addr >= (CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE)))
 		return NULL;
 	off = (char*)addr - (char*)get_cpu_entry_area(cpu);
 	if ((off < 0) || (off >= CPU_ENTRY_AREA_SIZE))
@@ -308,8 +304,9 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 EXPORT_SYMBOL(kmsan_copy_page_meta);
 
 /* Helper function to allocate page metadata. */
-static int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int order,
-					unsigned int actual_size, gfp_t flags, int node)
+static int kmsan_internal_alloc_meta_for_pages(struct page *page,
+					       unsigned int order,
+					       gfp_t flags, int node)
 {
 	struct page *shadow, *origin;
 	int pages = 1 << order;
@@ -317,20 +314,14 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int o
 	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
 	depot_stack_handle_t handle;
 
-	// If |actual_size| is non-zero, we allocate |1 << order| metadata pages
-	// for |actual_size| bytes of memory. We can't set shadow for more than
-	// |actual_size >> PAGE_SHIFT| pages in that case.
-	if (actual_size)
-		pages = ALIGN(actual_size, PAGE_SIZE) >> PAGE_SHIFT;
-
 	if (flags & __GFP_NO_KMSAN_SHADOW) {
-		for (i = 0; i < pages; i++) {
+		for (i = 0; i < pages; i++)
 			set_no_shadow_origin_page(&page[i]);
-		}
 		return 0;
 	}
 
-	flags = GFP_ATOMIC;  // TODO(glider)
+	/* TODO(glider): must we override the flags? */
+	flags = GFP_ATOMIC;
 	if (initialized)
 		flags |= __GFP_ZERO;
 	shadow = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
@@ -345,7 +336,7 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int o
 		__memset(page_address(shadow), -1, PAGE_SIZE * pages);
 
 	origin = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
-	// Assume we've allocated the origin.
+	/* Assume we've allocated the origin. */
 	if (!origin) {
 		__free_pages(shadow, order);
 		for (i = 0; i < pages; i++) {
@@ -356,16 +347,23 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page, unsigned int o
 
 	if (!initialized) {
 		handle = kmsan_save_stack_with_flags(flags);
-		// Addresses are page-aligned, pages are contiguous, so it's ok
-		// to just fill the origin pages with |handle|.
+		/*
+		 * Addresses are page-aligned, pages are contiguous, so it's ok
+		 * to just fill the origin pages with |handle|.
+		 */
 		for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++) {
 			((depot_stack_handle_t*)page_address(origin))[i] = handle;
 		}
 	}
 
 	for (i = 0; i < pages; i++) {
-		// TODO(glider): sometimes shadow_page_for(&page[i]) is initialized. Let's skip the check for now.
-		///if (shadow_page_for(&page[i])) continue;
+		/*
+		 * TODO(glider): sometimes shadow_page_for(&page[i]) is initialized. Let's
+		 * skip the check for now.
+		 */
+#if 0
+		if (shadow_page_for(&page[i])) continue;
+#endif
 		shadow_page_for(&page[i]) = &shadow[i];
 		set_no_shadow_origin_page(shadow_page_for(&page[i]));
 		origin_page_for(&page[i]) = &origin[i];
@@ -383,8 +381,7 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	if (IN_RUNTIME())
 		return 0;
 	ENTER_RUNTIME(irq_flags);
-	ret = kmsan_internal_alloc_meta_for_pages(
-		page, order, /*actual_size*/ 0, flags, -1);
+	ret = kmsan_internal_alloc_meta_for_pages(page, order, flags, -1);
 	LEAVE_RUNTIME(irq_flags);
 	return ret;
 }
