@@ -123,6 +123,8 @@ static struct kcov_remote_area *kcov_remote_area_get(unsigned int size)
 	list_for_each(pos, &kcov_remote_areas) {
 		area = list_entry(pos, struct kcov_remote_area, list);
 		if (area->size == size) {
+			// TODO(glider): temporary hack to debug KMSAN reports in __list_del_entry_valid.
+			kmsan_check_memory(&area->list, sizeof(struct list_head));
 			list_del(&area->list);
 			print_debug("kcov_remote_area_get = %px\n", area);
 			return area;
