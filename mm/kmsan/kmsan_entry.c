@@ -124,3 +124,4 @@ void kmsan_unpoison_pt_regs(struct pt_regs *regs)
 		return;
 	kmsan_internal_unpoison_shadow(regs, sizeof(*regs), /*checked*/true);
 }
+EXPORT_SYMBOL(kmsan_unpoison_pt_regs);
