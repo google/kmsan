@@ -40,11 +40,6 @@
  */
 unsigned long __force_order;
 
-extern char __irqentry_text_end[];
-extern char __irqentry_text_start[];
-extern char __softirqentry_text_end[];
-extern char __softirqentry_text_start[];
-
 bool kmsan_ready = false;
 #define KMSAN_STACK_DEPTH 64
 #define MAX_CHAIN_DEPTH 7
@@ -139,29 +134,6 @@ void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked)
 {
 	kmsan_internal_memset_shadow(address, 0, size, checked);
 	kmsan_set_origin(address, size, 0, checked);
-}
-
-static inline int in_irqentry_text(unsigned long ptr)
-{
-	return (ptr >= (unsigned long)&__irqentry_text_start &&
-		ptr < (unsigned long)&__irqentry_text_end) ||
-		(ptr >= (unsigned long)&__softirqentry_text_start &&
-		 ptr < (unsigned long)&__softirqentry_text_end);
-}
-
-/* TODO(glider): this function is shared with KASAN. */
-static inline unsigned int filter_irq_stacks(unsigned long *entries,
-					     unsigned int nr_entries)
-{
-	unsigned int i;
-
-	for (i = 0; i < nr_entries; i++) {
-		if (in_irqentry_text(entries[i])) {
-			/* Include the irqentry function into the stack. */
-			return i + 1;
-		}
-	}
-	return nr_entries;
 }
 
 /* static */
