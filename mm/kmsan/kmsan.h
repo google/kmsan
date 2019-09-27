@@ -43,7 +43,8 @@ DECLARE_PER_CPU(bool, kmsan_in_nmi);
 extern spinlock_t report_lock;
 #define kmsan_pr_err(...) \
 	do { \
-		printk_deferred(KERN_ERR, __VA_ARGS__); \
+		if (!is_logbuf_locked()) \
+			pr_err(__VA_ARGS__); \
 	} while (0)
 
 void kmsan_print_origin(depot_stack_handle_t origin);
