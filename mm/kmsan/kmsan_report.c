@@ -64,13 +64,9 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 	}
 }
 
-/*
- * TODO(glider): |deep| is a dirty hack to skip an additional frame when
- * calling kmsan_report() from kmsan_copy_to_user().
- */
 void kmsan_report(depot_stack_handle_t origin,
 		  void *address, int size, int off_first, int off_last,
-		  const void *user_addr, bool deep, int reason)
+		  const void *user_addr, int reason)
 {
 	unsigned long flags;
 	unsigned long *entries;
@@ -97,13 +93,13 @@ void kmsan_report(depot_stack_handle_t origin,
 	/* TODO(glider): inline this properly */
 	switch (reason) {
 		case REASON_ANY:
-			kmsan_pr_err("BUG: KMSAN: uninit-value in %pS\n", deep ? kmsan_internal_return_address(2) : kmsan_internal_return_address(1));
+			kmsan_pr_err("BUG: KMSAN: uninit-value in %pS\n", kmsan_internal_return_address(2));
 			break;
 		case REASON_COPY_TO_USER:
-			kmsan_pr_err("BUG: KMSAN: kernel-infoleak in %pS\n", deep ? kmsan_internal_return_address(2) : kmsan_internal_return_address(1));
+			kmsan_pr_err("BUG: KMSAN: kernel-infoleak in %pS\n", kmsan_internal_return_address(2));
 			break;
 		case REASON_SUBMIT_URB:
-			kmsan_pr_err("BUG: KMSAN: kernel-usb-infoleak in %pS\n", deep ? kmsan_internal_return_address(2) : kmsan_internal_return_address(1));
+			kmsan_pr_err("BUG: KMSAN: kernel-usb-infoleak in %pS\n", kmsan_internal_return_address(2));
 			break;
 	}
 	dump_stack();

@@ -421,7 +421,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 			 */
 			if (cur_origin) {
 				ENTER_RUNTIME(irq_flags);
-				kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1, user_addr, /*deep*/true, reason);
+				kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1, user_addr, reason);
 				LEAVE_RUNTIME(irq_flags);
 			}
 			cur_origin = 0;
@@ -437,7 +437,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 */
 				if (cur_origin) {
 					ENTER_RUNTIME(irq_flags);
-					kmsan_report(cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, /*deep*/true, reason);
+					kmsan_report(cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, reason);
 					LEAVE_RUNTIME(irq_flags);
 				}
 				cur_origin = 0;
@@ -454,7 +454,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 			if (cur_origin != new_origin) {
 				if (cur_origin) {
 					ENTER_RUNTIME(irq_flags);
-					kmsan_report(cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, /*deep*/true, reason);
+					kmsan_report(cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, reason);
 					LEAVE_RUNTIME(irq_flags);
 				}
 				cur_origin = new_origin;
@@ -466,7 +466,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	BUG_ON(pos != size);
 	if (cur_origin) {
 		ENTER_RUNTIME(irq_flags);
-		kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1, user_addr, /*deep*/true, reason);
+		kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1, user_addr, reason);
 		LEAVE_RUNTIME(irq_flags);
 	}
 }

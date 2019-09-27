@@ -50,7 +50,7 @@ extern spinlock_t report_lock;
 void kmsan_print_origin(depot_stack_handle_t origin);
 void kmsan_report(depot_stack_handle_t origin,
 		  void *address, int size, int off_first, int off_last,
-		  const void *user_addr, bool deep, int reason);
+		  const void *user_addr, int reason);
 
 
 enum KMSAN_BUG_REASON
@@ -92,7 +92,6 @@ DECLARE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 		local_irq_restore(irq_flags);	\
 		preempt_enable(); } while(0)
 
-
 void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
 void kmsan_memmove_metadata(void *dst, void *src, size_t n);
 
@@ -105,10 +104,6 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
 
 void do_kmsan_task_create(struct task_struct *task);
 void kmsan_set_origin(void *address, int size, u32 origin, bool checked);
-void kmsan_report(depot_stack_handle_t origin,
-		  void *address, int size,
-		  int off_first, int off_last,
-		  const void *user_addr, bool deep, int reason);
 
 kmsan_context_state *task_kmsan_context_state(void);
 
