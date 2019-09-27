@@ -10,7 +10,7 @@
  *
  */
 
-#include <linux/console.h>
+#include <linux/gfp.h>
 #include <linux/stackdepot.h>
 #include <linux/stacktrace.h>
 
