@@ -97,7 +97,7 @@ static bool my_virt_addr_valid(void *addr)
 	return pfn_valid(x >> PAGE_SHIFT);
 }
 
-void *vmalloc_meta(void *addr, bool is_origin)
+static void *vmalloc_meta(void *addr, bool is_origin)
 {
 	u64 addr64 = (u64)addr, off;
 
