@@ -132,13 +132,13 @@ void kmsan_internal_poison_shadow(void *address, size_t size,
 
 	kmsan_internal_memset_shadow(address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags);
-	kmsan_set_origin(address, size, handle, checked);
+	kmsan_set_origin_checked(address, size, handle, checked);
 }
 
 void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked)
 {
 	kmsan_internal_memset_shadow(address, 0, size, checked);
-	kmsan_set_origin(address, size, 0, checked);
+	kmsan_set_origin_checked(address, size, 0, checked);
 }
 
 /* static */
@@ -316,7 +316,6 @@ depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
 	return handle;
 }
 
-inline
 void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
 {
 	u32 *var_cast = (u32 *)var;
@@ -328,11 +327,7 @@ void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
 		var_cast[i] = origin;
 }
 
-/*
- * TODO(glider): writing an initialized byte shouldn't zero out the origin, if
- * the remaining three bytes are uninitialized.
- */
-void kmsan_set_origin(void *addr, int size, u32 origin, bool checked)
+void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 {
 	void *origin_start;
 	u64 address = (u64)addr, page_offset;
@@ -347,24 +342,37 @@ void kmsan_set_origin(void *addr, int size, u32 origin, bool checked)
 	while (size > 0) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
+		/* write at least ORIGIN_SIZE bytes */
 		to_fill = ALIGN(to_fill, ORIGIN_SIZE);
 		BUG_ON(!to_fill);
 		origin_start = kmsan_get_metadata((void *)address, to_fill,
 						  META_ORIGIN);
-		if (!origin_start) {
-			if (checked) {
-				current->kmsan.is_reporting = true;
-				kmsan_pr_err("WARNING: not setting origing for %d bytes starting at %px, because the origin is NULL\n", to_fill, address);
-				current->kmsan.is_reporting = false;
-				BUG();
-			}
-		} else {
-			kmsan_write_aligned_origin(origin_start, to_fill,
-						   origin);
-		}
 		address += to_fill;
 		size -= to_fill;
+		if (!origin_start)
+			/* Can happen e.g. if the memory is untracked. */
+			continue;
+		kmsan_write_aligned_origin(origin_start, to_fill, origin);
 	}
+}
+
+
+/*
+ * TODO(glider): writing an initialized byte shouldn't zero out the origin, if
+ * the remaining three bytes are uninitialized.
+ */
+void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked)
+{
+	void *origin_start;
+	u64 address = (u64)addr, page_offset;
+	size_t to_fill, pad = 0;
+	if (checked && !metadata_is_contiguous(addr, size, META_ORIGIN)) {
+		current->kmsan.is_reporting = true;
+		kmsan_pr_err("WARNING: not setting origin for %d bytes starting at %px, because the metadata is incontiguous\n", size, addr);
+		current->kmsan.is_reporting = false;
+		BUG();
+	}
+	kmsan_internal_set_origin(addr, size, origin);
 }
 
 struct page *vmalloc_to_page_or_null(void *vaddr)

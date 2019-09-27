@@ -110,9 +110,11 @@ void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);
 void kmsan_internal_memset_shadow(void *address, int b, size_t size,
 				  bool checked);
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
+void kmsan_write_aligned_origin(void *var, size_t size, u32 origin);
 
 void do_kmsan_task_create(struct task_struct *task);
-void kmsan_set_origin(void *address, int size, u32 origin, bool checked);
+void kmsan_internal_set_origin(void *addr, int size, u32 origin);
+void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked);
 
 kmsan_context_state *task_kmsan_context_state(void);
 

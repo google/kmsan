@@ -158,7 +158,7 @@ void *__msan_memset(void *dst, int c, size_t n)
 	shadow = 0;
 	kmsan_internal_memset_shadow(dst, shadow, n, /*checked*/false);
 	new_origin = 0;
-	kmsan_set_origin(dst, n, new_origin, /*checked*/false);
+	kmsan_internal_set_origin(dst, n, new_origin);
 	LEAVE_RUNTIME(irq_flags);
 
 	return result;
@@ -186,46 +186,6 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 	return ret;
 }
 EXPORT_SYMBOL(__msan_chain_origin);
-
-static void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
-{
-	u32 *var_cast = (u32 *)var;
-	int i;
-
-	BUG_ON((u64)var_cast % ORIGIN_SIZE);
-	BUG_ON(size % ORIGIN_SIZE);
-	for (i = 0; i < size / ORIGIN_SIZE; i++)
-		var_cast[i] = origin;
-}
-
-inline void kmsan_set_origin_inline(void *addr, int size, u32 origin)
-{
-	void *origin_start;
-	u64 address = (u64)addr, page_offset;
-	size_t to_fill, pad = 0;
-
-	if (!IS_ALIGNED(address, ORIGIN_SIZE)) {
-		pad = address % ORIGIN_SIZE;
-		address -= pad;
-		size += pad;
-	}
-
-	while (size > 0) {
-		page_offset = address % PAGE_SIZE;
-		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
-		/* write at least ORIGIN_SIZE bytes */
-		to_fill = ALIGN(to_fill, ORIGIN_SIZE);
-		BUG_ON(!to_fill);
-		origin_start = kmsan_get_metadata((void *)address, to_fill,
-						  META_ORIGIN);
-		if (!origin_start)
-			/* Can happen e.g. if the memory is untracked. */
-			continue;
-		kmsan_write_aligned_origin(origin_start, to_fill, origin);
-		address += to_fill;
-		size -= to_fill;
-	}
-}
 
 void __msan_poison_alloca(void *address, u64 size, char *descr)
 {
@@ -262,7 +222,7 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	ENTER_RUNTIME(irq_flags);
 	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
 	LEAVE_RUNTIME(irq_flags);
-	kmsan_set_origin_inline(address, size, handle);
+	kmsan_internal_set_origin(address, size, handle);
 }
 EXPORT_SYMBOL(__msan_poison_alloca);
 
