@@ -155,12 +155,6 @@ void *__msan_memset(void *dst, int c, size_t n)
 	 * compiler for KMSAN (not for MSan, because __msan_memset could be
 	 * called from the userspace RTL).
 	 */
-	/*
-	 * TODO(glider): shall we take the shadow and origin of |c|?
-	 *   shadow = (unsigned int)(current->kmsan.cstate.param_tls[1]);
-	 *   origin = (depot_stack_handle_t)(current->kmsan.cstate.param_origin_tls[1]);
-	 *   new_origin = kmsan_internal_chain_origin(origin, true);
-	 */
 	shadow = 0;
 	kmsan_internal_memset_shadow(dst, shadow, n, /*checked*/false);
 	new_origin = 0;
