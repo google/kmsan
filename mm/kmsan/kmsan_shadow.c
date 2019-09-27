@@ -212,14 +212,12 @@ next:
 }
 
 /*
- * TODO(glider): all other shadow getters are broken, so let's write another
- * one. The semantic is pretty straightforward: either return a valid shadow
- * pointer or NULL. The caller must BUG_ON on NULL if he wants to.
+ * Obtain the shadow or origin pointer for the given address, or NULL if there's
+ * none. The caller must check the return value for being non-NULL if needed.
  * The return value of this function should not depend on whether we're in the
  * runtime or not.
  */
-__always_inline
-void *kmsan_get_metadata_or_null(void *address, size_t size, bool is_origin)
+void *kmsan_get_metadata(void *address, size_t size, bool is_origin)
 {
 	struct page *page;
 	void *ret;

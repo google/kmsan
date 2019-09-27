@@ -19,7 +19,7 @@ static inline bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
 	if ((u64)addr < TASK_SIZE) {
 		return true;
 	}
-	if (!kmsan_get_metadata_or_null(addr, size, META_SHADOW))
+	if (!kmsan_get_metadata(addr, size, META_SHADOW))
 		return true;
 	return false;
 }
@@ -89,7 +89,7 @@ void *__msan_memmove(void *dst, void *src, u64 n)
 		return result;
 
 	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = kmsan_get_metadata_or_null(dst, n, META_SHADOW);
+	shadow_dst = kmsan_get_metadata(dst, n, META_SHADOW);
 
 	if (!shadow_dst)
 		/* Can happen e.g. if the memory is untracked. */
@@ -121,7 +121,7 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 		return result;
 
 	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = kmsan_get_metadata_or_null(dst, n, META_SHADOW);
+	shadow_dst = kmsan_get_metadata(dst, n, META_SHADOW);
 	if (!shadow_dst)
 		/* Can happen e.g. if the memory is untracked. */
 		return result;
@@ -217,8 +217,8 @@ inline void kmsan_set_origin_inline(void *addr, int size, u32 origin)
 		/* write at least ORIGIN_SIZE bytes */
 		to_fill = ALIGN(to_fill, ORIGIN_SIZE);
 		BUG_ON(!to_fill);
-		origin_start = kmsan_get_metadata_or_null((void *)address,
-							  to_fill, META_ORIGIN);
+		origin_start = kmsan_get_metadata((void *)address, to_fill,
+						  META_ORIGIN);
 		if (!origin_start)
 			/* Can happen e.g. if the memory is untracked. */
 			continue;
@@ -245,8 +245,8 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	while (size_copy) {
 		page_offset = addr_copy % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, size_copy);
-		shadow_start = kmsan_get_metadata_or_null((void *)addr_copy,
-							  to_fill, META_SHADOW);
+		shadow_start = kmsan_get_metadata((void *)addr_copy, to_fill,
+						  META_SHADOW);
 		if (!shadow_start)
 			/* Can happen e.g. if the memory is untracked. */
 			continue;

@@ -106,8 +106,8 @@ inline void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
 	while (size) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
-		shadow_start = kmsan_get_metadata_or_null((void *)address,
-							  to_fill, META_SHADOW);
+		shadow_start = kmsan_get_metadata((void *)address, to_fill,
+						  META_SHADOW);
 		if (!shadow_start) {
 			if (checked) {
 				current->kmsan.is_reporting = true;
@@ -185,11 +185,11 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	BUG_ON(!metadata_is_contiguous(dst, n, META_SHADOW));
 	BUG_ON(!metadata_is_contiguous(src, n, META_SHADOW));
 
-	shadow_dst = kmsan_get_metadata_or_null(dst, n, META_SHADOW);
+	shadow_dst = kmsan_get_metadata(dst, n, META_SHADOW);
 	if (!shadow_dst)
 		return;
 
-	shadow_src = kmsan_get_metadata_or_null(src, n, META_SHADOW);
+	shadow_src = kmsan_get_metadata(src, n, META_SHADOW);
 	if (!shadow_src) {
 		/*
 		 * |src| is untracked: zero out destination shadow, ignore the
@@ -203,8 +203,8 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	else
 		__memcpy(shadow_dst, shadow_src, n);
 
-	origin_dst = kmsan_get_metadata_or_null(dst, n, META_ORIGIN);
-	origin_src = kmsan_get_metadata_or_null(src, n, META_ORIGIN);
+	origin_dst = kmsan_get_metadata(dst, n, META_ORIGIN);
+	origin_src = kmsan_get_metadata(src, n, META_ORIGIN);
 	BUG_ON(!origin_dst || !origin_src);
 	BUG_ON(!metadata_is_contiguous(dst, n, META_ORIGIN));
 	BUG_ON(!metadata_is_contiguous(src, n, META_ORIGIN));
@@ -349,9 +349,8 @@ void kmsan_set_origin(void *addr, int size, u32 origin, bool checked)
 		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
 		to_fill = ALIGN(to_fill, ORIGIN_SIZE);
 		BUG_ON(!to_fill);
-		origin_start = kmsan_get_metadata_or_null((void *)address,
-							  to_fill,
-							  /*origin*/true);
+		origin_start = kmsan_get_metadata((void *)address, to_fill,
+						  META_ORIGIN);
 		if (!origin_start) {
 			if (checked) {
 				current->kmsan.is_reporting = true;
@@ -398,7 +397,8 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 		return;
 	while (pos < size) {
 		chunk_size = min(size - pos, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
-		shadow = kmsan_get_metadata_or_null((void *)(addr64 + pos), chunk_size, META_SHADOW);
+		shadow = kmsan_get_metadata((void *)(addr64 + pos), chunk_size,
+					    META_SHADOW);
 		if (!shadow) {
 			/*
 			 * This page is untracked. TODO(glider): assert.
@@ -429,7 +429,8 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				cur_off_start = -1;
 				continue;
 			}
-			origin = kmsan_get_metadata_or_null((void *)(addr64 + pos + i), chunk_size - i, META_ORIGIN);
+			origin = kmsan_get_metadata((void *)(addr64 + pos + i),
+						chunk_size - i, META_ORIGIN);
 			BUG_ON(!origin);
 			new_origin = *origin;
 			/*
@@ -460,7 +461,6 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 /*
  * TODO(glider): this check shouldn't be performed for origin pages, because
  * they're always accessed after the shadow pages.
- * TODO(glider): call this check kmsan_get_metadata_or_null().
  */
 bool metadata_is_contiguous(void *addr, size_t size, bool is_origin) {
 	u64 cur_addr = (u64)addr, next_addr;
@@ -476,15 +476,14 @@ bool metadata_is_contiguous(void *addr, size_t size, bool is_origin) {
 	if (ALIGN_DOWN(cur_addr + size - 1, PAGE_SIZE) ==
 	    ALIGN_DOWN(cur_addr, PAGE_SIZE))
 		return true;
-	cur_meta = kmsan_get_metadata_or_null((void *)cur_addr, 1, is_origin);
+	cur_meta = kmsan_get_metadata((void *)cur_addr, 1, is_origin);
 	if (!cur_meta)
 		all_untracked = true;
 	for (next_addr = cur_addr + PAGE_SIZE; next_addr < (u64)addr + size;
 		     cur_addr = next_addr,
 		     cur_meta = next_meta,
 		     next_addr += PAGE_SIZE) {
-		next_meta = kmsan_get_metadata_or_null((void *)next_addr, 1,
-						       is_origin);
+		next_meta = kmsan_get_metadata((void *)next_addr, 1, is_origin);
 		if (!next_meta) {
 			if (!all_untracked)
 				goto report;
@@ -506,7 +505,7 @@ report:
 		     cur_addr, next_addr);
 	kmsan_pr_err("page[0].%s: %px, page[1].%s: %px\n",
 		     fname, cur_meta, fname, next_meta);
-	origin_p = kmsan_get_metadata_or_null(addr, 1, META_ORIGIN);
+	origin_p = kmsan_get_metadata(addr, 1, META_ORIGIN);
 	if (origin_p) {
 		kmsan_pr_err("Origin: %px\n", *origin_p);
 		kmsan_print_origin(*origin_p);

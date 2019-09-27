@@ -167,12 +167,12 @@ void kmsan_kfree_large(const void *ptr)
 
 static inline void *vmalloc_shadow(void *addr)
 {
-	return kmsan_get_metadata_or_null(addr, 1, META_SHADOW);
+	return kmsan_get_metadata(addr, 1, META_SHADOW);
 }
 
 static inline void *vmalloc_origin(void *addr)
 {
-	return kmsan_get_metadata_or_null(addr, 1, META_ORIGIN);
+	return kmsan_get_metadata(addr, 1, META_ORIGIN);
 }
 
 /* Called from mm/vmalloc.c */
@@ -273,8 +273,7 @@ void kmsan_copy_to_user(const void *to, const void *from,
 	 * syscall.
 	 * Don't check anything, just copy the shadow of the copied bytes.
 	 */
-	shadow = kmsan_get_metadata_or_null((void *)to, to_copy - left,
-					    /*origin*/false);
+	shadow = kmsan_get_metadata((void *)to, to_copy - left, META_SHADOW);
 	if (shadow) {
 		kmsan_memcpy_metadata((void *)to, (void *)from, to_copy - left);
 	}
