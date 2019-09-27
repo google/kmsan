@@ -34,8 +34,11 @@
 #define ORIGIN_SIZE 4
 
 #define KMSAN_NESTED_CONTEXT_MAX (8)
-DECLARE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);  // [0] for dummy per-CPU context
-DECLARE_PER_CPU(int, kmsan_context_level);  // 0 for task context, |i>0| for kmsan_context_state[i]
+/* [0] for dummy per-CPU context */
+DECLARE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
+		kmsan_percpu_cstate);
+/* 0 for task context, |i>0| for kmsan_context_state[i]. */
+DECLARE_PER_CPU(int, kmsan_context_level);
 DECLARE_PER_CPU(int, kmsan_in_interrupt);
 DECLARE_PER_CPU(bool, kmsan_in_softirq);
 DECLARE_PER_CPU(bool, kmsan_in_nmi);
@@ -85,7 +88,8 @@ DECLARE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 		this_cpu_dec(kmsan_in_runtime);	\
 		if (this_cpu_read(kmsan_in_runtime)) { \
 			kmsan_pr_err("kmsan_in_runtime: %d, last_caller: %pF\n", \
-				this_cpu_read(kmsan_in_runtime), this_cpu_read(kmsan_runtime_last_caller));	\
+				this_cpu_read(kmsan_in_runtime), \
+				this_cpu_read(kmsan_runtime_last_caller)); \
 			BUG(); \
 		}	\
 		restart_nmi();		\
@@ -97,9 +101,11 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n);
 
 depot_stack_handle_t kmsan_save_stack(void);
 depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags);
-void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags, unsigned int poison_flags);
+void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags,
+				  unsigned int poison_flags);
 void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);
-void kmsan_internal_memset_shadow(void *address, int b, size_t size, bool checked);
+void kmsan_internal_memset_shadow(void *address, int b, size_t size,
+				  bool checked);
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
 
 void do_kmsan_task_create(struct task_struct *task);
@@ -108,7 +114,8 @@ void kmsan_set_origin(void *address, int size, u32 origin, bool checked);
 kmsan_context_state *task_kmsan_context_state(void);
 
 bool metadata_is_contiguous(void *addr, size_t size, bool is_origin);
-void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr, int reason);
+void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
+				 int reason);
 
 struct page *vmalloc_to_page_or_null(void *vaddr);
 
@@ -117,8 +124,10 @@ void __vunmap_page_range(unsigned long addr, unsigned long end);
 int __vmap_page_range_noflush(unsigned long start, unsigned long end,
 				   pgprot_t prot, struct page **pages);
 
-// Dummy replacement for __builtin_return_address() which may crash without
-// frame pointers.
+/*
+ * Dummy replacement for __builtin_return_address() which may crash without
+ * frame pointers.
+ */
 static inline void *kmsan_internal_return_address(int arg)
 {
 #ifdef CONFIG_UNWINDER_FRAME_POINTER

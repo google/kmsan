@@ -220,13 +220,17 @@ inline void kmsan_set_origin_inline(void *addr, int size, u32 origin)
 	while (size > 0) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
-		to_fill = ALIGN(to_fill, ORIGIN_SIZE);	/* write at least ORIGIN_SIZE bytes */
+		/* write at least ORIGIN_SIZE bytes */
+		to_fill = ALIGN(to_fill, ORIGIN_SIZE);
 		BUG_ON(!to_fill);
-		origin_start = kmsan_get_metadata_or_null((void *)address, to_fill, /*is_origin*/true);
+		origin_start = kmsan_get_metadata_or_null((void *)address,
+							  to_fill,
+							  /*is_origin*/true);
 		if (!origin_start)
 			/* Can happen e.g. if the memory is untracked. */
 			continue;
-		kmsan_write_aligned_origin_inline(origin_start, to_fill, origin);
+		kmsan_write_aligned_origin_inline(origin_start, to_fill,
+						  origin);
 		address += to_fill;
 		size -= to_fill;
 	}
@@ -248,7 +252,9 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	while (size_copy) {
 		page_offset = addr_copy % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, size_copy);
-		shadow_start = kmsan_get_metadata_or_null((void *)addr_copy, to_fill, /*is_origin*/false);
+		shadow_start = kmsan_get_metadata_or_null((void *)addr_copy,
+							  to_fill,
+							  /*is_origin*/false);
 		if (!shadow_start)
 			/* Can happen e.g. if the memory is untracked. */
 			continue;

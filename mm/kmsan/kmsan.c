@@ -51,17 +51,20 @@ bool kmsan_ready = false;
  *  - interrupt stack - when handling external hardware interrupts and softirqs
  *  - NMI stack
  * 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
- * Because interrupts may nest, trying to use a new context for every new interrupt.
+ * Because interrupts may nest, trying to use a new context for every new
+ * interrupt.
  */
 /* [0] for dummy per-CPU context. */
-DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX], kmsan_percpu_cstate);
+DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
+	       kmsan_percpu_cstate);
 /* 0 for task context, |i>0| for kmsan_context_state[i]. */
 DEFINE_PER_CPU(int, kmsan_context_level);
 DEFINE_PER_CPU(int, kmsan_in_interrupt);
 DEFINE_PER_CPU(bool, kmsan_in_softirq);
 DEFINE_PER_CPU(bool, kmsan_in_nmi);
 DEFINE_PER_CPU(int, kmsan_in_runtime);
-DEFINE_PER_CPU(unsigned long, kmsan_runtime_last_caller);  // TODO(glider): debug-only
+/* TODO(glider): debug-only. */
+DEFINE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 
 kmsan_context_state *task_kmsan_context_state(void)
 {
@@ -92,7 +95,8 @@ void inline do_kmsan_task_create(struct task_struct *task)
 	state->is_reporting = false;
 }
 
-inline void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
+inline void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
+					 bool checked)
 {
 	void *shadow_start;
 	u64 page_offset, address = (u64)addr;
@@ -102,7 +106,9 @@ inline void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool ch
 	while (size) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
-		shadow_start = kmsan_get_metadata_or_null((void *)address, to_fill, /*is_origin*/false);
+		shadow_start = kmsan_get_metadata_or_null((void *)address,
+							  to_fill,
+							  /*is_origin*/false);
 		if (!shadow_start) {
 			if (checked) {
 				current->kmsan.is_reporting = true;
@@ -167,7 +173,8 @@ inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
  *   with the shadow.
  */
 inline
-void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n, bool is_memmove)
+void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
+				   bool is_memmove)
 {
 	void *shadow_src, *shadow_dst;
 	depot_stack_handle_t *origin_src, *origin_dst;
@@ -185,7 +192,10 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n, bool is_memmo
 
 	shadow_src = kmsan_get_metadata_or_null(src, n, /*is_origin*/false);
 	if (!shadow_src) {
-		/* |src| is untracked: zero out destination shadow, ignore the origins. */
+		/*
+		 * |src| is untracked: zero out destination shadow, ignore the
+		 * origins.
+		 */
 		__memset(shadow_dst, 0, n);
 		return;
 	}
@@ -340,7 +350,9 @@ void kmsan_set_origin(void *addr, int size, u32 origin, bool checked)
 		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
 		to_fill = ALIGN(to_fill, ORIGIN_SIZE);
 		BUG_ON(!to_fill);
-		origin_start = kmsan_get_metadata_or_null((void *)address, to_fill, /*origin*/true);
+		origin_start = kmsan_get_metadata_or_null((void *)address,
+							  to_fill,
+							  /*origin*/true);
 		if (!origin_start) {
 			if (checked) {
 				current->kmsan.is_reporting = true;
@@ -349,7 +361,8 @@ void kmsan_set_origin(void *addr, int size, u32 origin, bool checked)
 				BUG();
 			}
 		} else {
-			kmsan_write_aligned_origin(origin_start, to_fill, origin);
+			kmsan_write_aligned_origin(origin_start, to_fill,
+						   origin);
 		}
 		address += to_fill;
 		size -= to_fill;
@@ -369,7 +382,8 @@ struct page *vmalloc_to_page_or_null(void *vaddr)
 		return NULL;
 }
 
-void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr, int reason)
+void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
+				 int reason)
 {
 	unsigned long irq_flags;
 	unsigned long addr64 = (unsigned long)addr;
@@ -438,7 +452,8 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	BUG_ON(pos != size);
 	if (cur_origin) {
 		ENTER_RUNTIME(irq_flags);
-		kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1, user_addr, reason);
+		kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1,
+			     user_addr, reason);
 		LEAVE_RUNTIME(irq_flags);
 	}
 }
@@ -459,14 +474,18 @@ bool metadata_is_contiguous(void *addr, size_t size, bool is_origin) {
 		return true;
 
 	/* The whole range belongs to the same page. */
-	if (ALIGN_DOWN(cur_addr + size - 1, PAGE_SIZE) == ALIGN_DOWN(cur_addr, PAGE_SIZE))
+	if (ALIGN_DOWN(cur_addr + size - 1, PAGE_SIZE) ==
+	    ALIGN_DOWN(cur_addr, PAGE_SIZE))
 		return true;
 	cur_meta = kmsan_get_metadata_or_null((void *)cur_addr, 1, is_origin);
 	if (!cur_meta)
 		all_untracked = true;
 	for (next_addr = cur_addr + PAGE_SIZE; next_addr < (u64)addr + size;
-			cur_addr = next_addr, cur_meta = next_meta, next_addr += PAGE_SIZE) {
-		next_meta = kmsan_get_metadata_or_null((void *)next_addr, 1, is_origin);
+		     cur_addr = next_addr,
+		     cur_meta = next_meta,
+		     next_addr += PAGE_SIZE) {
+		next_meta = kmsan_get_metadata_or_null((void *)next_addr, 1,
+						       is_origin);
 		if (!next_meta) {
 			if (!all_untracked)
 				goto report;
@@ -484,8 +503,10 @@ report:
 	dump_stack();
 	kmsan_pr_err("\n");
 	kmsan_pr_err("Access of size %d at %px.\n", size, addr);
-	kmsan_pr_err("Addresses belonging to different ranges are: %px and %px\n", cur_addr, next_addr);
-	kmsan_pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta, fname, next_meta);
+	kmsan_pr_err("Addresses belonging to different ranges: %px and %px\n",
+		     cur_addr, next_addr);
+	kmsan_pr_err("page[0].%s: %px, page[1].%s: %px\n",
+		     fname, cur_meta, fname, next_meta);
 	origin_p = kmsan_get_metadata_or_null(addr, 1, /*is_origin*/true);
 	if (origin_p) {
 		kmsan_pr_err("Origin: %px\n", *origin_p);
@@ -496,5 +517,3 @@ report:
 	current->kmsan.is_reporting = false;
 	return false;
 }
-
-

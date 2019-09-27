@@ -57,7 +57,8 @@ void __init kmsan_initialize_shadow(void)
 	phys_addr_t p_start, p_end;
 
 	for_each_reserved_mem_region(i, &p_start, &p_end) {
-		kmsan_record_future_shadow_range(phys_to_virt(p_start), phys_to_virt(p_end+1));
+		kmsan_record_future_shadow_range(phys_to_virt(p_start),
+						 phys_to_virt(p_end+1));
 	}
 	/* Allocate shadow for .data */
 	kmsan_record_future_shadow_range(_sdata, _edata);
@@ -67,8 +68,8 @@ void __init kmsan_initialize_shadow(void)
 	 * sizeof(pg_data_t).
 	 */
 	for_each_online_node(nid)
-		kmsan_record_future_shadow_range(NODE_DATA(nid),
-						(char *)NODE_DATA(nid) + nd_size);
+		kmsan_record_future_shadow_range(
+			NODE_DATA(nid),	(char *)NODE_DATA(nid) + nd_size);
 
 	for (i = 0; i < future_index; i++)
 		kmsan_init_alloc_meta_for_range(start_end_pairs[i].start,

@@ -22,7 +22,8 @@ typedef struct {
 	void* o;
 } shadow_origin_ptr_t;
 
-shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *addr, u64 size, bool store);
+shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *addr, u64 size,
+						bool store);
 void *kmsan_get_metadata_or_null(void *addr, size_t size, bool is_origin);
 void __init kmsan_init_alloc_meta_for_range(void *start, void *end);
 

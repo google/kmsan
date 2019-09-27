@@ -138,9 +138,11 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 		return;
 	ENTER_RUNTIME(irq_flags);
 	if (flags & __GFP_ZERO) {
-		kmsan_internal_unpoison_shadow((void *)ptr, size, /*checked*/true);
+		kmsan_internal_unpoison_shadow((void *)ptr, size,
+					       /*checked*/true);
 	} else {
-		kmsan_internal_poison_shadow((void *)ptr, size, flags, KMSAN_POISON_CHECK);
+		kmsan_internal_poison_shadow((void *)ptr, size, flags,
+					     KMSAN_POISON_CHECK);
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
@@ -157,7 +159,8 @@ void kmsan_kfree_large(const void *ptr)
 	page = virt_to_head_page((void *)ptr);
 	BUG_ON(ptr != page_address(page));
 	kmsan_internal_poison_shadow(
-		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL, KMSAN_POISON_CHECK);
+		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL,
+		KMSAN_POISON_CHECK);
 	LEAVE_RUNTIME(irq_flags);
 }
 
@@ -182,7 +185,8 @@ void kmsan_vunmap_page_range(unsigned long start, unsigned long end)
 /* Called from lib/ioremap.c */
 /*
  * This function creates new shadow/origin pages for the physical pages mapped
- * into the virtual memory. If those physical pages already had shadow/origin, those are ignored.
+ * into the virtual memory. If those physical pages already had shadow/origin,
+ * those are ignored.
  */
 void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	phys_addr_t phys_addr, pgprot_t prot)
@@ -201,8 +205,12 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	for (i = 0; i < nr; i++, off += PAGE_SIZE) {
 		shadow = alloc_pages(gfp_mask, 1);
 		origin = alloc_pages(gfp_mask, 1);
-		__vmap_page_range_noflush(vmalloc_shadow(start + off), vmalloc_shadow(start + off + PAGE_SIZE), prot, &shadow);
-		__vmap_page_range_noflush(vmalloc_origin(start + off), vmalloc_origin(start + off + PAGE_SIZE), prot, &origin);
+		__vmap_page_range_noflush(vmalloc_shadow(start + off),
+				vmalloc_shadow(start + off + PAGE_SIZE),
+				prot, &shadow);
+		__vmap_page_range_noflush(vmalloc_origin(start + off),
+				vmalloc_origin(start + off + PAGE_SIZE),
+				prot, &origin);
 	}
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
@@ -265,7 +273,8 @@ void kmsan_copy_to_user(const void *to, const void *from,
 	 * syscall.
 	 * Don't check anything, just copy the shadow of the copied bytes.
 	 */
-	shadow = kmsan_get_metadata_or_null((void *)to, to_copy - left, /*origin*/false);
+	shadow = kmsan_get_metadata_or_null((void *)to, to_copy - left,
+					    /*origin*/false);
 	if (shadow) {
 		kmsan_memcpy_metadata((void *)to, (void *)from, to_copy - left);
 	}
@@ -280,7 +289,8 @@ void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
 		return;
 	ENTER_RUNTIME(irq_flags);
 	/* The users may want to poison/unpoison random memory. */
-	kmsan_internal_poison_shadow((void *)address, size, flags, KMSAN_POISON_NOCHECK);
+	kmsan_internal_poison_shadow((void *)address, size, flags,
+				     KMSAN_POISON_NOCHECK);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_poison_shadow);
@@ -294,14 +304,16 @@ void kmsan_unpoison_shadow(const volatile void *address, size_t size)
 
 	ENTER_RUNTIME(irq_flags);
 	/* The users may want to poison/unpoison random memory. */
-	kmsan_internal_unpoison_shadow((void *)address, size, KMSAN_POISON_NOCHECK);
+	kmsan_internal_unpoison_shadow((void *)address, size,
+				       KMSAN_POISON_NOCHECK);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);
 
 void kmsan_check_memory(const volatile void *addr, size_t size)
 {
-	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0, REASON_ANY);
+	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0,
+					   REASON_ANY);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
 
@@ -317,7 +329,8 @@ void kmsan_gup_pgd_range(struct page **pages, int nr)
 	 */
 	for (i = 0; i < nr; i++) {
 		page_addr = page_address(pages[i]);
-		if (((u64)page_addr < TASK_SIZE) && ((u64)page_addr + PAGE_SIZE < TASK_SIZE))
+		if (((u64)page_addr < TASK_SIZE) &&
+		    ((u64)page_addr + PAGE_SIZE < TASK_SIZE))
 			kmsan_unpoison_shadow(page_addr, PAGE_SIZE);
 	}
 
