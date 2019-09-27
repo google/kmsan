@@ -55,7 +55,7 @@ void kmsan_task_create(struct task_struct *task)
 	if (!task)
 		return;
 	ENTER_RUNTIME(irq_flags);
-	do_kmsan_task_create(task);
+	kmsan_internal_task_create(task);
 	LEAVE_RUNTIME(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_task_create);
@@ -165,12 +165,12 @@ void kmsan_kfree_large(const void *ptr)
 }
 
 
-static inline void *vmalloc_shadow(void *addr)
+static void *vmalloc_shadow(void *addr)
 {
 	return kmsan_get_metadata(addr, 1, META_SHADOW);
 }
 
-static inline void *vmalloc_origin(void *addr)
+static void *vmalloc_origin(void *addr)
 {
 	return kmsan_get_metadata(addr, 1, META_ORIGIN);
 }

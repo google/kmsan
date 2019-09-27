@@ -91,7 +91,6 @@ void kmsan_report(depot_stack_handle_t origin,
 	current->kmsan.is_reporting = true;
 	spin_lock_irqsave(&report_lock, flags);
 	kmsan_pr_err("=====================================================\n");
-	/* TODO(glider): inline this properly */
 	switch (reason) {
 		case REASON_ANY:
 			kmsan_pr_err("BUG: KMSAN: uninit-value in %pS\n",

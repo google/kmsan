@@ -62,7 +62,7 @@ char dummy_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
  * Taken from arch/x86/mm/physaddr.h
  * TODO(glider): do we need it?
  */
-static inline int my_phys_addr_valid(unsigned long addr)
+static int my_phys_addr_valid(unsigned long addr)
 {
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
 	return !(addr >> boot_cpu_data.x86_phys_bits);

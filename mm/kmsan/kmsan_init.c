@@ -80,7 +80,7 @@ EXPORT_SYMBOL(kmsan_initialize_shadow);
 void __init kmsan_initialize(void)
 {
 	/* Assuming current is init_task */
-	do_kmsan_task_create(current);
+	kmsan_internal_task_create(current);
 	kmsan_pr_err("Starting KernelMemorySanitizer\n");
 	kmsan_ready = true;
 }

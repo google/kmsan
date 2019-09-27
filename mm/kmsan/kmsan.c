@@ -85,7 +85,7 @@ kmsan_context_state *task_kmsan_context_state(void)
 	return ret;
 }
 
-void inline do_kmsan_task_create(struct task_struct *task)
+void kmsan_internal_task_create(struct task_struct *task)
 {
 	kmsan_task_state *state = &task->kmsan;
 
@@ -95,8 +95,8 @@ void inline do_kmsan_task_create(struct task_struct *task)
 	state->is_reporting = false;
 }
 
-inline void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
-					 bool checked)
+void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
+			 	  bool checked)
 {
 	void *shadow_start;
 	u64 page_offset, address = (u64)addr;
@@ -141,8 +141,7 @@ void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked)
 	kmsan_set_origin_checked(address, size, 0, checked);
 }
 
-/* static */
-inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
+depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[KMSAN_STACK_DEPTH];
@@ -171,7 +170,6 @@ inline depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
  *   therefore if this doesn't happen with the kernel memory it can't happen
  *   with the shadow.
  */
-inline
 void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 				   bool is_memmove)
 {
@@ -271,7 +269,7 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/true);
 }
 
-depot_stack_handle_t inline kmsan_internal_chain_origin(depot_stack_handle_t id)
+depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[3], *old_entries;
