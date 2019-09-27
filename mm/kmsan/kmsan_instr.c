@@ -187,8 +187,7 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 }
 EXPORT_SYMBOL(__msan_chain_origin);
 
-inline
-void kmsan_write_aligned_origin_inline(void *var, size_t size, u32 origin)
+static void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
 {
 	u32 *var_cast = (u32 *)var;
 	int i;
@@ -222,8 +221,7 @@ inline void kmsan_set_origin_inline(void *addr, int size, u32 origin)
 		if (!origin_start)
 			/* Can happen e.g. if the memory is untracked. */
 			continue;
-		kmsan_write_aligned_origin_inline(origin_start, to_fill,
-						  origin);
+		kmsan_write_aligned_origin(origin_start, to_fill, origin);
 		address += to_fill;
 		size -= to_fill;
 	}
