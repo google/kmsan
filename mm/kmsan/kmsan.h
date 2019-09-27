@@ -33,6 +33,9 @@
 
 #define ORIGIN_SIZE 4
 
+#define META_SHADOW	(false)
+#define META_ORIGIN	(true)
+
 #define KMSAN_NESTED_CONTEXT_MAX (8)
 /* [0] for dummy per-CPU context */
 DECLARE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],

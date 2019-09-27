@@ -167,12 +167,12 @@ void kmsan_kfree_large(const void *ptr)
 
 static inline void *vmalloc_shadow(void *addr)
 {
-	return kmsan_get_metadata_or_null(addr, 1, /*is_origin*/false);
+	return kmsan_get_metadata_or_null(addr, 1, META_SHADOW);
 }
 
 static inline void *vmalloc_origin(void *addr)
 {
-	return kmsan_get_metadata_or_null(addr, 1, /*is_origin*/true);
+	return kmsan_get_metadata_or_null(addr, 1, META_ORIGIN);
 }
 
 /* Called from mm/vmalloc.c */
