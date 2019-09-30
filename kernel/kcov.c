@@ -11,6 +11,7 @@
 #include <linux/fs.h>
 #include <linux/hashtable.h>
 #include <linux/init.h>
+#include <linux/kmsan-checks.h>
 #include <linux/mm.h>
 #include <linux/preempt.h>
 #include <linux/printk.h>
@@ -123,8 +124,6 @@ static struct kcov_remote_area *kcov_remote_area_get(unsigned int size)
 	list_for_each(pos, &kcov_remote_areas) {
 		area = list_entry(pos, struct kcov_remote_area, list);
 		if (area->size == size) {
-			// TODO(glider): temporary hack to debug KMSAN reports in __list_del_entry_valid.
-			kmsan_check_memory(&area->list, sizeof(struct list_head));
 			list_del(&area->list);
 			print_debug("kcov_remote_area_get = %px\n", area);
 			return area;
@@ -141,7 +140,11 @@ static void kcov_remote_area_put(struct kcov_remote_area *area,
 	INIT_LIST_HEAD(&area->list);
 	area->size = size;
 	list_add(&area->list, &kcov_remote_areas);
-	// TODO(glider): trying to fix reports in __list_del_entry_valid
+	/*
+	 * KMSAN doesn't instrument this file, so it may not know area->list
+	 * is initialized. Unpoison it explicitly to avoid reports in
+	 * kcov_remote_area_get().
+	 */
 	kmsan_unpoison_shadow(&area->list, sizeof(struct list_head));
 }
 
