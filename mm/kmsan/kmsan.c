@@ -158,10 +158,13 @@ depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
 }
 
 /*
+ * Depending on the value of is_memmove, this serves as both a memcpy and a
+ * memmove implementation.
+ *
  * As with the regular memmove, do the following:
- * - if src and dst don't overlap, use memcpy;
+ * - if src and dst don't overlap, use memcpy();
  * - if src and dst overlap:
- *   - if src > dst, use memcpy;
+ *   - if src > dst, use memcpy();
  *   - if src < dst, use reverse-memcpy.
  * Why this is correct:
  * - problems may arise if for some part of the overlapping region we
@@ -191,7 +194,7 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	if (!shadow_src) {
 		/*
 		 * |src| is untracked: zero out destination shadow, ignore the
-		 * origins.
+		 * origins, we're done.
 		 */
 		__memset(shadow_dst, 0, n);
 		return;
