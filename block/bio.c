@@ -1298,12 +1298,12 @@ struct bio *bio_copy_user_iov(struct request_queue *q,
 		} else {
 			// TODO(glider): KMSAN doesn't track the pages
 			// allocated for bio here.
-			page = alloc_page(q->bounce_gfp | gfp_mask |
-						__GFP_NO_KMSAN_SHADOW);
+			page = alloc_page(q->bounce_gfp | gfp_mask);
 			if (!page) {
 				ret = -ENOMEM;
 				break;
 			}
+			kmsan_ignore_page(page, /*order*/0);
 		}
 
 		if (bio_add_pc_page(q, bio, page, bytes, offset) < bytes) {
