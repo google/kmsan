@@ -15,6 +15,7 @@
 #include <asm/pgtable_64_types.h>
 #include <asm/tlbflush.h>
 #include <linux/memblock.h>
+#include <linux/mm_types.h>
 #include <linux/percpu-defs.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
@@ -46,6 +47,14 @@
 		(page)->shadow = NULL;	\
 		(page)->origin = NULL;	\
 	} while(0) /**/
+
+#define is_ignored_page(page)	\
+	(!!(((u64)((page)->shadow)) % 2))
+
+#define ignore_page(pg)			\
+	do {				\
+		(pg)->shadow = (struct page *)((u64)((pg)->shadow) | 1); \
+	} while (0) /**/
 
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
@@ -192,6 +201,9 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size,
 	if (!page)
 		return ret;
 next:
+	if (is_ignored_page(page))
+		return ret;
+
         if (!has_shadow_page(page) || !has_origin_page(page))
 		return ret;
 	offset = addr64 % PAGE_SIZE;
@@ -245,6 +257,8 @@ void *kmsan_get_metadata(void *address, size_t size, bool is_origin)
 	if (!page)
 		return NULL;
 next:
+	if (is_ignored_page(page))
+		return NULL;
         if (!has_shadow_page(page) || !has_origin_page(page))
 		return NULL;
 	off = addr % PAGE_SIZE;
@@ -289,6 +303,10 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 	}
 	if (!has_shadow_page(dst))
 		return;
+	if (is_ignored_page(src)) {
+		ignore_page(dst);
+		return;
+	}
 
 	ENTER_RUNTIME(irq_flags);
 	__memcpy(shadow_ptr_for(dst), shadow_ptr_for(src),
@@ -538,4 +556,17 @@ ret:
 		kfree(s_pages);
 	if (o_pages)
 		kfree(o_pages);
+}
+
+void kmsan_ignore_page(struct page *page, int order)
+{
+	int pages = 1 << order;
+	int i;
+	struct page *cp;
+
+	for (i = 0; i < pages; i++) {
+		cp = &page[i];
+		ignore_page(cp);
+		//cp->shadow = (struct page *)((u64)(cp->shadow) | 1);
+	}
 }
