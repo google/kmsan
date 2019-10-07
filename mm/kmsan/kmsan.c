@@ -129,9 +129,12 @@ void kmsan_internal_poison_shadow(void *address, size_t size,
 {
 	bool checked = poison_flags & KMSAN_POISON_CHECK;
 	depot_stack_handle_t handle;
+	u32 extra_bits = 0;
 
+	if (poison_flags & KMSAN_POISON_FREE)
+		extra_bits = 1;
 	kmsan_internal_memset_shadow(address, -1, size, checked);
-	handle = kmsan_save_stack_with_flags(flags);
+	handle = kmsan_save_stack_with_flags(flags, extra_bits);
 	kmsan_set_origin_checked(address, size, handle, checked);
 }
 
@@ -141,7 +144,8 @@ void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked)
 	kmsan_set_origin_checked(address, size, 0, checked);
 }
 
-depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
+depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
+						 unsigned int reserved)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[KMSAN_STACK_DEPTH];
@@ -154,7 +158,7 @@ depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags)
 	flags &= ~__GFP_DIRECT_RECLAIM;
 
 	handle = stack_depot_save(entries, nr_entries, flags);
-	return handle;
+	return set_dsh_extra_bits(handle, reserved);
 }
 
 /*
@@ -281,16 +285,23 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	int depth = 0;
 	u64 old_magic;
 	static int skipped = 0;
+	u32 extra_bits;
 
 	if (!kmsan_ready)
 		return 0;
 
 	if (!id) return id;
 
+	extra_bits = get_dsh_extra_bits(id);
+
 	/*
 	 * TODO(glider): this is slower, but will save us a lot of memory.
 	 * Let us store the chain length in the lowest byte of the magic.
 	 * Maybe we can cache the ids somehow to avoid fetching them?
+	 */
+	/*
+	 * TODO(glider): now that we've reserved bits, maybe use them for
+	 * depth?
 	 */
 	nr_old_entries = stack_depot_fetch(id, &old_entries);
 	if (!nr_old_entries)
@@ -311,10 +322,10 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	depth++;
 	/* TODO(glider): how do we figure out we've dropped some frames? */
 	entries[0] = magic + depth;
-	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC);
+	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, extra_bits);
 	entries[2] = id;
 	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
-	return handle;
+	return set_dsh_extra_bits(handle, extra_bits);
 }
 
 void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)

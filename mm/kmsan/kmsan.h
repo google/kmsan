@@ -30,6 +30,7 @@
 
 #define KMSAN_POISON_NOCHECK	0x0
 #define KMSAN_POISON_CHECK	0x1
+#define KMSAN_POISON_FREE	0x2
 
 #define ORIGIN_SIZE 4
 
@@ -63,7 +64,8 @@ enum KMSAN_BUG_REASON
 {
 	REASON_ANY = 0,
 	REASON_COPY_TO_USER = 1,
-	REASON_SUBMIT_URB = 2,
+	REASON_USE_AFTER_FREE = 2,
+	REASON_SUBMIT_URB = 3,
 };
 
 /*
@@ -103,7 +105,8 @@ void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
 void kmsan_memmove_metadata(void *dst, void *src, size_t n);
 
 depot_stack_handle_t kmsan_save_stack(void);
-depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags);
+depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
+						 unsigned int extra_bits);
 void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags);
 void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);

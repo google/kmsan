@@ -91,6 +91,8 @@ void kmsan_report(depot_stack_handle_t origin,
 	current->kmsan.is_reporting = true;
 	spin_lock_irqsave(&report_lock, flags);
 	kmsan_pr_err("=====================================================\n");
+	if (get_dsh_extra_bits(origin) == 1)
+		reason = REASON_USE_AFTER_FREE;
 	switch (reason) {
 		case REASON_ANY:
 			kmsan_pr_err("BUG: KMSAN: uninit-value in %pS\n",
@@ -98,6 +100,10 @@ void kmsan_report(depot_stack_handle_t origin,
 			break;
 		case REASON_COPY_TO_USER:
 			kmsan_pr_err("BUG: KMSAN: kernel-infoleak in %pS\n",
+				     kmsan_internal_return_address(2));
+			break;
+		case REASON_USE_AFTER_FREE:
+			kmsan_pr_err("BUG: KMSAN: use-after-free in %pS\n",
 				     kmsan_internal_return_address(2));
 			break;
 		case REASON_SUBMIT_URB:

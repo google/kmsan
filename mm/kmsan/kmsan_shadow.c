@@ -361,7 +361,7 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 	}
 
 	if (!initialized) {
-		handle = kmsan_save_stack_with_flags(flags);
+		handle = kmsan_save_stack_with_flags(flags, /*extra_bits*/0);
 		/*
 		 * Addresses are page-aligned, pages are contiguous, so it's ok
 		 * to just fill the origin pages with |handle|.

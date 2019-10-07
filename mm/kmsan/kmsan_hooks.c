@@ -121,7 +121,8 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 	if (s->ctor)
 		goto leave;
 	kmsan_internal_poison_shadow(object, s->object_size,
-				     GFP_KERNEL, KMSAN_POISON_CHECK);
+				     GFP_KERNEL,
+				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
 leave:
 	LEAVE_RUNTIME(irq_flags);
 	return;
@@ -160,7 +161,7 @@ void kmsan_kfree_large(const void *ptr)
 	BUG_ON(ptr != page_address(page));
 	kmsan_internal_poison_shadow(
 		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL,
-		KMSAN_POISON_CHECK);
+		KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
 	LEAVE_RUNTIME(irq_flags);
 }
 
