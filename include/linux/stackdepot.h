@@ -20,5 +20,8 @@ unsigned int stack_depot_fetch(depot_stack_handle_t handle,
 			       unsigned long **entries);
 
 unsigned int filter_irq_stacks(unsigned long *entries, unsigned int nr_entries);
+depot_stack_handle_t set_dsh_extra_bits(depot_stack_handle_t handle,
+					unsigned int bits);
+unsigned int get_dsh_extra_bits(depot_stack_handle_t handle);
 
 #endif
