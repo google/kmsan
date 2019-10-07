@@ -40,8 +40,15 @@
 #define STACK_ALLOC_ALIGN 4
 #define STACK_ALLOC_OFFSET_BITS (STACK_ALLOC_ORDER + PAGE_SHIFT - \
 					STACK_ALLOC_ALIGN)
+#ifdef CONFIG_KMSAN
+#define STACK_DEPOT_EXTRA_BITS 1
+#else
+#define STACK_DEPOT_EXTRA_BITS 0
+#endif
+
 #define STACK_ALLOC_INDEX_BITS (DEPOT_STACK_BITS - \
-		STACK_ALLOC_NULL_PROTECTION_BITS - STACK_ALLOC_OFFSET_BITS)
+		STACK_ALLOC_NULL_PROTECTION_BITS - \
+		STACK_ALLOC_OFFSET_BITS - STACK_DEPOT_EXTRA_BITS)
 #define STACK_ALLOC_SLABS_CAP 8192
 #define STACK_ALLOC_MAX_SLABS \
 	(((1LL << (STACK_ALLOC_INDEX_BITS)) < STACK_ALLOC_SLABS_CAP) ? \
@@ -54,6 +61,9 @@ union handle_parts {
 		u32 slabindex : STACK_ALLOC_INDEX_BITS;
 		u32 offset : STACK_ALLOC_OFFSET_BITS;
 		u32 valid : STACK_ALLOC_NULL_PROTECTION_BITS;
+#if (STACK_DEPOT_EXTRA_BITS)
+		u32 extra : STACK_DEPOT_EXTRA_BITS;
+#endif
 	};
 };
 
@@ -71,6 +81,30 @@ static int depot_index;
 static int next_slab_inited;
 static size_t depot_offset;
 static DEFINE_SPINLOCK(depot_lock);
+
+depot_stack_handle_t set_dsh_extra_bits(depot_stack_handle_t handle,
+					u32 bits)
+{
+#if (STACK_DEPOT_EXTRA_BITS)
+	union handle_parts parts = { .handle = handle };
+	parts.extra = bits & ((1U << STACK_DEPOT_EXTRA_BITS) - 1);
+	return parts.handle;
+#else
+	return handle;
+#endif
+}
+EXPORT_SYMBOL_GPL(set_dsh_extra_bits);
+
+u32 get_dsh_extra_bits(depot_stack_handle_t handle)
+{
+#if (STACK_DEPOT_EXTRA_BITS)
+	union handle_parts parts = { .handle = handle };
+	return parts.extra;
+#else
+	return 0;
+#endif
+}
+EXPORT_SYMBOL_GPL(get_dsh_extra_bits);
 
 static bool init_stack_slab(void **prealloc)
 {
@@ -132,6 +166,9 @@ static struct stack_record *depot_alloc_stack(unsigned long *entries, int size,
 	stack->handle.slabindex = depot_index;
 	stack->handle.offset = depot_offset >> STACK_ALLOC_ALIGN;
 	stack->handle.valid = 1;
+#if (STACK_DEPOT_EXTRA_BITS)
+	stack->handle.extra = 0;
+#endif
 	memcpy(stack->entries, entries, size * sizeof(unsigned long));
 	depot_offset += required_size;
 
