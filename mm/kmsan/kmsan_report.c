@@ -72,6 +72,8 @@ void kmsan_report(depot_stack_handle_t origin,
 	unsigned long flags;
 	unsigned long *entries;
 	unsigned int nr_entries;
+	bool is_uaf = false;
+	char *bug_type = NULL;
 
 	if (!kmsan_ready)
 		return;
@@ -92,25 +94,22 @@ void kmsan_report(depot_stack_handle_t origin,
 	spin_lock_irqsave(&report_lock, flags);
 	kmsan_pr_err("=====================================================\n");
 	if (get_dsh_extra_bits(origin) == 1)
-		reason = REASON_USE_AFTER_FREE;
+		is_uaf = true;
 	switch (reason) {
 		case REASON_ANY:
-			kmsan_pr_err("BUG: KMSAN: uninit-value in %pS\n",
-				     kmsan_internal_return_address(2));
+			bug_type = is_uaf ? "use-after-free" : "uninit-value";
 			break;
 		case REASON_COPY_TO_USER:
-			kmsan_pr_err("BUG: KMSAN: kernel-infoleak in %pS\n",
-				     kmsan_internal_return_address(2));
-			break;
-		case REASON_USE_AFTER_FREE:
-			kmsan_pr_err("BUG: KMSAN: use-after-free in %pS\n",
-				     kmsan_internal_return_address(2));
+			bug_type = is_uaf ? "kernel-infoleak-after-free" :
+					    "kernel-infoleak";
 			break;
 		case REASON_SUBMIT_URB:
-			kmsan_pr_err("BUG: KMSAN: kernel-usb-infoleak in %pS\n",
-				     kmsan_internal_return_address(2));
+			bug_type = is_uaf ? "kernel-usb-infoleak-after-free" :
+					    "kernel-usb-infoleak";
 			break;
 	}
+	kmsan_pr_err("BUG: KMSAN: %s in %pS\n",
+		     bug_type, kmsan_internal_return_address(2));
 	dump_stack();
 	kmsan_pr_err("\n");
 
