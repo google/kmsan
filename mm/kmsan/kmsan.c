@@ -182,7 +182,7 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 {
 	void *shadow_src, *shadow_dst;
 	depot_stack_handle_t *origin_src, *origin_dst;
-	int src_slots, dst_slots, i, iter, step;
+	int src_slots, dst_slots, i, iter, step, skip_bits;
 	depot_stack_handle_t prev_origin = 0, chained_origin, new_origin = 0;
 	u32 *align_shadow_src, shadow;
 	bool backwards;
@@ -227,21 +227,25 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	for (step = 0; step < min(src_slots, dst_slots); step++,i+=iter) {
 		BUG_ON(i < 0);
 		shadow = align_shadow_src[i];
-		if (i == 0)
+		if (i == 0) {
 			/*
 			 * If |src| isn't aligned on ORIGIN_SIZE, don't
 			 * look at the first |src % ORIGIN_SIZE| bytes
 			 * of the first shadow slot.
 			 */
-			shadow = (shadow << ((u64)src % ORIGIN_SIZE)) >> ((u64)src % ORIGIN_SIZE);
-		if (i == src_slots - 1)
+			skip_bits = ((u64)src % ORIGIN_SIZE) * 8;
+			shadow = (shadow << skip_bits) >> skip_bits;
+		}
+		if (i == src_slots - 1) {
 			/*
 			 * If |src + n| isn't aligned on
 			 * ORIGIN_SIZE, don't look at the last
 			 * |(src + n) % ORIGIN_SIZE| bytes of the
 			 * last shadow slot.
 			 */
-			shadow = (shadow >> (((u64)src + n) % ORIGIN_SIZE)) >> (((u64)src + n) % ORIGIN_SIZE); // TODO
+			skip_bits = (((u64)src + n) % ORIGIN_SIZE) * 8;
+			shadow = (shadow >> skip_bits) << skip_bits;
+		}
 		/*
 		 * Overwrite the origin only if the corresponding
 		 * shadow is nonempty.
