@@ -18,6 +18,7 @@
 #include <linux/types.h>
 
 struct i2c_msg;
+struct page;
 struct sk_buff;
 struct urb;
 
