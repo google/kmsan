@@ -253,8 +253,9 @@ void kmsan_copy_to_user(const void *to, const void *from,
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
-	/* TODO(glider): at this point we've copied the memory already.
-	 * Might be better to check it before copying.
+	/*
+	 * At this point we've copied the memory already. It's hard to check it
+	 * before copying, as the size of actually copied buffer is unknown.
 	 */
 
 	/* copy_to_user() may copy zero bytes. No need to check. */
