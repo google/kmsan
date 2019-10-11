@@ -183,7 +183,7 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	void *shadow_src, *shadow_dst;
 	depot_stack_handle_t *origin_src, *origin_dst;
 	int src_slots, dst_slots, i, iter, step, skip_bits;
-	depot_stack_handle_t prev_origin = 0, chained_origin, new_origin = 0;
+	depot_stack_handle_t old_origin = 0, chain_origin, new_origin = 0;
 	u32 *align_shadow_src, shadow;
 	bool backwards;
 
@@ -213,8 +213,10 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	BUG_ON(!origin_dst || !origin_src);
 	BUG_ON(!metadata_is_contiguous(dst, n, META_ORIGIN));
 	BUG_ON(!metadata_is_contiguous(src, n, META_ORIGIN));
-	src_slots = (ALIGN((u64)src + n, ORIGIN_SIZE) - ALIGN_DOWN((u64)src, ORIGIN_SIZE)) / ORIGIN_SIZE;
-	dst_slots = (ALIGN((u64)dst + n, ORIGIN_SIZE) - ALIGN_DOWN((u64)dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
+	src_slots = (ALIGN((u64)src + n, ORIGIN_SIZE) -
+		     ALIGN_DOWN((u64)src, ORIGIN_SIZE)) / ORIGIN_SIZE;
+	dst_slots = (ALIGN((u64)dst + n, ORIGIN_SIZE) -
+		     ALIGN_DOWN((u64)dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
 	BUG_ON(!src_slots || !dst_slots);
 	BUG_ON((src_slots < 1) || (dst_slots < 1));
 	BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
@@ -250,18 +252,18 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 		 * Overwrite the origin only if the corresponding
 		 * shadow is nonempty.
 		 */
-		if (origin_src[i] && (origin_src[i] != prev_origin) && shadow) {
-			prev_origin = origin_src[i];
-			chained_origin = kmsan_internal_chain_origin(prev_origin);
+		if (origin_src[i] && (origin_src[i] != old_origin) && shadow) {
+			old_origin = origin_src[i];
+			chain_origin = kmsan_internal_chain_origin(old_origin);
 			/*
 			 * kmsan_internal_chain_origin() may return
 			 * NULL, but we don't want to lose the previous
 			 * origin value.
 			 */
-			if (chained_origin)
-				new_origin = chained_origin;
+			if (chain_origin)
+				new_origin = chain_origin;
 			else
-				new_origin = prev_origin;
+				new_origin = old_origin;
 		}
 		if (shadow)
 			origin_dst[i] = new_origin;
@@ -335,6 +337,10 @@ void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
 		var_cast[i] = origin;
 }
 
+/*
+ * TODO(glider): writing an initialized byte shouldn't zero out the origin, if
+ * the remaining three bytes are uninitialized.
+ */
 void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 {
 	void *origin_start;
@@ -364,11 +370,6 @@ void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 	}
 }
 
-
-/*
- * TODO(glider): writing an initialized byte shouldn't zero out the origin, if
- * the remaining three bytes are uninitialized.
- */
 void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked)
 {
 	void *origin_start;
@@ -412,17 +413,20 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	if (size <= 0)
 		return;
 	while (pos < size) {
-		chunk_size = min(size - pos, PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
+		chunk_size = min(size - pos,
+				 PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
 		shadow = kmsan_get_metadata((void *)(addr64 + pos), chunk_size,
 					    META_SHADOW);
 		if (!shadow) {
 			/*
-			 * This page is untracked. TODO(glider): assert.
-			 * If there were uninitialized bytes before, report them.
+			 * This page is untracked. If there were uninitialized
+			 * bytes before, report them.
 			 */
 			if (cur_origin) {
 				ENTER_RUNTIME(irq_flags);
-				kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1, user_addr, reason);
+				kmsan_report(cur_origin, addr, size,
+					     cur_off_start, pos - 1, user_addr,
+					     reason);
 				LEAVE_RUNTIME(irq_flags);
 			}
 			cur_origin = 0;
@@ -438,7 +442,9 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 */
 				if (cur_origin) {
 					ENTER_RUNTIME(irq_flags);
-					kmsan_report(cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, reason);
+					kmsan_report(cur_origin, addr, size,
+						     cur_off_start, pos + i - 1,
+						     user_addr, reason);
 					LEAVE_RUNTIME(irq_flags);
 				}
 				cur_origin = 0;
@@ -456,7 +462,9 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 			if (cur_origin != new_origin) {
 				if (cur_origin) {
 					ENTER_RUNTIME(irq_flags);
-					kmsan_report(cur_origin, addr, size, cur_off_start, pos + i - 1, user_addr, reason);
+					kmsan_report(cur_origin, addr, size,
+						     cur_off_start, pos + i - 1,
+						     user_addr, reason);
 					LEAVE_RUNTIME(irq_flags);
 				}
 				cur_origin = new_origin;
