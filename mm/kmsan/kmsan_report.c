@@ -81,8 +81,6 @@ void kmsan_report(depot_stack_handle_t origin,
 		return;
 	if (is_console_locked() || is_logbuf_locked())
 		return;
-
-	/* TODO(glider): temporarily disabling reports without origins. */
 	if (!origin)
 		return;
 
