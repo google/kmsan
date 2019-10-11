@@ -166,14 +166,14 @@ void kmsan_kfree_large(const void *ptr)
 }
 
 
-static void *vmalloc_shadow(void *addr)
+static unsigned long vmalloc_shadow(unsigned long addr)
 {
-	return kmsan_get_metadata(addr, 1, META_SHADOW);
+	return (unsigned long)kmsan_get_metadata((void *)addr, 1, META_SHADOW);
 }
 
-static void *vmalloc_origin(void *addr)
+static unsigned long vmalloc_origin(unsigned long addr)
 {
-	return kmsan_get_metadata(addr, 1, META_ORIGIN);
+	return (unsigned long)kmsan_get_metadata((void *)addr, 1, META_ORIGIN);
 }
 
 /* Called from mm/vmalloc.c */
@@ -343,7 +343,7 @@ void kmsan_check_skb(const struct sk_buff *skb)
 {
 	int start = skb_headlen(skb);
 	struct sk_buff *frag_iter;
-	int i, copy;
+	int i, copy = 0;
 	skb_frag_t *f;
 	u32 p_off, p_len, copied;
 	struct page *p;
