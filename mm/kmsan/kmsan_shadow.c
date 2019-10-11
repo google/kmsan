@@ -427,31 +427,14 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	}
 
 	if (IN_RUNTIME()) {
-		/* TODO(glider): looks legit. depot_save_stack() may call
+		/*
+		 * TODO(glider): looks legit. depot_save_stack() may call
 		 * free_pages().
 		 */
 		return;
 	}
 
 	ENTER_RUNTIME(irq_flags);
-	if (!has_shadow_page(&page[0])) {
-		/* TODO(glider): can we free a page without a shadow?
-		 * Maybe if it was allocated at boot time?
-		 * Anyway, all shadow pages must be NULL then.
-		 */
-		for (i = 0; i < pages; i++)
-			if (has_shadow_page(&page[i])) {
-				current->kmsan.is_reporting = true;
-				for (i = 0; i < pages; i++)
-					kmsan_pr_err("shadow_page_for(&page[%d])=%px\n",
-						i, shadow_page_for(&page[i]));
-				current->kmsan.is_reporting = false;
-				break;
-			}
-		LEAVE_RUNTIME(irq_flags);
-		return;
-	}
-
 	shadow = shadow_page_for(&page[0]);
 	origin = origin_page_for(&page[0]);
 
