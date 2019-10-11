@@ -285,11 +285,9 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 {
 	depot_stack_handle_t handle;
-	unsigned long entries[3], *old_entries;
-	unsigned int nr_old_entries;
+	unsigned long entries[3];
 	u64 magic = KMSAN_CHAIN_MAGIC_ORIGIN_FULL;
 	int depth = 0;
-	u64 old_magic;
 	static int skipped = 0;
 	u32 extra_bits;
 
@@ -372,9 +370,6 @@ void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 
 void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked)
 {
-	void *origin_start;
-	u64 address = (u64)addr, page_offset;
-	size_t to_fill, pad = 0;
 	if (checked && !metadata_is_contiguous(addr, size, META_ORIGIN)) {
 		current->kmsan.is_reporting = true;
 		kmsan_pr_err("WARNING: not setting origin for %d bytes starting at %px, because the metadata is incontiguous\n", size, addr);
