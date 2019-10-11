@@ -86,7 +86,6 @@ void kmsan_report(depot_stack_handle_t origin,
 
 	nr_entries = stack_depot_fetch(origin, &entries);
 
-	/* TODO(glider) */
 	current->kmsan.allow_reporting = false;
 	current->kmsan.is_reporting = true;
 	spin_lock_irqsave(&report_lock, flags);
