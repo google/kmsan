@@ -30,10 +30,10 @@ void kmsan_interrupt_enter(void)
 {
 	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
 
-	// Turns out it's possible for in_interrupt to be >0 here.
+	/* Turns out it's possible for in_interrupt to be >0 here. */
 	kmsan_context_enter();
 	BUG_ON(in_interrupt > 1);
-	// Can't check preempt_count() here, it may be zero.
+	/* Can't check preempt_count() here, it may be zero. */
 	this_cpu_write(kmsan_in_interrupt, in_interrupt + 1);
 }
 EXPORT_SYMBOL(kmsan_interrupt_enter);
@@ -44,7 +44,7 @@ void kmsan_interrupt_exit(void)
 
 	BUG_ON(!in_interrupt);
 	kmsan_context_exit();
-	// Can't check preempt_count() here, it may be zero.
+	/* Can't check preempt_count() here, it may be zero. */
 	this_cpu_write(kmsan_in_interrupt, in_interrupt - 1);
 }
 EXPORT_SYMBOL(kmsan_interrupt_exit);
@@ -55,7 +55,7 @@ void kmsan_softirq_enter(void)
 
 	BUG_ON(in_softirq);
 	kmsan_context_enter();
-	// Can't check preempt_count() here, it may be zero.
+	/* Can't check preempt_count() here, it may be zero. */
 	this_cpu_write(kmsan_in_softirq, true);
 }
 EXPORT_SYMBOL(kmsan_softirq_enter);
@@ -66,7 +66,7 @@ void kmsan_softirq_exit(void)
 
 	BUG_ON(!in_softirq);
 	kmsan_context_exit();
-	// Can't check preempt_count() here, it may be zero.
+	/* Can't check preempt_count() here, it may be zero. */
 	this_cpu_write(kmsan_in_softirq, false);
 }
 EXPORT_SYMBOL(kmsan_softirq_exit);

@@ -15,7 +15,7 @@
 #ifndef __MM_KMSAN_KMSAN_SHADOW_H
 #define __MM_KMSAN_KMSAN_SHADOW_H
 
-#include <asm/cpu_entry_area.h>  // for CPU_ENTRY_AREA_MAP_SIZE
+#include <asm/cpu_entry_area.h>  /* for CPU_ENTRY_AREA_MAP_SIZE */
 
 typedef struct {
 	void* s;
