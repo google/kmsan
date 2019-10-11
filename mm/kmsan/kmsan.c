@@ -295,25 +295,15 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 		return 0;
 
 	if (!id) return id;
+	/*
+	 * Make sure we have enough spare bits in |id| to hold the UAF bit and
+	 * the chain depth.
+	 */
+	BUILD_BUG_ON((1 << STACK_DEPOT_EXTRA_BITS) <= (MAX_CHAIN_DEPTH << 1));
 
 	extra_bits = get_dsh_extra_bits(id);
 
-	/*
-	 * TODO(glider): this is slower, but will save us a lot of memory.
-	 * Let us store the chain length in the lowest byte of the magic.
-	 * Maybe we can cache the ids somehow to avoid fetching them?
-	 */
-	/*
-	 * TODO(glider): now that we've reserved bits, maybe use them for
-	 * depth?
-	 */
-	nr_old_entries = stack_depot_fetch(id, &old_entries);
-	if (!nr_old_entries)
-		return id;
-	old_magic = old_entries[0];
-	if ((old_magic & KMSAN_MAGIC_MASK) == KMSAN_CHAIN_MAGIC_ORIGIN_FULL) {
-		depth = old_magic & 0xff;
-	}
+	depth = extra_bits >> 1;
 	if (depth >= MAX_CHAIN_DEPTH) {
 		skipped++;
 		if (skipped % 10000 == 0) {
@@ -324,6 +314,8 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 		return id;
 	}
 	depth++;
+	/* Lowest bit is the UAF flag, higher bits hold the depth. */
+	extra_bits = (depth << 1) | (extra_bits & 1);
 	/* TODO(glider): how do we figure out we've dropped some frames? */
 	entries[0] = magic + depth;
 	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, extra_bits);

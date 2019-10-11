@@ -93,7 +93,7 @@ void kmsan_report(depot_stack_handle_t origin,
 	current->kmsan.is_reporting = true;
 	spin_lock_irqsave(&report_lock, flags);
 	kmsan_pr_err("=====================================================\n");
-	if (get_dsh_extra_bits(origin) == 1)
+	if (get_dsh_extra_bits(origin) & 1)
 		is_uaf = true;
 	switch (reason) {
 		case REASON_ANY:
