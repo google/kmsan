@@ -150,11 +150,6 @@ void *__msan_memset(void *dst, int c, size_t n)
 		return result;
 
 	ENTER_RUNTIME(irq_flags);
-	/*
-	 * TODO(glider): emit stores to param_tls and param_origin_tls in the
-	 * compiler for KMSAN (not for MSan, because __msan_memset could be
-	 * called from the userspace RTL).
-	 */
 	shadow = 0;
 	kmsan_internal_memset_shadow(dst, shadow, n, /*checked*/false);
 	new_origin = 0;
