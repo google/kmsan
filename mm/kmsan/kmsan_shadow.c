@@ -109,11 +109,11 @@ static unsigned long vmalloc_meta(void *addr, bool is_origin)
 	unsigned long addr64 = (unsigned long)addr, off;
 
 	BUG_ON(is_origin && !IS_ALIGNED(addr64, ORIGIN_SIZE));
-	if (_is_vmalloc_addr(addr)) {
+	if (kmsan_internal_is_vmalloc_addr(addr)) {
 		return addr64 + (is_origin ? VMALLOC_ORIGIN_OFFSET
 					   : VMALLOC_SHADOW_OFFSET);
 	}
-	if (is_module_addr(addr)) {
+	if (kmsan_internal_is_module_addr(addr)) {
 		off = addr64 - MODULES_VADDR;
 		return off + (is_origin ? MODULES_ORIGIN_START
 					: MODULES_SHADOW_START);
@@ -177,7 +177,8 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size,
 		o_addr64 -= pad;
 	}
 
-	if (_is_vmalloc_addr(address) || is_module_addr(address)) {
+	if (kmsan_internal_is_vmalloc_addr(address) ||
+	    kmsan_internal_is_module_addr(address)) {
 		ret.s = (void *)vmalloc_meta(address, META_SHADOW);
 		ret.o = (void *)vmalloc_meta((void *)o_addr64, META_ORIGIN);
 		return ret;
@@ -239,7 +240,8 @@ void *kmsan_get_metadata(void *address, size_t size, bool is_origin)
 		size += pad;
 	}
 	address = (void *)addr;
-	if (_is_vmalloc_addr(address) || is_module_addr(address)) {
+	if (kmsan_internal_is_vmalloc_addr(address) ||
+	    kmsan_internal_is_module_addr(address)) {
 		return (void *)vmalloc_meta(address, is_origin);
 	}
 

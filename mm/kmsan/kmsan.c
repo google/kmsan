@@ -383,7 +383,8 @@ struct page *vmalloc_to_page_or_null(void *vaddr)
 {
 	struct page *page;
 
-	if (!_is_vmalloc_addr(vaddr) && !is_module_addr(vaddr))
+	if (!kmsan_internal_is_vmalloc_addr(vaddr) &&
+	    !kmsan_internal_is_module_addr(vaddr))
 		return NULL;
 	page = vmalloc_to_page(vaddr);
 	if (pfn_valid(page_to_pfn(page)))
@@ -533,4 +534,42 @@ report:
 	}
 	current->kmsan.is_reporting = false;
 	return false;
+}
+
+/*
+ * Dummy replacement for __builtin_return_address() which may crash without
+ * frame pointers.
+ */
+void *kmsan_internal_return_address(int arg)
+{
+#ifdef CONFIG_UNWINDER_FRAME_POINTER
+	switch (arg) {
+		case 1:
+			return __builtin_return_address(1);
+		case 2:
+			return __builtin_return_address(2);
+		default:
+			BUG();
+	}
+#else
+	unsigned long entries[1];
+	struct stack_trace trace = {
+		.nr_entries = 0,
+		.entries = entries,
+		.max_entries = 1,
+		.skip = arg
+	};
+	save_stack_trace(&trace);
+	return entries[0];
+#endif
+}
+
+bool kmsan_internal_is_module_addr(void *vaddr)
+{
+	return ((u64)vaddr >= MODULES_VADDR) && ((u64)vaddr < MODULES_END);
+}
+
+bool kmsan_internal_is_vmalloc_addr(void *addr)
+{
+	return ((u64)addr >= VMALLOC_START) && ((u64)addr < VMALLOC_END);
 }

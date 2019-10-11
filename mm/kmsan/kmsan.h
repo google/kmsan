@@ -132,42 +132,8 @@ void __vunmap_page_range(unsigned long addr, unsigned long end);
 int __vmap_page_range_noflush(unsigned long start, unsigned long end,
 				   pgprot_t prot, struct page **pages);
 
-/*
- * Dummy replacement for __builtin_return_address() which may crash without
- * frame pointers.
- */
-static inline void *kmsan_internal_return_address(int arg)
-{
-#ifdef CONFIG_UNWINDER_FRAME_POINTER
-	switch (arg) {
-		case 1:
-			return __builtin_return_address(1);
-		case 2:
-			return __builtin_return_address(2);
-		default:
-			BUG();
-	}
-#else
-	unsigned long entries[1];
-	struct stack_trace trace = {
-		.nr_entries = 0,
-		.entries = entries,
-		.max_entries = 1,
-		.skip = arg
-	};
-	save_stack_trace(&trace);
-	return entries[0];
-#endif
-}
-
-static bool is_module_addr(void *vaddr)
-{
-	return ((u64)vaddr >= MODULES_VADDR) && ((u64)vaddr < MODULES_END);
-}
-
-static inline bool _is_vmalloc_addr(void *addr)
-{
-	return ((u64)addr >= VMALLOC_START) && ((u64)addr < VMALLOC_END);
-}
+void *kmsan_internal_return_address(int arg);
+bool kmsan_internal_is_module_addr(void *vaddr);
+bool kmsan_internal_is_vmalloc_addr(void *addr);
 
 #endif  /* __MM_KMSAN_KMSAN_H */
