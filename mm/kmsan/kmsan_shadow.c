@@ -68,10 +68,9 @@ char dummy_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 char dummy_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
 
 /*
- * Taken from arch/x86/mm/physaddr.h
- * TODO(glider): do we need it?
+ * Taken from arch/x86/mm/physaddr.h to avoid using an instrumented version.
  */
-static int my_phys_addr_valid(unsigned long addr)
+static int kmsan_phys_addr_valid(unsigned long addr)
 {
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
 	return !(addr >> boot_cpu_data.x86_phys_bits);
@@ -81,10 +80,9 @@ static int my_phys_addr_valid(unsigned long addr)
 }
 
 /*
- * Taken from arch/x86/mm/physaddr.c
- * TODO(glider): do we need it?
+ * Taken from arch/x86/mm/physaddr.c to avoid using an instrumented version.
  */
-static bool my_virt_addr_valid(void *addr)
+static bool kmsan_virt_addr_valid(void *addr)
 {
 	unsigned long x = (unsigned long)addr;
 	unsigned long y = x - __START_KERNEL_map;
@@ -99,7 +97,7 @@ static bool my_virt_addr_valid(void *addr)
 		x = y + (__START_KERNEL_map - PAGE_OFFSET);
 
 		/* carry flag will be set if starting x was >= PAGE_OFFSET */
-		if ((x > y) || !my_phys_addr_valid(x))
+		if ((x > y) || !kmsan_phys_addr_valid(x))
 			return false;
 	}
 
@@ -142,7 +140,7 @@ static void *get_cea_meta_or_null(void *addr, bool is_origin)
 
 static struct page *virt_to_page_or_null(void *vaddr)
 {
-	if (my_virt_addr_valid(vaddr))
+	if (kmsan_virt_addr_valid(vaddr))
 		return virt_to_page(vaddr);
 	else
 		return NULL;
@@ -185,7 +183,7 @@ shadow_origin_ptr_t kmsan_get_shadow_origin_ptr(void *address, u64 size,
 		return ret;
 	}
 
-	if (!my_virt_addr_valid(address)) {
+	if (!kmsan_virt_addr_valid(address)) {
 		page = vmalloc_to_page_or_null(address);
 		if (page)
 			goto next;
@@ -245,7 +243,7 @@ void *kmsan_get_metadata(void *address, size_t size, bool is_origin)
 		return vmalloc_meta(address, is_origin);
 	}
 
-	if (!my_virt_addr_valid(address)) {
+	if (!kmsan_virt_addr_valid(address)) {
 		page = vmalloc_to_page_or_null(address);
 		if (page)
 			goto next;
@@ -373,13 +371,6 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 	}
 
 	for (i = 0; i < pages; i++) {
-		/*
-		 * TODO(glider): sometimes shadow_page_for(&page[i]) is
-		 * initialized. Let's skip the check for now.
-		 */
-#if 0
-		if (shadow_page_for(&page[i])) continue;
-#endif
 		shadow_page_for(&page[i]) = &shadow[i];
 		set_no_shadow_origin_page(shadow_page_for(&page[i]));
 		origin_page_for(&page[i]) = &origin[i];
@@ -550,6 +541,5 @@ void kmsan_ignore_page(struct page *page, int order)
 	for (i = 0; i < pages; i++) {
 		cp = &page[i];
 		ignore_page(cp);
-		//cp->shadow = (struct page *)((u64)(cp->shadow) | 1);
 	}
 }
