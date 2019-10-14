@@ -48,9 +48,17 @@ DECLARE_PER_CPU(bool, kmsan_in_softirq);
 DECLARE_PER_CPU(bool, kmsan_in_nmi);
 
 extern spinlock_t report_lock;
+
+/* Stolen from kernel/printk/internal.h */
+#define PRINTK_SAFE_CONTEXT_MASK	 0x3fffffff
+/* Defined in kernel/printk/printk_safe.c */
+DECLARE_PER_CPU(int, printk_context);
+
+/* Only print iff printk hasn't acquired the console lock. */
 #define kmsan_pr_err(...) \
 	do { \
-		if (!is_logbuf_locked()) \
+		if (!(this_cpu_read(printk_context) & \
+		      PRINTK_SAFE_CONTEXT_MASK)) \
 			pr_err(__VA_ARGS__); \
 	} while (0)
 

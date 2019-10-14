@@ -79,7 +79,7 @@ void kmsan_report(depot_stack_handle_t origin,
 		return;
 	if (!current->kmsan.allow_reporting)
 		return;
-	if (is_console_locked() || is_logbuf_locked())
+	if (this_cpu_read(printk_context) & PRINTK_SAFE_CONTEXT_MASK)
 		return;
 	if (!origin)
 		return;
