@@ -87,7 +87,6 @@ void kmsan_report(depot_stack_handle_t origin,
 	nr_entries = stack_depot_fetch(origin, &entries);
 
 	current->kmsan.allow_reporting = false;
-	current->kmsan.is_reporting = true;
 	spin_lock_irqsave(&report_lock, flags);
 	kmsan_pr_err("=====================================================\n");
 	if (get_dsh_extra_bits(origin) & 1)
@@ -131,6 +130,5 @@ void kmsan_report(depot_stack_handle_t origin,
 	spin_unlock_irqrestore(&report_lock, flags);
 	if (panic_on_warn)
 		panic("panic_on_warn set ...\n");
-	current->kmsan.is_reporting = false;
 	current->kmsan.allow_reporting = true;
 }

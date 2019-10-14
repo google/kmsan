@@ -55,7 +55,7 @@ bool kmsan_ready = false;
  * interrupt.
  */
 /* [0] for dummy per-CPU context. */
-DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
+DEFINE_PER_CPU(struct kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
 	       kmsan_percpu_cstate);
 /* 0 for task context, |i>0| for kmsan_context_state[i]. */
 DEFINE_PER_CPU(int, kmsan_context_level);
@@ -66,15 +66,15 @@ DEFINE_PER_CPU(int, kmsan_in_runtime);
 /* TODO(glider): debug-only. */
 DEFINE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 
-kmsan_context_state *task_kmsan_context_state(void)
+struct kmsan_context_state *task_kmsan_context_state(void)
 {
 	int cpu = smp_processor_id();
 	int level = this_cpu_read(kmsan_context_level);
-	kmsan_context_state *ret;
+	struct kmsan_context_state *ret;
 
 	if (!kmsan_ready || IN_RUNTIME()) {
 		ret = &per_cpu(kmsan_percpu_cstate[0], cpu);
-		__memset(ret, 0, sizeof(kmsan_context_state));
+		__memset(ret, 0, sizeof(struct kmsan_context_state));
 		return ret;
 	}
 
@@ -87,12 +87,10 @@ kmsan_context_state *task_kmsan_context_state(void)
 
 void kmsan_internal_task_create(struct task_struct *task)
 {
-	kmsan_task_state *state = &task->kmsan;
+	struct kmsan_task_state *state = &task->kmsan;
 
-	__memset(state, 0, sizeof(kmsan_task_state));
-	state->enabled = true;
+	__memset(state, 0, sizeof(struct kmsan_task_state));
 	state->allow_reporting = true;
-	state->is_reporting = false;
 }
 
 void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
@@ -110,9 +108,7 @@ void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
 						  META_SHADOW);
 		if (!shadow_start) {
 			if (checked) {
-				current->kmsan.is_reporting = true;
 				kmsan_pr_err("WARNING: not memsetting %d bytes starting at %px, because the shadow is NULL\n", to_fill, address);
-				current->kmsan.is_reporting = false;
 				BUG();
 			}
 			/* Otherwise just move on. */
@@ -371,9 +367,7 @@ void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked)
 {
 	if (checked && !metadata_is_contiguous(addr, size, META_ORIGIN)) {
-		current->kmsan.is_reporting = true;
 		kmsan_pr_err("WARNING: not setting origin for %d bytes starting at %px, because the metadata is incontiguous\n", size, addr);
-		current->kmsan.is_reporting = false;
 		BUG();
 	}
 	kmsan_internal_set_origin(addr, size, origin);
@@ -516,7 +510,6 @@ bool metadata_is_contiguous(void *addr, size_t size, bool is_origin) {
 	return true;
 
 report:
-	current->kmsan.is_reporting = true;
 	kmsan_pr_err("BUG: attempting to access two shadow page ranges.\n");
 	dump_stack();
 	kmsan_pr_err("\n");
@@ -532,7 +525,6 @@ report:
 	} else {
 		kmsan_pr_err("Origin: unavailable\n");
 	}
-	current->kmsan.is_reporting = false;
 	return false;
 }
 

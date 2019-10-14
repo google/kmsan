@@ -39,7 +39,7 @@
 
 #define KMSAN_NESTED_CONTEXT_MAX (8)
 /* [0] for dummy per-CPU context */
-DECLARE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
+DECLARE_PER_CPU(struct kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
 		kmsan_percpu_cstate);
 /* 0 for task context, |i>0| for kmsan_context_state[i]. */
 DECLARE_PER_CPU(int, kmsan_context_level);
@@ -119,7 +119,7 @@ void kmsan_internal_task_create(struct task_struct *task);
 void kmsan_internal_set_origin(void *addr, int size, u32 origin);
 void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked);
 
-kmsan_context_state *task_kmsan_context_state(void);
+struct kmsan_context_state *task_kmsan_context_state(void);
 
 bool metadata_is_contiguous(void *addr, size_t size, bool is_origin);
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,

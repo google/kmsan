@@ -29,16 +29,13 @@ extern bool kmsan_ready;
 void __init kmsan_initialize_shadow(void);
 void __init kmsan_initialize(void);
 
-typedef struct kmsan_task_s kmsan_task_state;
-typedef struct kmsan_context_s kmsan_context_state;
-
 /* These constants are defined in the MSan LLVM instrumentation pass. */
 #define RETVAL_SIZE 800
 #define KMSAN_PARAM_SIZE 800
 
 #define PARAM_ARRAY_SIZE (KMSAN_PARAM_SIZE / sizeof(depot_stack_handle_t))
 
-struct kmsan_context_s {
+struct kmsan_context_state {
 	char param_tls[KMSAN_PARAM_SIZE];
 	char retval_tls[RETVAL_SIZE];
 	char va_arg_tls[KMSAN_PARAM_SIZE];
@@ -49,16 +46,10 @@ struct kmsan_context_s {
 	depot_stack_handle_t origin_tls;
 };
 
-struct kmsan_task_s {
-	bool enabled;
+struct kmsan_task_state {
 	bool allow_reporting;
-	bool is_reporting; // write-only
-	bool debug;
-
-	kmsan_context_state cstate;
+	struct kmsan_context_state cstate;
 };
-
-extern kmsan_context_state kmsan_dummy_state;
 
 void kmsan_task_create(struct task_struct *task);
 void kmsan_task_exit(struct task_struct *task);

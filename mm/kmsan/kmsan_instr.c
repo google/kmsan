@@ -248,9 +248,9 @@ void __msan_warning(u32 origin)
 }
 EXPORT_SYMBOL(__msan_warning);
 
-kmsan_context_state *__msan_get_context_state(void)
+struct kmsan_context_state *__msan_get_context_state(void)
 {
-	kmsan_context_state *ret;
+	struct kmsan_context_state *ret;
 
 	ret = task_kmsan_context_state();
 	BUG_ON(!ret);

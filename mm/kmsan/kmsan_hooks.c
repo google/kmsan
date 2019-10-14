@@ -65,15 +65,13 @@ EXPORT_SYMBOL(kmsan_task_create);
 void kmsan_task_exit(struct task_struct *task)
 {
 	unsigned long irq_flags;
-	kmsan_task_state *state = &task->kmsan;
+	struct kmsan_task_state *state = &task->kmsan;
 
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 
 	ENTER_RUNTIME(irq_flags);
-	state->enabled = false;
 	state->allow_reporting = false;
-	state->is_reporting = false;
 
 	LEAVE_RUNTIME(irq_flags);
 }
