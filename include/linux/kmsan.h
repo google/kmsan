@@ -51,9 +51,8 @@ struct kmsan_context_s {
 
 struct kmsan_task_s {
 	bool enabled;
-	bool initialization;
 	bool allow_reporting;
-	bool is_reporting;
+	bool is_reporting; // write-only
 	bool debug;
 
 	kmsan_context_state cstate;
