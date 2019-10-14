@@ -389,12 +389,6 @@ __packed __aligned(4)
  */
 DEFINE_RAW_SPINLOCK(logbuf_lock);
 
-int is_logbuf_locked(void)
-{
-	return raw_spin_is_locked(&logbuf_lock);
-}
-EXPORT_SYMBOL(is_logbuf_locked);
-
 /*
  * Helper macros to lock/unlock logbuf_lock and switch between
  * printk-safe/unsafe modes.
@@ -2423,7 +2417,6 @@ again:
 
 		printk_safe_enter_irqsave(flags);
 		raw_spin_lock(&logbuf_lock);
-
 		if (console_seq < log_first_seq) {
 			len = sprintf(text,
 				      "** %llu printk messages dropped **\n",
