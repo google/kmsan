@@ -279,6 +279,8 @@ __visible inline void syscall_return_slowpath(struct pt_regs *regs)
 }
 
 #ifdef CONFIG_X86_64
+/* Tell KMSAN to not instrument this function and to initialize |regs|. */
+__no_sanitize_memory
 __visible void do_syscall_64(unsigned long nr, struct pt_regs *regs)
 {
 	struct thread_info *ti;
