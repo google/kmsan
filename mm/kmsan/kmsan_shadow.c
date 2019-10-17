@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * KMSAN shadow implementation.
  *
@@ -53,7 +53,7 @@
 	(!!(((u64)((page)->shadow)) % 2))
 
 #define ignore_page(pg)			\
-		(pg)->shadow = (struct page *)((u64)((pg)->shadow) | 1) \
+		((pg)->shadow = (struct page *)((u64)((pg)->shadow) | 1)) \
 
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);

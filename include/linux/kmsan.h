@@ -119,18 +119,18 @@ static inline void kmsan_slab_free(struct kmem_cache *s, void *object) {}
 static inline void kmsan_slab_setup_object(struct kmem_cache *s,
 					   void *object) {}
 static inline void kmsan_post_alloc_hook(struct kmem_cache *s, gfp_t flags,
-			   		 size_t size, void *object) {}
+					 size_t size, void *object) {}
 
 static inline void kmsan_vmap_page_range_noflush(unsigned long start,
 						 unsigned long end,
-				   		 pgprot_t prot,
+						 pgprot_t prot,
 						 struct page **pages) {}
 static inline void kmsan_vunmap_page_range(unsigned long start,
 					   unsigned long end) {}
 
 static inline void kmsan_ioremap_page_range(unsigned long start,
 					    unsigned long end,
-			      		    phys_addr_t phys_addr,
+					    phys_addr_t phys_addr,
 					    pgprot_t prot) {}
 static inline void kmsan_iounmap_page_range(unsigned long start,
 					    unsigned long end) {}
