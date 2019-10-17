@@ -5,7 +5,7 @@ if HAVE_ARCH_KMSAN
 
 config KMSAN
 	bool "KMSAN: detector of uninitialized memory use"
-	depends on SLUB && !VMAP_STACK && !KASAN
+	depends on SLUB && !KASAN
 	select STACKDEPOT
 	help
 	  KMSAN is a dynamic detector of uses of uninitialized memory in the
