@@ -79,6 +79,7 @@ depot_stack_handle_t set_dsh_extra_bits(depot_stack_handle_t handle,
 					u32 bits)
 {
 	union handle_parts parts = { .handle = handle };
+
 	parts.extra = bits & ((1U << STACK_DEPOT_EXTRA_BITS) - 1);
 	return parts.handle;
 }
@@ -87,6 +88,7 @@ EXPORT_SYMBOL_GPL(set_dsh_extra_bits);
 u32 get_dsh_extra_bits(depot_stack_handle_t handle)
 {
 	union handle_parts parts = { .handle = handle };
+
 	return parts.extra;
 }
 EXPORT_SYMBOL_GPL(get_dsh_extra_bits);
