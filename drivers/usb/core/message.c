@@ -103,7 +103,7 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
 	if (retv < 0)
 		return retv;
 	else {
-		// TODO(glider): USB initializes |length| bytes?
+		/* TODO(glider): USB initializes |length| bytes? */
 		kmsan_unpoison_shadow(data, length);
 		return length;
 	}

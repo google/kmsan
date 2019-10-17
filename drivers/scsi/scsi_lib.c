@@ -297,7 +297,7 @@ int __scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 	ret = rq->result;
  out:
 	blk_put_request(req);
-	// TODO(glider): this is a bit rough.
+	/* TODO(glider): this is a bit rough. */
 	if (data_direction == DMA_FROM_DEVICE)
 		kmsan_unpoison_shadow(buffer, bufflen);
 

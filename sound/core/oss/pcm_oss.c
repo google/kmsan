@@ -12,7 +12,7 @@
 #endif
 
 #include <linux/init.h>
-#include <linux/kmsan-checks.h>	// for kmsan_unpoison_shadow()
+#include <linux/kmsan-checks.h>	/* for kmsan_unpoison_shadow() */
 #include <linux/slab.h>
 #include <linux/sched/signal.h>
 #include <linux/time.h>
@@ -1055,7 +1055,8 @@ static int snd_pcm_oss_change_params_locked(struct snd_pcm_substream *substream)
 		err = -ENOMEM;
 		goto failure;
 	}
-	/* Unpoison the freshly created buffer to prevent KMSAN from reporting
+	/*
+	 * Unpoison the freshly created buffer to prevent KMSAN from reporting
 	 * uninit errors.
 	 * TODO(glider): unpoison it only when it's actually initialized.
 	 */
