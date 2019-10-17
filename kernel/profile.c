@@ -399,6 +399,7 @@ void profile_hits(int type, void *__pc, unsigned int nr_hits)
 }
 EXPORT_SYMBOL_GPL(profile_hits);
 
+__no_sanitize_memory
 void profile_tick(int type)
 {
 	struct pt_regs *regs = get_irq_regs();
