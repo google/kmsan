@@ -6162,6 +6162,20 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
  *
  * WARNING: must be called with preemption disabled!
  */
+/*
+ * Context switch here confuses KMSAN, which reads the per-task state only once
+ * at the beginning of the function. As a result, callees that follow the
+ * context switch may receive incorrect shadow values for their parameters,
+ * regardless of whether KMSAN instruments this function. This cannot be
+ * avoided, but is quite unlikely, given that the switch happens quite late in
+ * the code.
+ * Another problem is that the return values of called functions may also have
+ * incorrect shadow after the context switch. To avoid this, we disable KMSAN
+ * checks in __schedule() and force locals to be initialized.
+ * Disabling KMSAN instrumentation altogether with __no_sanitize_memory would've
+ * resulted in all callees of __schedule() receiving incorrect shadow values.
+ */
+__no_kmsan_checks
 static void __sched notrace __schedule(unsigned int sched_mode)
 {
 	struct task_struct *prev, *next;
