@@ -577,6 +577,11 @@ void wake_q_add_safe(struct wake_q_head *head, struct task_struct *task)
 		put_task_struct(task);
 }
 
+/*
+ * Context switch here may lead to KMSAN task state corruption. Disable KMSAN
+ * instrumentation.
+ */
+__no_sanitize_memory
 void wake_up_q(struct wake_q_head *head)
 {
 	struct wake_q_node *node = head->first;
@@ -3570,6 +3575,12 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
  * past. prev == current is still correct but we need to recalculate this_rq
  * because prev may have moved to another CPU.
  */
+
+/*
+ * Context switch here may lead to KMSAN task state corruption. Disable KMSAN
+ * instrumentation.
+ */
+__no_sanitize_memory
 static struct rq *finish_task_switch(struct task_struct *prev)
 	__releases(rq->lock)
 {
@@ -4402,6 +4413,12 @@ restart:
  *
  * WARNING: must be called with preemption disabled!
  */
+
+/*
+ * Context switch here may lead to KMSAN task state corruption. Disable KMSAN
+ * instrumentation.
+ */
+__no_sanitize_memory
 static void __sched notrace __schedule(bool preempt)
 {
 	struct task_struct *prev, *next;
@@ -7235,6 +7252,11 @@ static inline int preempt_count_equals(int preempt_offset)
 	return (nested == preempt_offset);
 }
 
+/*
+ * This function might be called from code that is not instrumented with KMSAN.
+ * Nevertheless, treat its arguments as initialized.
+ */
+__no_sanitize_memory
 void __might_sleep(const char *file, int line, int preempt_offset)
 {
 	/*
