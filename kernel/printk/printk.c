@@ -1918,7 +1918,8 @@ int vprintk_store(int facility, int level,
 	 * We've checked the printk arguments in vprintk_emit() already.
 	 * Initialize |text_len| to prevent the errors from spreading.
 	 */
-	text_len = KMSAN_INIT_VALUE(vscnprintf(text, sizeof(textbuf), fmt, args));
+	text_len = KMSAN_INIT_VALUE(vscnprintf(text, sizeof(textbuf), fmt,
+					       args));
 
 	/* mark and strip a trailing newline */
 	if (text_len && text[text_len-1] == '\n') {
