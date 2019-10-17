@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * KMSAN hooks for kernel subsystems.
  *
@@ -109,7 +110,6 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
 leave:
 	LEAVE_RUNTIME(irq_flags);
-	return;
 }
 
 /* Called from mm/slub.c */
@@ -260,13 +260,12 @@ void kmsan_copy_to_user(const void *to, const void *from,
 	 * Don't check anything, just copy the shadow of the copied bytes.
 	 */
 	shadow = kmsan_get_metadata((void *)to, to_copy - left, META_SHADOW);
-	if (shadow) {
+	if (shadow)
 		kmsan_memcpy_metadata((void *)to, (void *)from, to_copy - left);
-	}
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
 
-void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
+void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags)
 {
 	unsigned long irq_flags;
 
@@ -280,7 +279,7 @@ void kmsan_poison_shadow(const volatile void *address, size_t size, gfp_t flags)
 }
 EXPORT_SYMBOL(kmsan_poison_shadow);
 
-void kmsan_unpoison_shadow(const volatile void *address, size_t size)
+void kmsan_unpoison_shadow(const void *address, size_t size)
 {
 	unsigned long irq_flags;
 
@@ -295,7 +294,7 @@ void kmsan_unpoison_shadow(const volatile void *address, size_t size)
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);
 
-void kmsan_check_memory(const volatile void *addr, size_t size)
+void kmsan_check_memory(const void *addr, size_t size)
 {
 	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0,
 					   REASON_ANY);
@@ -409,7 +408,7 @@ void kmsan_handle_vprintk(const char **fmt, va_list args)
 	fmt_size = strlen(*fmt);
 	LEAVE_RUNTIME(irq_flags);
 	/* TODO(glider): check |args|. */
-	kmsan_internal_check_memory(fmt, sizeof(char*), /*user_addr*/0,
+	kmsan_internal_check_memory(fmt, sizeof(char *), /*user_addr*/0,
 				    REASON_ANY);
 	kmsan_internal_check_memory((void *)(*fmt), fmt_size, /*user_addr*/0,
 				    REASON_ANY);

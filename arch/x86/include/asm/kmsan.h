@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Assembly bits to safely invoke KMSAN hooks from .S files.
  *

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * KMSAN checks.
  * TODO(glider): unite with kmsan.h?
@@ -31,22 +32,26 @@ struct urb;
  */
 
 __no_sanitize_memory
-static inline unsigned char KMSAN_INIT_1(unsigned char value) {
+static inline unsigned char KMSAN_INIT_1(unsigned char value)
+{
 	return value;
 }
 
 __no_sanitize_memory
-static inline unsigned short KMSAN_INIT_2(unsigned short value) {
+static inline unsigned short KMSAN_INIT_2(unsigned short value)
+{
 	return value;
 }
 
 __no_sanitize_memory
-static inline unsigned int KMSAN_INIT_4(unsigned int value) {
+static inline unsigned int KMSAN_INIT_4(unsigned int value)
+{
 	return value;
 }
 
 __no_sanitize_memory
-static inline unsigned long KMSAN_INIT_8(unsigned long value) {
+static inline unsigned long KMSAN_INIT_8(unsigned long value)
+{
 	return value;
 }
 
@@ -71,16 +76,15 @@ static inline unsigned long KMSAN_INIT_8(unsigned long value) {
 					(unsigned long)val);	\
 			break;					\
 		default:					\
-			BUG();					\
+			BUILD_BUG_ON(1);			\
 		}						\
 		__ret;						\
 	}) /**/
 
 void kmsan_ignore_page(struct page *page, int order);
-void kmsan_poison_shadow(const volatile void *address, size_t size,
-			 gfp_t flags);
-void kmsan_unpoison_shadow(const volatile void *address, size_t size);
-void kmsan_check_memory(const volatile void *address, size_t size);
+void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags);
+void kmsan_unpoison_shadow(const void *address, size_t size);
+void kmsan_check_memory(const void *address, size_t size);
 void kmsan_check_skb(const struct sk_buff *skb);
 void kmsan_handle_urb(const struct urb *urb, bool is_out);
 void kmsan_handle_vprintk(const char **fmt, va_list args);
@@ -96,12 +100,10 @@ void kmsan_leave_runtime(unsigned long *flags);
 #define KMSAN_INIT_VALUE(value) (value)
 
 static inline void kmsan_ignore_page(struct page *page, int order) {}
-static inline void kmsan_poison_shadow(const volatile void *address,
-				       size_t size, gfp_t flags) {}
-static inline void kmsan_unpoison_shadow(const volatile void *address,
-					 size_t size) {}
-static inline void kmsan_check_memory(const volatile void *address,
-				      size_t size) {}
+static inline void kmsan_poison_shadow(const void *address, size_t size,
+				       gfp_t flags) {}
+static inline void kmsan_unpoison_shadow(const void *address, size_t size) {}
+static inline void kmsan_check_memory(const void *address, size_t size) {}
 static inline void kmsan_check_skb(const struct sk_buff *skb) {}
 static inline void kmsan_handle_urb(const struct urb *urb, bool is_out) {}
 static inline void kmsan_handle_vprintk(const char **fmt, va_list args) {}

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * KMSAN runtime library.
  *
@@ -40,7 +41,7 @@
  */
 unsigned long __force_order;
 
-bool kmsan_ready = false;
+bool kmsan_ready;
 #define KMSAN_STACK_DEPTH 64
 #define MAX_CHAIN_DEPTH 7
 
@@ -94,7 +95,7 @@ void kmsan_internal_task_create(struct task_struct *task)
 }
 
 void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
-			 	  bool checked)
+				  bool checked)
 {
 	void *shadow_start;
 	u64 page_offset, address = (u64)addr;
@@ -221,8 +222,8 @@ void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	i = backwards ? min(src_slots, dst_slots) - 1 : 0;
 	iter = backwards ? -1 : 1;
 
-	align_shadow_src = (u32*)ALIGN_DOWN((u64)shadow_src, ORIGIN_SIZE);
-	for (step = 0; step < min(src_slots, dst_slots); step++,i+=iter) {
+	align_shadow_src = (u32 *)ALIGN_DOWN((u64)shadow_src, ORIGIN_SIZE);
+	for (step = 0; step < min(src_slots, dst_slots); step++, i += iter) {
 		BUG_ON(i < 0);
 		shadow = align_shadow_src[i];
 		if (i == 0) {
@@ -284,13 +285,14 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	unsigned long entries[3];
 	u64 magic = KMSAN_CHAIN_MAGIC_ORIGIN_FULL;
 	int depth = 0;
-	static int skipped = 0;
+	static int skipped;
 	u32 extra_bits;
 
 	if (!kmsan_ready)
 		return 0;
 
-	if (!id) return id;
+	if (!id)
+		return id;
 	/*
 	 * Make sure we have enough spare bits in |id| to hold the UAF bit and
 	 * the chain depth.
@@ -476,7 +478,8 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
  * TODO(glider): this check shouldn't be performed for origin pages, because
  * they're always accessed after the shadow pages.
  */
-bool metadata_is_contiguous(void *addr, size_t size, bool is_origin) {
+bool metadata_is_contiguous(void *addr, size_t size, bool is_origin)
+{
 	u64 cur_addr = (u64)addr, next_addr;
 	char *cur_meta = NULL, *next_meta = NULL;
 	depot_stack_handle_t *origin_p;
@@ -520,7 +523,7 @@ report:
 		     fname, cur_meta, fname, next_meta);
 	origin_p = kmsan_get_metadata(addr, 1, META_ORIGIN);
 	if (origin_p) {
-		kmsan_pr_err("Origin: %px\n", *origin_p);
+		kmsan_pr_err("Origin: %08x\n", *origin_p);
 		kmsan_print_origin(*origin_p);
 	} else {
 		kmsan_pr_err("Origin: unavailable\n");
@@ -536,12 +539,12 @@ void *kmsan_internal_return_address(int arg)
 {
 #ifdef CONFIG_UNWINDER_FRAME_POINTER
 	switch (arg) {
-		case 1:
-			return __builtin_return_address(1);
-		case 2:
-			return __builtin_return_address(2);
-		default:
-			BUG();
+	case 1:
+		return __builtin_return_address(1);
+	case 2:
+		return __builtin_return_address(2);
+	default:
+		BUG();
 	}
 #else
 	unsigned long entries[1];

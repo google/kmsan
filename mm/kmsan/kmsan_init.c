@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * KMSAN initialization routines.
  *
@@ -21,8 +22,8 @@ struct start_end_pair {
 	void *start, *end;
 };
 
-static __initdata struct start_end_pair start_end_pairs[NUM_FUTURE_RANGES];
-static __initdata int future_index = 0;
+static struct start_end_pair start_end_pairs[NUM_FUTURE_RANGES] __initdata;
+static int future_index __initdata;
 
 /*
  * Record a range of memory for which the metadata pages will be created once

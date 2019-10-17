@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * KMSAN compiler API.
  *
@@ -16,38 +17,37 @@
 
 static bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
 {
-	if ((u64)addr < TASK_SIZE) {
+	if ((u64)addr < TASK_SIZE)
 		return true;
-	}
 	if (!kmsan_get_metadata(addr, size, META_SHADOW))
 		return true;
 	return false;
 }
 
-shadow_origin_ptr_t __msan_metadata_ptr_for_load_n(void *addr, u64 size)
+struct shadow_origin_ptr __msan_metadata_ptr_for_load_n(void *addr, u64 size)
 {
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_load_n);
 
-shadow_origin_ptr_t __msan_metadata_ptr_for_store_n(void *addr, u64 size)
+struct shadow_origin_ptr __msan_metadata_ptr_for_store_n(void *addr, u64 size)
 {
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
 
 #define DECLARE_METADATA_PTR_GETTER(size)	\
-shadow_origin_ptr_t __msan_metadata_ptr_for_load_##size(void *addr)	\
+struct shadow_origin_ptr __msan_metadata_ptr_for_load_##size(void *addr) \
 {		\
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);	\
 }		\
 EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);			\
 		\
-shadow_origin_ptr_t __msan_metadata_ptr_for_store_##size(void *addr)	\
+struct shadow_origin_ptr __msan_metadata_ptr_for_store_##size(void *addr) \
 {									\
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);	\
 }									\
-EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size);
+EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size)
 
 DECLARE_METADATA_PTR_GETTER(1);
 DECLARE_METADATA_PTR_GETTER(2);

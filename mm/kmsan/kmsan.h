@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * KMSAN internal declarations.
  *
@@ -68,8 +69,7 @@ void kmsan_report(depot_stack_handle_t origin,
 		  const void *user_addr, int reason);
 
 
-enum KMSAN_BUG_REASON
-{
+enum KMSAN_BUG_REASON {
 	REASON_ANY = 0,
 	REASON_COPY_TO_USER = 1,
 	REASON_USE_AFTER_FREE = 2,
@@ -95,19 +95,19 @@ DECLARE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 		this_cpu_inc(kmsan_in_runtime); \
 		this_cpu_write(kmsan_runtime_last_caller, _THIS_IP_); \
 		BUG_ON(this_cpu_read(kmsan_in_runtime) > 1); \
-	} while(0)
+	} while (0)
 #define LEAVE_RUNTIME(irq_flags)	\
 	do {	\
 		this_cpu_dec(kmsan_in_runtime);	\
 		if (this_cpu_read(kmsan_in_runtime)) { \
-			kmsan_pr_err("kmsan_in_runtime: %d, last_caller: %pF\n", \
+			kmsan_pr_err("kmsan_in_runtime: %d, last_caller: %pS\n", \
 				this_cpu_read(kmsan_in_runtime), \
 				this_cpu_read(kmsan_runtime_last_caller)); \
 			BUG(); \
 		}	\
 		restart_nmi();		\
 		local_irq_restore(irq_flags);	\
-		preempt_enable(); } while(0)
+		preempt_enable(); } while (0)
 
 void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
 void kmsan_memmove_metadata(void *dst, void *src, size_t n);

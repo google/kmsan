@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * KMSAN error reporting routines.
  *
@@ -92,17 +93,17 @@ void kmsan_report(depot_stack_handle_t origin,
 	if (get_dsh_extra_bits(origin) & 1)
 		is_uaf = true;
 	switch (reason) {
-		case REASON_ANY:
-			bug_type = is_uaf ? "use-after-free" : "uninit-value";
-			break;
-		case REASON_COPY_TO_USER:
-			bug_type = is_uaf ? "kernel-infoleak-after-free" :
-					    "kernel-infoleak";
-			break;
-		case REASON_SUBMIT_URB:
-			bug_type = is_uaf ? "kernel-usb-infoleak-after-free" :
-					    "kernel-usb-infoleak";
-			break;
+	case REASON_ANY:
+		bug_type = is_uaf ? "use-after-free" : "uninit-value";
+		break;
+	case REASON_COPY_TO_USER:
+		bug_type = is_uaf ? "kernel-infoleak-after-free" :
+				    "kernel-infoleak";
+		break;
+	case REASON_SUBMIT_URB:
+		bug_type = is_uaf ? "kernel-usb-infoleak-after-free" :
+				    "kernel-usb-infoleak";
+		break;
 	}
 	kmsan_pr_err("BUG: KMSAN: %s in %pS\n",
 		     bug_type, kmsan_internal_return_address(2));

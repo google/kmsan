@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * KMSAN hooks for entry_64.S
  *
@@ -15,6 +16,7 @@
 static void kmsan_context_enter(void)
 {
 	int level = this_cpu_read(kmsan_context_level) + 1;
+
 	BUG_ON(level >= KMSAN_NESTED_CONTEXT_MAX);
 	this_cpu_write(kmsan_context_level, level);
 }
@@ -22,6 +24,7 @@ static void kmsan_context_enter(void)
 static void kmsan_context_exit(void)
 {
 	int level = this_cpu_read(kmsan_context_level) - 1;
+
 	BUG_ON(level < 0);
 	this_cpu_write(kmsan_context_level, level);
 }
