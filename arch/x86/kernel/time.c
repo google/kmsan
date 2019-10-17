@@ -25,6 +25,12 @@
 #include <asm/hpet.h>
 #include <asm/time.h>
 
+/*
+ * KMSAN treats pt_regs as initialized, but profile_pc() dereferences one of
+ * its fields, which may result in returning uninitialized values. Do not
+ * instrument this function to avoid false positive reports.
+ */
+__no_sanitize_memory
 unsigned long profile_pc(struct pt_regs *regs)
 {
 	unsigned long pc = instruction_pointer(regs);
