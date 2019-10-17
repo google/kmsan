@@ -475,6 +475,7 @@ void wake_q_add_safe(struct wake_q_head *head, struct task_struct *task)
 		put_task_struct(task);
 }
 
+__no_sanitize_memory /* context switching here */
 void wake_up_q(struct wake_q_head *head)
 {
 	struct wake_q_node *node = head->first;
@@ -3180,6 +3181,7 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
  * past. prev == current is still correct but we need to recalculate this_rq
  * because prev may have moved to another CPU.
  */
+__no_sanitize_memory /* |current| changes here */
 static struct rq *finish_task_switch(struct task_struct *prev)
 	__releases(rq->lock)
 {
@@ -3995,6 +3997,7 @@ restart:
  *
  * WARNING: must be called with preemption disabled!
  */
+__no_sanitize_memory /* |current| changes here */
 static void __sched notrace __schedule(bool preempt)
 {
 	struct task_struct *prev, *next;
@@ -4614,6 +4617,7 @@ int task_prio(const struct task_struct *p)
  *
  * Return: 1 if the CPU is currently idle. 0 otherwise.
  */
+__no_sanitize_memory /* nothing to report here */
 int idle_cpu(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -6554,6 +6558,7 @@ static struct kmem_cache *task_group_cache __read_mostly;
 DECLARE_PER_CPU(cpumask_var_t, load_balance_mask);
 DECLARE_PER_CPU(cpumask_var_t, select_idle_mask);
 
+__no_sanitize_memory
 void __init sched_init(void)
 {
 	unsigned long ptr = 0;
@@ -6726,6 +6731,7 @@ static inline int preempt_count_equals(int preempt_offset)
 	return (nested == preempt_offset);
 }
 
+__no_sanitize_memory /* expect the arguments to be initialized */
 void __might_sleep(const char *file, int line, int preempt_offset)
 {
 	/*
