@@ -1118,7 +1118,7 @@ static void local_apic_timer_interrupt(void)
  * [ if a single-CPU system runs an SMP kernel then we call the local
  *   interrupt as well. Thus we cannot inline the local irq ... ]
  */
-// TODO(glider): |regs| is uninitialized, so is |*regs|.
+/* TODO(glider): |regs| is uninitialized, so is |*regs|. */
 __no_sanitize_memory
 __visible void __irq_entry smp_apic_timer_interrupt(struct pt_regs *regs)
 {
