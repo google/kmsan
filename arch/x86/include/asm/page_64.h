@@ -44,7 +44,7 @@ void clear_page_orig(void *page);
 void clear_page_rep(void *page);
 void clear_page_erms(void *page);
 
-// This is an assembly header, avoid including too much of kmsan.h
+/* This is an assembly header, avoid including too much of kmsan.h */
 #ifdef CONFIG_KMSAN
 void kmsan_clear_page(void *page_addr);
 #endif
@@ -52,7 +52,7 @@ __no_sanitize_memory
 static inline void clear_page(void *page)
 {
 #ifdef CONFIG_KMSAN
-	// alternative_call_2() changes |page|.
+	/* alternative_call_2() changes |page|. */
 	void *page_copy = page;
 #endif
 	alternative_call_2(clear_page_orig,
@@ -62,7 +62,7 @@ static inline void clear_page(void *page)
 			   "0" (page)
 			   : "cc", "memory", "rax", "rcx");
 #ifdef CONFIG_KMSAN
-	// Clear KMSAN shadow for the pages that have it.
+	/* Clear KMSAN shadow for the pages that have it. */
 	kmsan_clear_page(page_copy);
 #endif
 }
