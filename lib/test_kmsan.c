@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Module for testing KMSAN.
  *
@@ -9,6 +10,11 @@
  * published by the Free Software Foundation.
  *
  */
+
+/*
+ * Tests below use noinline and volatile to work around compiler optimizations
+ * that may mask KMSAN bugs.
+ */
 #define pr_fmt(fmt) "kmsan test: %s : " fmt, __func__
 
 #include <linux/mm.h>
@@ -19,13 +25,13 @@
 
 #define CHECK(x)					\
 	do {						\
-		if (x) 					\
+		if (x)					\
 			pr_info(#x " is true\n");	\
 		else					\
 			pr_info(#x " is false\n");	\
-	} while(0)
+	} while (0)
 
-void noinline use_integer(int cond)
+noinline void use_integer(int cond)
 {
 	CHECK(cond);
 }
@@ -35,7 +41,7 @@ int signed_sum3(int a, int b, int c)
 	return a + b + c;
 }
 
-void noinline uninit_kmalloc_test(void)
+noinline void uninit_kmalloc_test(void)
 {
 	int *ptr;
 
@@ -45,7 +51,7 @@ void noinline uninit_kmalloc_test(void)
 	pr_info("kmalloc returned %p\n", ptr);
 	CHECK(*ptr);
 }
-void noinline init_kmalloc_test(void)
+noinline void init_kmalloc_test(void)
 {
 	int *ptr;
 
@@ -57,7 +63,7 @@ void noinline init_kmalloc_test(void)
 	CHECK(*ptr);
 }
 
-void noinline init_kzalloc_test(void)
+noinline void init_kzalloc_test(void)
 {
 	int *ptr;
 
@@ -68,7 +74,7 @@ void noinline init_kzalloc_test(void)
 	CHECK(*ptr);
 }
 
-void noinline uninit_multiple_args_test(void)
+noinline void uninit_multiple_args_test(void)
 {
 	volatile int a;
 	volatile char b = 3, c;
@@ -78,19 +84,16 @@ void noinline uninit_multiple_args_test(void)
 	CHECK(signed_sum3(a, b, c));
 }
 
-extern void *my_kmsan_get_shadow_address_1(void *addr);
-void noinline uninit_stack_var_test(void)
+noinline void uninit_stack_var_test(void)
 {
 	int cond;
-	pr_err("uninit_stack_var_test: %p\n", uninit_stack_var_test);
-	pr_err("&cond: %p\n", (void*)&cond);
 
 	pr_info("-----------------------------\n");
 	pr_info("uninitialized stack variable (UMR report)\n");
 	CHECK(cond);
 }
 
-void noinline init_stack_var_test(void)
+noinline void init_stack_var_test(void)
 {
 	volatile int cond = 1;
 
@@ -99,21 +102,22 @@ void noinline init_stack_var_test(void)
 	CHECK(cond);
 }
 
-void noinline two_param_fn_2(int arg1, int arg2)
+noinline void two_param_fn_2(int arg1, int arg2)
 {
 	CHECK(arg1);
 	CHECK(arg2);
 }
 
-void noinline one_param_fn(int arg)
+noinline void one_param_fn(int arg)
 {
 	two_param_fn_2(arg, arg);
 	CHECK(arg);
 }
 
-void noinline two_param_fn(int arg1, int arg2)
+noinline void two_param_fn(int arg1, int arg2)
 {
 	int init = 0;
+
 	one_param_fn(init);
 	CHECK(arg1);
 	CHECK(arg2);
@@ -122,29 +126,31 @@ void noinline two_param_fn(int arg1, int arg2)
 void params_test(void)
 {
 	int uninit, init = 1;
+
 	two_param_fn(uninit, init);
 }
 
-void noinline do_uninit_local_array(char *array, int start, int stop)
+noinline void do_uninit_local_array(char *array, int start, int stop)
 {
 	int i;
 	volatile char uninit;
+
 	for (i = start; i < stop; i++)
 		array[i] = uninit;
 }
 
-void noinline uninit_kmsan_check_memory_test(void)
+noinline void uninit_kmsan_check_memory_test(void)
 {
 	volatile char local_array[8];
 
 	pr_info("-----------------------------\n");
-	pr_info("uninitialized stack local checked with kmsan_check_memory() (UMR report)\n");
-	do_uninit_local_array((char*)local_array, 5, 7);
+	pr_info("kmsan_check_memory() called on uninit local (UMR report)\n");
+	do_uninit_local_array((char *)local_array, 5, 7);
 
-	kmsan_check_memory((char*)local_array, 8);
+	kmsan_check_memory((char *)local_array, 8);
 }
 
-void noinline init_kmsan_vmap_vunmap_test(void)
+noinline void init_kmsan_vmap_vunmap_test(void)
 {
 	const int npages = 2;
 	struct page *pages[npages];
@@ -168,7 +174,7 @@ void noinline init_kmsan_vmap_vunmap_test(void)
 			__free_page(pages[i]);
 }
 
-void noinline init_vmalloc(void)
+noinline void init_vmalloc(void)
 {
 	char *buf;
 	int npages = 8, i;
@@ -184,7 +190,7 @@ void noinline init_vmalloc(void)
 	vfree(buf);
 }
 
-void noinline uaf_test(void)
+noinline void uaf_test(void)
 {
 	volatile int *var;
 
