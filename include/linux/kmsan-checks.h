@@ -22,15 +22,6 @@ struct page;
 struct sk_buff;
 struct urb;
 
-#define KMSAN_DISABLE(flags) \
-	do {	\
-		kmsan_enter_runtime(&(flags));	\
-	} while(0)
-#define KMSAN_ENABLE(flags) \
-	do {	\
-		kmsan_leave_runtime(&(flags));	\
-	} while(0)
-
 #ifdef CONFIG_KMSAN
 
 /*

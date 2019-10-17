@@ -33,20 +33,6 @@
  * ENTER_RUNTIME()/LEAVE_RUNTIME(), because this will lead to skipping
  * effects of functions like memset() inside instrumented code.
  */
-
-/* For KMSAN_ENABLE and KMSAN_DISABLE */
-void kmsan_enter_runtime(unsigned long *flags)
-{
-	ENTER_RUNTIME(*flags);
-}
-EXPORT_SYMBOL(kmsan_enter_runtime);
-
-void kmsan_leave_runtime(unsigned long *flags)
-{
-	LEAVE_RUNTIME(*flags);
-}
-EXPORT_SYMBOL(kmsan_leave_runtime);
-
 /* Called from kernel/kthread.c, kernel/fork.c */
 void kmsan_task_create(struct task_struct *task)
 {
