@@ -150,6 +150,11 @@ static bool in_irq_stack(unsigned long *stack, struct stack_info *info)
 	return true;
 }
 
+/*
+ * This function may touch stale uninitialized values on stack. Do not
+ * instrument it with KMSAN to avoid false positives.
+ */
+__no_sanitize_memory
 int get_stack_info(unsigned long *stack, struct task_struct *task,
 		   struct stack_info *info, unsigned long *visit_mask)
 {

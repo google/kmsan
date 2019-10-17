@@ -14,6 +14,8 @@
 
 DECLARE_PER_CPU(struct pt_regs *, irq_regs);
 
+/* Tell KMSAN to return an initialized struct pt_regs. */
+__no_sanitize_memory
 static inline struct pt_regs *get_irq_regs(void)
 {
 	return __this_cpu_read(irq_regs);
