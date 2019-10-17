@@ -151,6 +151,11 @@ static __always_inline bool in_irq_stack(unsigned long *stack, struct stack_info
 	return true;
 }
 
+/*
+ * This function may touch stale uninitialized values on stack. Do not
+ * instrument it with KMSAN to avoid false positives.
+ */
+__no_sanitize_memory
 bool noinstr get_stack_info_noinstr(unsigned long *stack, struct task_struct *task,
 				    struct stack_info *info)
 {
