@@ -303,7 +303,7 @@ do {									\
 	__typeof__(*(ptr)) __puse_val;					\
 	__chk_user_ptr(ptr);						\
 	__puse_val = x;							\
-	kmsan_check_memory(&(__puse_val), size);				\
+	kmsan_check_memory(&(__puse_val), size);			\
 	switch (size) {							\
 	case 1:								\
 		__put_user_asm_ex(x, ptr, "b", "b", "iq");		\

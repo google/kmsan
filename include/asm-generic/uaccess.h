@@ -143,6 +143,7 @@ static inline int __access_ok(unsigned long addr, unsigned long size)
 static inline int __put_user_fn(size_t size, void __user *ptr, void *x)
 {
 	int n;
+
 	n = raw_copy_to_user(ptr, x, size);
 	kmsan_copy_to_user(ptr, x, size, n);
 	return unlikely(n) ? -EFAULT : 0;
@@ -207,6 +208,7 @@ extern int __put_user_bad(void) __attribute__((noreturn));
 static inline int __get_user_fn(size_t size, const void __user *ptr, void *x)
 {
 	int copied, to_copy = size;
+
 	copied = raw_copy_from_user(x, ptr, size);
 	kmsan_unpoison_shadow(to, to_copy - res);
 	return unlikely(copied) ? -EFAULT : 0;
