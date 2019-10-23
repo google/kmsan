@@ -202,6 +202,15 @@ noinline void uaf_test(void)
 	CHECK(var[3]);
 }
 
+noinline void printk_test(void)
+{
+	volatile int uninit;
+
+	pr_info("-----------------------------\n");
+	pr_info("uninit local passed to pr_info() (UMR report)\n");
+	pr_info("%px contains %d\n", &uninit, uninit);
+}
+
 static noinline int __init kmsan_tests_init(void)
 {
 	uninit_kmalloc_test();
@@ -214,6 +223,7 @@ static noinline int __init kmsan_tests_init(void)
 	init_kmsan_vmap_vunmap_test();
 	init_vmalloc();
 	uaf_test();
+	printk_test();
 	return -EAGAIN;
 }
 
