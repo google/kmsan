@@ -52,15 +52,17 @@ extern spinlock_t report_lock;
 
 /* Stolen from kernel/printk/internal.h */
 #define PRINTK_SAFE_CONTEXT_MASK	 0x3fffffff
-/* Defined in kernel/printk/printk_safe.c */
-DECLARE_PER_CPU(int, printk_context);
 
-/* Only print iff printk hasn't acquired the console lock. */
-#define kmsan_pr_err(...) \
+/* Called by kmsan_report.c under a lock. */
+#define kmsan_pr_err(...) pr_err(__VA_ARGS__)
+
+/* Used in other places - doesn't require a lock. */
+#define kmsan_pr_locked(...) \
 	do { \
-		if (!(this_cpu_read(printk_context) & \
-		      PRINTK_SAFE_CONTEXT_MASK)) \
-			pr_err(__VA_ARGS__); \
+		unsigned long flags;			\
+		spin_lock_irqsave(&report_lock, flags); \
+		pr_err(__VA_ARGS__); \
+		spin_unlock_irqrestore(&report_lock, flags); \
 	} while (0)
 
 void kmsan_print_origin(depot_stack_handle_t origin);
