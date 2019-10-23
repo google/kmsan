@@ -42,7 +42,7 @@ struct printk_safe_seq_buf {
 };
 
 static DEFINE_PER_CPU(struct printk_safe_seq_buf, safe_print_seq);
-DEFINE_PER_CPU(int, printk_context);
+static DEFINE_PER_CPU(int, printk_context);
 
 #ifdef CONFIG_PRINTK_NMI
 static DEFINE_PER_CPU(struct printk_safe_seq_buf, nmi_print_seq);
