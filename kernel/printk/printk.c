@@ -1915,8 +1915,9 @@ int vprintk_store(int facility, int level,
 	 * prefix which might be passed-in as a parameter.
 	 */
 	/*
-	 * We've checked the printk arguments in vprintk_emit() already.
-	 * Initialize |text_len| to prevent the errors from spreading.
+	 * If any of vscnprintf() arguments is uninitialized, KMSAN will report
+	 * one or more errors and also probably mark text_len as uninitialized.
+	 * Initialize |text_len| to prevent the errors from spreading further.
 	 */
 	text_len = KMSAN_INIT_VALUE(vscnprintf(text, sizeof(textbuf), fmt,
 					       args));
@@ -1977,7 +1978,6 @@ asmlinkage int vprintk_emit(int facility, int level,
 	boot_delay_msec(level);
 	printk_delay();
 
-	kmsan_handle_vprintk(&fmt, args);
 	/* This stops the holder of console_sem just where we want him */
 	logbuf_lock_irqsave(flags);
 	curr_log_seq = log_next_seq;
