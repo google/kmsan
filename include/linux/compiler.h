@@ -251,6 +251,7 @@ void ftrace_likely_update(struct ftrace_likely_data *f, int val,
 #include <asm/barrier.h>
 #include <linux/kasan-checks.h>
 #include <linux/kcsan-checks.h>
+#include <linux/kmsan-checks.h>
 
 /**
  * data_race - mark an expression as containing intentional data races
@@ -311,7 +312,7 @@ unsigned long __read_once_word_nocheck(const void *addr)
 
 /*
  * Use READ_ONCE_NOCHECK() instead of READ_ONCE() if you need to load a
- * word from memory atomically but without telling KASAN/KCSAN. This is
+ * word from memory atomically but without telling KASAN/KCSAN/KMSAN. This is
  * usually used by unwinding code when walking the stack of a running process.
  */
 #define READ_ONCE_NOCHECK(x)						\
@@ -321,7 +322,7 @@ unsigned long __read_once_word_nocheck(const void *addr)
 		"Unsupported access size for READ_ONCE_NOCHECK().");	\
 	__x = __read_once_word_nocheck(&(x));				\
 	smp_read_barrier_depends();					\
-	(typeof(x))__x;							\
+	KMSAN_INIT_VALUE((typeof(x))__x);				\
 })
 
 static __no_kasan_or_inline
