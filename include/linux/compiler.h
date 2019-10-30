@@ -255,6 +255,7 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
  */
 #include <asm/barrier.h>
 #include <linux/kasan-checks.h>
+#include <linux/kmsan-checks.h>
 
 #define __READ_ONCE(x, check)						\
 ({									\
@@ -270,9 +271,9 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
 
 /*
  * Use READ_ONCE_NOCHECK() instead of READ_ONCE() if you need
- * to hide memory access from KASAN.
+ * to hide memory access from KASAN or KMSAN.
  */
-#define READ_ONCE_NOCHECK(x) __READ_ONCE(x, 0)
+#define READ_ONCE_NOCHECK(x) KMSAN_INIT_VALUE(__READ_ONCE(x, 0))
 
 static __no_kasan_or_inline
 unsigned long read_word_at_a_time(const void *addr)
