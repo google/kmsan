@@ -2812,8 +2812,6 @@ filler:
 		page = wait_on_page_read(page);
 		if (IS_ERR(page))
 			return page;
-		/* Assume all pages in page cache are initialized. */
-		kmsan_unpoison_shadow(page_address(page), PAGE_SIZE);
 		goto out;
 	}
 	if (PageUptodate(page))
