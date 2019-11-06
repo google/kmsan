@@ -100,10 +100,10 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
 			     len, usb_api_blocking_completion, NULL);
 
 	retv = usb_start_wait_urb(urb, timeout, &length);
-	if (retv < 0)
+	if (retv < 0) {
 		return retv;
-	else {
-		/* TODO(glider): USB initializes |length| bytes? */
+	} else {
+		/* USB initializes only the first |length| bytes. */
 		kmsan_unpoison_shadow(data, length);
 		return length;
 	}
