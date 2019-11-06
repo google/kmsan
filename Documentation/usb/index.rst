@@ -22,6 +22,7 @@ USB support
     misc_usbsevseg
     mtouchusb
     ohci
+    raw-gadget
     rio
     usbip_protocol
     usbmon
