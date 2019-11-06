@@ -200,12 +200,12 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 		to_fill = min(PAGE_SIZE - page_offset, size_copy);
 		shadow_start = kmsan_get_metadata((void *)addr_copy, to_fill,
 						  META_SHADOW);
+		addr_copy += to_fill;
+		size_copy -= to_fill;
 		if (!shadow_start)
 			/* Can happen e.g. if the memory is untracked. */
 			continue;
 		__memset(shadow_start, -1, to_fill);
-		addr_copy += to_fill;
-		size_copy -= to_fill;
 	}
 
 	entries[0] = KMSAN_ALLOCA_MAGIC_ORIGIN;
