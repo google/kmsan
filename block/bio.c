@@ -11,7 +11,6 @@
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/kmsan-checks.h>
 #include <linux/export.h>
 #include <linux/mempool.h>
 #include <linux/workqueue.h>
