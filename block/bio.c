@@ -901,13 +901,6 @@ static int __bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter)
 			__bio_add_page(bio, page, len, offset);
 		}
 		offset = 0;
-		/*
-		 * TODO(glider): these pages will be soon passed to block
-		 * device for reading, so consider them initialized.
-		 */
-		if (iov_iter_rw(iter) == READ)
-			kmsan_unpoison_shadow(page_address(page),
-						PAGE_SIZE);
 	}
 
 	iov_iter_advance(iter, size);
@@ -1282,16 +1275,11 @@ struct bio *bio_copy_user_iov(struct request_queue *q,
 
 			i++;
 		} else {
-			/*
-			 * TODO(glider): KMSAN doesn't track the pages
-			 * allocated for bio here.
-			 */
 			page = alloc_page(q->bounce_gfp | gfp_mask);
 			if (!page) {
 				ret = -ENOMEM;
 				break;
 			}
-			kmsan_ignore_page(page, /*order*/0);
 		}
 
 		if (bio_add_pc_page(q, bio, page, bytes, offset) < bytes) {
@@ -1586,13 +1574,6 @@ struct bio *bio_copy_kern(struct request_queue *q, void *data, unsigned int len,
 		page = alloc_page(q->bounce_gfp | gfp_mask);
 		if (!page)
 			goto cleanup;
-
-		/*
-		 * TODO(glider): if we're about to read data from a SCSI device,
-		 * assume the page allocated for that is already initialized.
-		 */
-		if (reading)
-			kmsan_unpoison_shadow(page_address(page), PAGE_SIZE);
 
 		if (!reading)
 			memcpy(page_address(page), p, bytes);
