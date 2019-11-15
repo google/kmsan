@@ -364,6 +364,7 @@ dma_addr_t dma_direct_map_page(struct device *dev, struct page *page,
 			     &dma_addr, size, *dev->dma_mask, dev->bus_dma_limit);
 		return DMA_MAPPING_ERROR;
 	}
+	kmsan_handle_dma(page_address(page) + offset, size, dir);
 
 	if (!dev_is_dma_coherent(dev) && !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
 		arch_sync_dma_for_device(phys, size, dir);
