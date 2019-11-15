@@ -11,7 +11,6 @@
 #define _LINUX_SKBUFF_H
 
 #include <linux/kernel.h>
-#include <linux/kmsan-checks.h>
 #include <linux/compiler.h>
 #include <linux/time.h>
 #include <linux/bug.h>
@@ -2215,8 +2214,6 @@ static inline void *skb_put_data(struct sk_buff *skb, const void *data,
 {
 	void *tmp = skb_put(skb, len);
 
-	/* Unpoison the data received from the network device. */
-	kmsan_unpoison_shadow(data, len);
 	memcpy(tmp, data, len);
 
 	return tmp;
@@ -2224,7 +2221,7 @@ static inline void *skb_put_data(struct sk_buff *skb, const void *data,
 
 static inline void skb_put_u8(struct sk_buff *skb, u8 val)
 {
-	*(u8 *)skb_put(skb, 1) = KMSAN_INIT_VALUE(val);
+	*(u8 *)skb_put(skb, 1) = val;
 }
 
 void *skb_push(struct sk_buff *skb, unsigned int len);
