@@ -193,13 +193,7 @@ unsigned int __do_page_cache_readahead(struct address_space *mapping,
 			continue;
 		}
 
-		/*
-		 * The easiest way to handle these pages is to mark them
-		 * untracked by KMSAN, assuming they're never used by anything
-		 * else.
-		 */
 		page = __page_cache_alloc(gfp_mask);
-		kmsan_ignore_page(page, /*order*/0);
 		if (!page)
 			break;
 		page->index = page_offset;
