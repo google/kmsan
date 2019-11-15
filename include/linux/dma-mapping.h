@@ -283,6 +283,7 @@ static inline dma_addr_t dma_map_page_attrs(struct device *dev,
 		addr = dma_direct_map_page(dev, page, offset, size, dir, attrs);
 	else
 		addr = ops->map_page(dev, page, offset, size, dir, attrs);
+	kmsan_handle_dma(page, offset, size, dir);
 	debug_dma_map_page(dev, page, offset, size, dir, addr);
 
 	return addr;
@@ -318,6 +319,7 @@ static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
 	else
 		ents = ops->map_sg(dev, sg, nents, dir, attrs);
 	BUG_ON(ents < 0);
+	kmsan_handle_dma_sg(sg, nents, dir);
 	debug_dma_map_sg(dev, sg, nents, ents, dir);
 
 	return ents;
