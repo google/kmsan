@@ -1285,8 +1285,16 @@ static blk_status_t null_handle_cmd(struct nullb_cmd *cmd, sector_t sector,
 	if (dev->memory_backed)
 		cmd->error = null_handle_memory_backed(cmd, op);
 
-	if (!cmd->error && dev->zoned)
+	if (!cmd->error && dev->zoned) {
 		cmd->error = null_handle_zoned(cmd, op, sector, nr_sectors);
+	} else if (dev->queue_mode != NULL_Q_BIO) {
+		/*
+		 * TODO(glider): this is a hack to suppress bugs in nullb
+		 * driver. I have no idea what I'm doing, better wait for a
+		 * proper fix from Jens Axboe.
+		 */
+		cmd->error = null_handle_rq(cmd);
+	}
 
 out:
 	nullb_complete_cmd(cmd);
