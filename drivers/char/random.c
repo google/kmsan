@@ -1062,6 +1062,10 @@ static void _extract_crng(struct crng_state *crng,
 	spin_lock_irqsave(&crng->lock, flags);
 	if (arch_get_random_long(&v))
 		crng->state[14] ^= v;
+	/*
+	 * Regardless of where the random data comes from, KMSAN should treat
+	 * it as initialized.
+	 */
 	kmsan_unpoison_shadow(crng->state, sizeof(crng->state));
 	chacha20_block(&crng->state[0], out);
 	if (crng->state[12] == 0)
