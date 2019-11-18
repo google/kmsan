@@ -588,14 +588,12 @@ static int scsi_probe_lun(struct scsi_device *sdev, unsigned char *inq_result,
 		scsi_cmd[0] = INQUIRY;
 		scsi_cmd[4] = (unsigned char) try_inquiry_len;
 
-		pr_err("memsetting inq_result (%px) of len %d\n", inq_result, try_inquiry_len);
 		memset(inq_result, 0, try_inquiry_len);
 
 		result = scsi_execute_req(sdev,  scsi_cmd, DMA_FROM_DEVICE,
 					  inq_result, try_inquiry_len, &sshdr,
 					  HZ / 2 + HZ * scsi_inq_timeout, 3,
 					  &resid);
-		pr_err("scsi_execute_req() returned %d\n", result);
 
 		SCSI_LOG_SCAN_BUS(3, sdev_printk(KERN_INFO, sdev,
 				"scsi scan: INQUIRY %s with code 0x%x\n",
@@ -629,11 +627,9 @@ static int scsi_probe_lun(struct scsi_device *sdev, unsigned char *inq_result,
 	}
 
 	if (result == 0) {
-		pr_err("calling scsi_sanitize_inquiry_string...\n");
 		scsi_sanitize_inquiry_string(&inq_result[8], 8);
 		scsi_sanitize_inquiry_string(&inq_result[16], 16);
 		scsi_sanitize_inquiry_string(&inq_result[32], 4);
-		pr_err("...done\n");
 
 		response_len = inq_result[4] + 5;
 		if (response_len > 255)
