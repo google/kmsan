@@ -14,6 +14,7 @@
  */
 
 #include <asm/cacheflush.h>
+#include <linux/dma-direction.h>
 #include <linux/gfp.h>
 #include <linux/i2c.h>
 #include <linux/mm.h>
@@ -391,3 +392,29 @@ void kmsan_handle_i2c_transfer(struct i2c_msg *msgs, int num)
 						    REASON_ANY);
 	}
 }
+EXPORT_SYMBOL(kmsan_handle_i2c_transfer);
+
+/* Helper function to handle DMA data transfers. */
+void kmsan_handle_dma(const void *addr, size_t size,
+		      enum dma_data_direction dir)
+{
+	switch (dir) {
+	case DMA_BIDIRECTIONAL:
+		kmsan_internal_check_memory((void *)addr, size, /*user_addr*/0,
+					    REASON_ANY);
+		kmsan_internal_unpoison_shadow((void *)addr, size,
+					       /*checked*/false);
+		break;
+	case DMA_TO_DEVICE:
+		kmsan_internal_check_memory((void *)addr, size, /*user_addr*/0,
+					    REASON_ANY);
+		break;
+	case DMA_FROM_DEVICE:
+		kmsan_internal_unpoison_shadow((void *)addr, size,
+					       /*checked*/false);
+		break;
+	case DMA_NONE:
+		break;
+	}
+}
+EXPORT_SYMBOL(kmsan_handle_dma);

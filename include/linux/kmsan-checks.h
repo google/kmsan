@@ -16,6 +16,7 @@
 #define _LINUX_KMSAN_CHECKS_H
 
 #include <linux/bug.h>
+#include <linux/dma-direction.h>
 #include <linux/types.h>
 
 struct i2c_msg;
@@ -86,6 +87,8 @@ void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags);
 void kmsan_unpoison_shadow(const void *address, size_t size);
 void kmsan_check_memory(const void *address, size_t size);
 void kmsan_check_skb(const struct sk_buff *skb);
+void kmsan_handle_dma(const void *address, size_t size,
+		      enum dma_data_direction direction);
 void kmsan_handle_urb(const struct urb *urb, bool is_out);
 void kmsan_handle_i2c_transfer(struct i2c_msg *msgs, int num);
 void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
@@ -105,6 +108,8 @@ static inline void kmsan_unpoison_shadow(const void *address, size_t size) {}
 static inline void kmsan_check_memory(const void *address, size_t size) {}
 static inline void kmsan_check_skb(const struct sk_buff *skb) {}
 static inline void kmsan_handle_urb(const struct urb *urb, bool is_out) {}
+static void kmsan_handle_dma(const void *address, size_t size,
+			     enum dma_data_direction direction) {}
 static inline void kmsan_handle_i2c_transfer(struct i2c_msg *msgs, int num) {}
 static inline void kmsan_copy_to_user(
 	const void *to, const void *from, size_t to_copy, size_t left) {}
