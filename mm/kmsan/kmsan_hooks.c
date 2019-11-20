@@ -394,9 +394,8 @@ void kmsan_handle_i2c_transfer(struct i2c_msg *msgs, int num)
 }
 EXPORT_SYMBOL(kmsan_handle_i2c_transfer);
 
-/* Helper function to handle DMA data transfers. */
-void kmsan_handle_dma(const void *addr, size_t size,
-		      enum dma_data_direction dir)
+static void kmsan_handle_dma_page(const void *addr, size_t size,
+				  enum dma_data_direction dir)
 {
 	switch (dir) {
 	case DMA_BIDIRECTIONAL:
@@ -415,6 +414,26 @@ void kmsan_handle_dma(const void *addr, size_t size,
 		break;
 	case DMA_NONE:
 		break;
+	}
+}
+
+/* Helper function to handle DMA data transfers. */
+void kmsan_handle_dma(const void *addr, size_t size,
+		      enum dma_data_direction dir)
+{
+	u64 page_offset, to_go, uaddr = addr;
+
+	/*
+	 * The kernel may occasionally give us adjacent DMA pages not belonging
+	 * to the same allocation. Process them separately to avoid triggering
+	 * internal KMSAN checks.
+	 */
+	while (size > 0) {
+		page_offset = uaddr % PAGE_SIZE;
+		to_go = min(PAGE_SIZE - page_offset, (u64)size);
+		kmsan_handle_dma_page(uaddr, to_go, dir);
+		uaddr += to_go;
+		size -= to_go;
 	}
 }
 EXPORT_SYMBOL(kmsan_handle_dma);
