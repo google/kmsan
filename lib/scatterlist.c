@@ -404,8 +404,7 @@ int __sg_alloc_table_from_pages(struct sg_table *sgt, struct page **pages,
 	for (i = 1; i < n_pages; i++) {
 		seg_len += PAGE_SIZE;
 		if (seg_len >= max_segment ||
-		    page_to_pfn(pages[i]) != page_to_pfn(pages[i - 1]) + 1 ||
-		    IS_ENABLED(CONFIG_KMSAN)) {
+		    page_to_pfn(pages[i]) != page_to_pfn(pages[i - 1]) + 1) {
 			chunks++;
 			seg_len = 0;
 		}
@@ -426,8 +425,7 @@ int __sg_alloc_table_from_pages(struct sg_table *sgt, struct page **pages,
 			seg_len += PAGE_SIZE;
 			if (seg_len >= max_segment ||
 			    page_to_pfn(pages[j]) !=
-			    page_to_pfn(pages[j - 1]) + 1 ||
-			    IS_ENABLED(CONFIG_KMSAN))
+			    page_to_pfn(pages[j - 1]) + 1)
 				break;
 		}
 
