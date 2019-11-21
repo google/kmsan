@@ -421,7 +421,7 @@ static void kmsan_handle_dma_page(const void *addr, size_t size,
 void kmsan_handle_dma(const void *addr, size_t size,
 		      enum dma_data_direction dir)
 {
-	u64 page_offset, to_go, uaddr = addr;
+	u64 page_offset, to_go, uaddr = (u64)addr;
 
 	/*
 	 * The kernel may occasionally give us adjacent DMA pages not belonging
@@ -431,7 +431,7 @@ void kmsan_handle_dma(const void *addr, size_t size,
 	while (size > 0) {
 		page_offset = uaddr % PAGE_SIZE;
 		to_go = min(PAGE_SIZE - page_offset, (u64)size);
-		kmsan_handle_dma_page(uaddr, to_go, dir);
+		kmsan_handle_dma_page((void *)uaddr, to_go, dir);
 		uaddr += to_go;
 		size -= to_go;
 	}
