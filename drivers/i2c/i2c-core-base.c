@@ -27,7 +27,6 @@
 #include <linux/irqflags.h>
 #include <linux/jump_label.h>
 #include <linux/kernel.h>
-#include <linux/kmsan.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
@@ -1976,7 +1975,6 @@ int __i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 				trace_i2c_write(adap, &msgs[i], i);
 	}
 
-	kmsan_handle_i2c_transfer(msgs, num);
 	/* Retry automatically on arbitration loss */
 	orig_jiffies = jiffies;
 	for (ret = 0, try = 0; try <= adap->retries; try++) {
