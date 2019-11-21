@@ -548,14 +548,8 @@ void *kmsan_internal_return_address(int arg)
 	}
 #else
 	unsigned long entries[1];
-	struct stack_trace trace = {
-		.nr_entries = 0,
-		.entries = entries,
-		.max_entries = 1,
-		.skip = arg
-	};
-	save_stack_trace(&trace);
-	return entries[0];
+	stack_trace_save(entries, 1, arg);
+	return (void *)entries[0];
 #endif
 }
 
