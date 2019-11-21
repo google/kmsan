@@ -210,7 +210,7 @@ static inline int __get_user_fn(size_t size, const void __user *ptr, void *x)
 	int copied, to_copy = size;
 
 	copied = raw_copy_from_user(x, ptr, size);
-	kmsan_unpoison_shadow(to, to_copy - res);
+	kmsan_unpoison_shadow(x, to_copy - copied);
 	return unlikely(copied) ? -EFAULT : 0;
 }
 
