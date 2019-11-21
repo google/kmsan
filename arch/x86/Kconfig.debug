@@ -292,6 +292,9 @@ choice
 config UNWINDER_ORC
 	bool "ORC unwinder"
 	depends on X86_64
+	# KMSAN doesn't support UNWINDER_ORC yet,
+	# see https://github.com/google/kmsan/issues/48.
+	depends on !KMSAN
 	select STACK_VALIDATION
 	---help---
 	  This option enables the ORC (Oops Rewind Capability) unwinder for
