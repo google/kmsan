@@ -341,9 +341,7 @@ dma_addr_t dma_direct_map_page(struct device *dev, struct page *page,
 		report_addr(dev, dma_addr, size);
 		return DMA_MAPPING_ERROR;
 	}
-	/* Tell KMSAN this address range has been initialized by a device. */
-	if (dir == DMA_FROM_DEVICE || dir == DMA_BIDIRECTIONAL)
-		kmsan_unpoison_shadow(page_address(page) + offset, size);
+	kmsan_handle_dma(page_address(page) + offset, size, dir);
 
 	if (!dev_is_dma_coherent(dev) && !(attrs & DMA_ATTR_SKIP_CPU_SYNC))
 		arch_sync_dma_for_device(dev, phys, size, dir);
