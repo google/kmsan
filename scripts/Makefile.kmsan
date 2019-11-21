@@ -10,3 +10,5 @@ ifeq ($(call cc-option, $(CFLAGS_KMSAN) -Werror),)
 endif
 
 endif
+
+export CFLAGS_KMSAN
