@@ -1040,6 +1040,9 @@ menu "Lock Debugging (spinlocks, mutexes, etc...)"
 config LOCK_DEBUGGING_SUPPORT
 	bool
 	depends on TRACE_IRQFLAGS_SUPPORT && STACKTRACE_SUPPORT && LOCKDEP_SUPPORT
+	# KMSAN is incompatible with lockdep,
+	# see https://github.com/google/kmsan/issues/57.
+	depends on !KMSAN
 	default y
 
 config PROVE_LOCKING
