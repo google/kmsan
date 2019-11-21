@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * KMSAN checks.
- * TODO(glider): unite with kmsan.h?
  *
  * Copyright (C) 2017-2019 Google LLC
  * Author: Alexander Potapenko <glider@google.com>

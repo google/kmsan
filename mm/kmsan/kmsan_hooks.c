@@ -25,8 +25,6 @@
 #include "../slab.h"
 #include "kmsan.h"
 
-/* TODO(glider): do we need to export these symbols? */
-
 /*
  * The functions may call back to instrumented code, which, in turn, may call
  * these hooks again. To avoid re-entrancy, we use __GFP_NO_KMSAN_SHADOW.
@@ -90,6 +88,7 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
+EXPORT_SYMBOL(kmsan_slab_alloc);
 
 /* Called from mm/slub.c */
 void kmsan_slab_free(struct kmem_cache *s, void *object)
@@ -111,6 +110,7 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 leave:
 	LEAVE_RUNTIME(irq_flags);
 }
+EXPORT_SYMBOL(kmsan_slab_free);
 
 /* Called from mm/slub.c */
 void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
@@ -131,6 +131,7 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
+EXPORT_SYMBOL(kmsan_kmalloc_large);
 
 /* Called from mm/slub.c */
 void kmsan_kfree_large(const void *ptr)
@@ -148,7 +149,7 @@ void kmsan_kfree_large(const void *ptr)
 		KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
 	LEAVE_RUNTIME(irq_flags);
 }
-
+EXPORT_SYMBOL(kmsan_kfree_large);
 
 static unsigned long vmalloc_shadow(unsigned long addr)
 {
@@ -166,6 +167,7 @@ void kmsan_vunmap_page_range(unsigned long start, unsigned long end)
 	__vunmap_page_range(vmalloc_shadow(start), vmalloc_shadow(end));
 	__vunmap_page_range(vmalloc_origin(start), vmalloc_origin(end));
 }
+EXPORT_SYMBOL(kmsan_vunmap_page_range);
 
 /* Called from lib/ioremap.c */
 /*
@@ -201,6 +203,7 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
 	LEAVE_RUNTIME(irq_flags);
 }
+EXPORT_SYMBOL(kmsan_ioremap_page_range);
 
 void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 {
@@ -228,6 +231,7 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	}
 	LEAVE_RUNTIME(irq_flags);
 }
+EXPORT_SYMBOL(kmsan_iounmap_page_range);
 
 /* Called from include/linux/uaccess.h, include/linux/uaccess.h */
 void kmsan_copy_to_user(const void *to, const void *from,

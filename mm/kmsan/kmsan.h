@@ -87,7 +87,6 @@ enum KMSAN_BUG_REASON {
  * Therefore we have to disable interrupts inside the runtime.
  */
 DECLARE_PER_CPU(int, kmsan_in_runtime);
-DECLARE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 #define IN_RUNTIME()	(this_cpu_read(kmsan_in_runtime))
 #define ENTER_RUNTIME(irq_flags) \
 	do { \
@@ -95,16 +94,14 @@ DECLARE_PER_CPU(unsigned long, kmsan_runtime_last_caller);
 		local_irq_save(irq_flags); \
 		stop_nmi();		\
 		this_cpu_inc(kmsan_in_runtime); \
-		this_cpu_write(kmsan_runtime_last_caller, _THIS_IP_); \
 		BUG_ON(this_cpu_read(kmsan_in_runtime) > 1); \
 	} while (0)
 #define LEAVE_RUNTIME(irq_flags)	\
 	do {	\
 		this_cpu_dec(kmsan_in_runtime);	\
 		if (this_cpu_read(kmsan_in_runtime)) { \
-			kmsan_pr_err("kmsan_in_runtime: %d, last_caller: %pS\n", \
-				this_cpu_read(kmsan_in_runtime), \
-				this_cpu_read(kmsan_runtime_last_caller)); \
+			kmsan_pr_err("kmsan_in_runtime: %d\n", \
+				this_cpu_read(kmsan_in_runtime)); \
 			BUG(); \
 		}	\
 		restart_nmi();		\
