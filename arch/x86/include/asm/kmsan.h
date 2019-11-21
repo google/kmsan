@@ -78,18 +78,6 @@
 	KMSAN_POP_REGS				\
 /**/
 
-#define KMSAN_SYSCALL_ENTER			\
-	KMSAN_PUSH_REGS				\
-	call	kmsan_syscall_enter;		\
-	KMSAN_POP_REGS				\
-/**/
-
-#define KMSAN_SYSCALL_EXIT			\
-	KMSAN_PUSH_REGS				\
-	call	kmsan_syscall_exit;		\
-	KMSAN_POP_REGS				\
-/**/
-
 #define KMSAN_IST_ENTER(shift_ist)		\
 	KMSAN_PUSH_REGS				\
 	movq	$shift_ist, %rdi;		\
