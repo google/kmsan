@@ -279,11 +279,7 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
  * Use READ_ONCE_NOCHECK() instead of READ_ONCE() if you need
  * to hide memory access from KASAN or KMSAN.
  */
-#ifndef CONFIG_KMSAN
-#define READ_ONCE_NOCHECK(x) __READ_ONCE(x, 0)
-#else
 #define READ_ONCE_NOCHECK(x) KMSAN_INIT_VALUE(__READ_ONCE(x, 0))
-#endif
 
 static __no_kasan_or_inline
 unsigned long read_word_at_a_time(const void *addr)
