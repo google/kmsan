@@ -295,7 +295,7 @@ depot_stack_handle_t stack_depot_save(unsigned long *entries,
 		 */
 		alloc_flags &= ~GFP_ZONEMASK;
 		alloc_flags &= (GFP_ATOMIC | GFP_KERNEL);
-		alloc_flags |= __GFP_NOWARN;
+		alloc_flags |= (__GFP_NOWARN | __GFP_NO_KMSAN_SHADOW);
 		page = alloc_pages(alloc_flags, STACK_ALLOC_ORDER);
 		if (page)
 			prealloc = page_address(page);
