@@ -546,6 +546,7 @@ void *kmsan_internal_return_address(int arg)
 	}
 #else
 	unsigned long entries[1];
+
 	stack_trace_save(entries, 1, arg);
 	return (void *)entries[0];
 #endif
