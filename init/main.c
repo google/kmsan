@@ -34,6 +34,7 @@
 #include <linux/percpu.h>
 #include <linux/kmod.h>
 #include <linux/kprobes.h>
+#include <linux/kmsan.h>
 #include <linux/vmalloc.h>
 #include <linux/kernel_stat.h>
 #include <linux/start_kernel.h>
@@ -826,6 +827,7 @@ static void __init mm_init(void)
 	page_ext_init_flatmem();
 	init_mem_debugging_and_hardening();
 	report_meminit();
+	kmsan_initialize_shadow();
 	mem_init();
 	/* page_owner must be initialized after buddy is ready */
 	page_ext_init_flatmem_late();
@@ -903,6 +905,7 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	sort_main_extable();
 	trap_init();
 	mm_init();
+	kmsan_initialize();
 
 	ftrace_init();
 
