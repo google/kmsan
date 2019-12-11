@@ -291,8 +291,8 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	if (!has_shadow_page(src)) {
-		/* TODO(glider): are we leaking pages here? */
-		set_no_shadow_origin_page(dst);
+		kmsan_internal_unpoison_shadow(page_address(dst), PAGE_SIZE,
+					       /*checked*/false);
 		return;
 	}
 	if (!has_shadow_page(dst))
