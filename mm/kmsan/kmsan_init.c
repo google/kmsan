@@ -64,10 +64,6 @@ void __init kmsan_initialize_shadow(void)
 	/* Allocate shadow for .data */
 	kmsan_record_future_shadow_range(_sdata, _edata);
 
-	/*
-	 * TODO(glider): alloc_node_data() in arch/x86/mm/numa.c uses
-	 * sizeof(pg_data_t).
-	 */
 	for_each_online_node(nid)
 		kmsan_record_future_shadow_range(
 			NODE_DATA(nid),	(char *)NODE_DATA(nid) + nd_size);
