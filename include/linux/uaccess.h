@@ -59,26 +59,26 @@
 static __always_inline __must_check unsigned long
 __copy_from_user_inatomic(void *to, const void __user *from, unsigned long n)
 {
-	unsigned long to_copy = n;
+	unsigned long res;
 
 	kasan_check_write(to, n);
 	check_object_size(to, n, false);
-	n = raw_copy_from_user(to, from, n);
-	kmsan_unpoison_shadow(to, to_copy - n);
-	return n;
+	res = raw_copy_from_user(to, from, n);
+	kmsan_unpoison_shadow(to, n - res);
+	return res;
 }
 
 static __always_inline __must_check unsigned long
 __copy_from_user(void *to, const void __user *from, unsigned long n)
 {
-	unsigned long to_copy = n;
+	unsigned long res;
 
 	might_fault();
 	kasan_check_write(to, n);
 	check_object_size(to, n, false);
-	n = raw_copy_from_user(to, from, n);
-	kmsan_unpoison_shadow(to, to_copy - n);
-	return n;
+	res = raw_copy_from_user(to, from, n);
+	kmsan_unpoison_shadow(to, n - res);
+	return res;
 }
 
 /**
@@ -97,39 +97,39 @@ __copy_from_user(void *to, const void __user *from, unsigned long n)
 static __always_inline __must_check unsigned long
 __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
 {
-	unsigned long to_copy = n;
+	unsigned long res;
 
 	kasan_check_read(from, n);
 	check_object_size(from, n, true);
-	n = raw_copy_to_user(to, from, n);
-	kmsan_copy_to_user((const void *)to, from, to_copy, n);
-	return n;
+	res = raw_copy_to_user(to, from, n);
+	kmsan_copy_to_user((const void *)to, from, n, res);
+	return res;
 }
 
 static __always_inline __must_check unsigned long
 __copy_to_user(void __user *to, const void *from, unsigned long n)
 {
-	unsigned long to_copy = n;
+	unsigned long res;
 
 	might_fault();
 	kasan_check_read(from, n);
 	check_object_size(from, n, true);
-	n = raw_copy_to_user(to, from, n);
-	kmsan_copy_to_user((const void *)to, from, to_copy, n);
-	return n;
+	res = raw_copy_to_user(to, from, n);
+	kmsan_copy_to_user((const void *)to, from, n, res);
+	return res;
 }
 
 #ifdef INLINE_COPY_FROM_USER
 static inline __must_check unsigned long
 _copy_from_user(void *to, const void __user *from, unsigned long n)
 {
-	unsigned long res = n, to_copy = n;
+	unsigned long res = n;
 
 	might_fault();
 	if (likely(access_ok(from, n))) {
 		kasan_check_write(to, n);
 		res = raw_copy_from_user(to, from, n);
-		kmsan_unpoison_shadow(to, to_copy - res);
+		kmsan_unpoison_shadow(to, n - res);
 	}
 	if (unlikely(res))
 		memset(to + (n - res), 0, res);
@@ -144,15 +144,15 @@ _copy_from_user(void *, const void __user *, unsigned long);
 static inline __must_check unsigned long
 _copy_to_user(void __user *to, const void *from, unsigned long n)
 {
-	unsigned long to_copy = n;
+	unsigned long res;
 
 	might_fault();
 	if (access_ok(to, n)) {
 		kasan_check_read(from, n);
-		n = raw_copy_to_user(to, from, n);
-		kmsan_copy_to_user(to, from, to_copy, n);
+		res = raw_copy_to_user(to, from, n);
+		kmsan_copy_to_user(to, from, n, res);
 	}
-	return n;
+	return res;
 }
 #else
 extern __must_check unsigned long

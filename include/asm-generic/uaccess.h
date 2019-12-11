@@ -207,11 +207,11 @@ extern int __put_user_bad(void) __attribute__((noreturn));
 #ifndef __get_user_fn
 static inline int __get_user_fn(size_t size, const void __user *ptr, void *x)
 {
-	int copied, to_copy = size;
+	int res;
 
-	copied = raw_copy_from_user(x, ptr, size);
-	kmsan_unpoison_shadow(x, to_copy - copied);
-	return unlikely(copied) ? -EFAULT : 0;
+	res = raw_copy_from_user(x, ptr, size);
+	kmsan_unpoison_shadow(x, size - res);
+	return unlikely(res) ? -EFAULT : 0;
 }
 
 #define __get_user_fn(sz, u, k)	__get_user_fn(sz, u, k)
