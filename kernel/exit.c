@@ -60,6 +60,7 @@
 #include <linux/writeback.h>
 #include <linux/shm.h>
 #include <linux/kcov.h>
+#include <linux/kmsan.h>
 #include <linux/random.h>
 #include <linux/rcuwait.h>
 #include <linux/compat.h>
@@ -746,6 +747,7 @@ void __noreturn do_exit(long code)
 
 	profile_task_exit(tsk);
 	kcov_task_exit(tsk);
+	kmsan_task_exit(tsk);
 
 	ptrace_event(PTRACE_EVENT_EXIT, code);
 
