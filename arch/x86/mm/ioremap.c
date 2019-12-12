@@ -7,6 +7,7 @@
  * (C) Copyright 1995 1996 Linus Torvalds
  */
 
+#include <linux/kmsan.h>
 #include <linux/memblock.h>
 #include <linux/init.h>
 #include <linux/io.h>
@@ -294,6 +295,8 @@ __ioremap_caller(resource_size_t phys_addr, unsigned long size,
 	if (iomem_map_sanity_check(unaligned_phys_addr, unaligned_size))
 		pr_warn("caller %pS mapping multiple BARs\n", caller);
 
+	kmsan_ioremap_page_range(vaddr, vaddr + size, phys_addr, prot);
+
 	return ret_addr;
 err_free_area:
 	free_vm_area(area);
@@ -474,6 +477,8 @@ void iounmap(volatile void __iomem *addr)
 		return;
 	}
 
+	kmsan_iounmap_page_range((unsigned long)addr,
+		(unsigned long)addr + get_vm_area_size(p));
 	memtype_free(p->phys_addr, p->phys_addr + get_vm_area_size(p));
 
 	/* Finally remove it */
