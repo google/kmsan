@@ -2722,6 +2722,7 @@ static int internal_get_user_pages_fast(unsigned long start, int nr_pages,
 
 		local_irq_save(flags);
 		gup_pgd_range(addr, end, fast_flags, pages, &nr_pinned);
+		kmsan_gup_pgd_range(pages, nr_pinned);
 		local_irq_restore(flags);
 		ret = nr_pinned;
 	}

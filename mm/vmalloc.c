@@ -166,7 +166,7 @@ static void vunmap_p4d_range(pgd_t *pgd, unsigned long addr, unsigned long end,
  * for calling flush_cache_vunmap() on to-be-mapped areas before calling this
  * function and flush_tlb_kernel_range() after.
  */
-void unmap_kernel_range_noflush(unsigned long start, unsigned long size)
+void __unmap_kernel_range_noflush(unsigned long start, unsigned long size)
 {
 	unsigned long end = start + size;
 	unsigned long next;
@@ -187,6 +187,12 @@ void unmap_kernel_range_noflush(unsigned long start, unsigned long size)
 
 	if (mask & ARCH_PAGE_TABLE_SYNC_MASK)
 		arch_sync_kernel_mappings(start, end);
+}
+
+void unmap_kernel_range_noflush(unsigned long start, unsigned long size)
+{
+	kmsan_unmap_kernel_range(start, size);
+	__unmap_kernel_range_noflush(start, size);
 }
 
 static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
@@ -289,7 +295,7 @@ static int vmap_p4d_range(pgd_t *pgd, unsigned long addr,
  * RETURNS:
  * 0 on success, -errno on failure.
  */
-int map_kernel_range_noflush(unsigned long addr, unsigned long size,
+int __map_kernel_range_noflush(unsigned long addr, unsigned long size,
 			     pgprot_t prot, struct page **pages)
 {
 	unsigned long start = addr;
@@ -316,6 +322,14 @@ int map_kernel_range_noflush(unsigned long addr, unsigned long size,
 
 	return 0;
 }
+
+int map_kernel_range_noflush(unsigned long addr, unsigned long size,
+			     pgprot_t prot, struct page **pages)
+{
+	kmsan_map_kernel_range_noflush(addr, size, prot, pages);
+	return __map_kernel_range_noflush(addr, size, prot, pages);
+}
+
 
 int map_kernel_range(unsigned long start, unsigned long size, pgprot_t prot,
 		struct page **pages)
