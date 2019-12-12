@@ -4,6 +4,7 @@
 #include <linux/err.h>
 #include <linux/spinlock.h>
 
+#include <linux/kmsan.h>
 #include <linux/mm.h>
 #include <linux/memremap.h>
 #include <linux/pagemap.h>
@@ -2397,6 +2398,7 @@ int __get_user_pages_fast(unsigned long start, int nr_pages, int write,
 	    gup_fast_permitted(start, end)) {
 		local_irq_save(flags);
 		gup_pgd_range(start, end, write ? FOLL_WRITE : 0, pages, &nr);
+		kmsan_gup_pgd_range(pages, nr);
 		local_irq_restore(flags);
 	}
 
@@ -2452,6 +2454,7 @@ static int internal_get_user_pages_fast(unsigned long start, int nr_pages,
 	    gup_fast_permitted(start, end)) {
 		local_irq_disable();
 		gup_pgd_range(addr, end, gup_flags, pages, &nr);
+		kmsan_gup_pgd_range(pages, nr);
 		local_irq_enable();
 		ret = nr;
 	}
