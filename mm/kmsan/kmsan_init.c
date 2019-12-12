@@ -28,7 +28,6 @@ static int future_index __initdata;
 /*
  * Record a range of memory for which the metadata pages will be created once
  * the page allocator becomes available.
- * TODO(glider): squash together ranges belonging to the same page.
  */
 static void __init kmsan_record_future_shadow_range(void *start, void *end)
 {
