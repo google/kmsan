@@ -167,18 +167,20 @@ void kmsan_kfree_large(const void *ptr);
  * KMSAN maps shadow and origin pages of @pages into contiguous ranges in
  * vmalloc metadata address range.
  */
-void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
-				   pgprot_t prot, struct page **pages);
+void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
+				    pgprot_t prot, struct page **pages,
+				    unsigned int page_shift);
 
 /**
- * kmsan_unmap_kernel_range() - Notify KMSAN about a vunmap.
+ * kmsan_vunmap_kernel_range_noflush() - Notify KMSAN about a vunmap.
  * @addr: start address of vunmapped range.
- * @end:  end address of vunmapped range.
+ * @size:  end address of vunmapped range.
  *
  * KMSAN unmaps the contiguous metadata ranges created by
  * kmsan_map_kernel_range_noflush().
  */
-void kmsan_vunmap_page_range(unsigned long addr, unsigned long end);
+void kmsan_vunmap_range_noflush(unsigned long start, unsigned long end);
+
 
 /**
  * kmsan_ioremap_page_range() - Notify KMSAN about a ioremap_page_range() call.
@@ -191,7 +193,8 @@ void kmsan_vunmap_page_range(unsigned long addr, unsigned long end);
  * virtual memory.
  */
 void kmsan_ioremap_page_range(unsigned long addr, unsigned long end,
-			      phys_addr_t phys_addr, pgprot_t prot);
+			      phys_addr_t phys_addr, pgprot_t prot,
+			      unsigned int page_shift);
 
 /**
  * kmsan_iounmap_page_range() - Notify KMSAN about a iounmap_page_range() call.

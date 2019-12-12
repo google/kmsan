@@ -6,6 +6,7 @@
  *
  * (C) Copyright 1995 1996 Linus Torvalds
  */
+#include <linux/kmsan.h>
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <linux/sched.h>
@@ -31,7 +32,11 @@ static const unsigned int iomap_max_page_shift = PAGE_SHIFT;
 int ioremap_page_range(unsigned long addr,
 		       unsigned long end, phys_addr_t phys_addr, pgprot_t prot)
 {
-	return vmap_range(addr, end, phys_addr, prot, iomap_max_page_shift);
+	int res;
+
+	res = vmap_range(addr, end, phys_addr, prot, iomap_max_page_shift);
+	kmsan_ioremap_page_range(addr, end, phys_addr, prot, iomap_max_page_shift);
+	return res;
 }
 
 #ifdef CONFIG_GENERIC_IOREMAP
