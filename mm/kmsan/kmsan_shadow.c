@@ -329,7 +329,9 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 		return 0;
 	}
 
-	/* TODO(glider): must we override the flags? */
+	/*
+	 * We always want metadata allocations to succeed and to finish fast.
+	 */
 	flags = GFP_ATOMIC;
 	if (initialized)
 		flags |= __GFP_ZERO;
