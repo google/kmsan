@@ -5,6 +5,7 @@
 #include <linux/fs.h>
 #include <linux/kernel.h>
 #include <linux/bug.h>
+#include <linux/kmsan.h>
 #include <linux/mm.h>
 #include <linux/uaccess.h>
 #include <linux/hardirq.h>
@@ -324,6 +325,7 @@ static inline void copy_user_highpage(struct page *to, struct page *from,
 	vfrom = kmap_atomic(from);
 	vto = kmap_atomic(to);
 	copy_user_page(vto, vfrom, vaddr, to);
+	kmsan_unpoison_shadow(page_address(to), PAGE_SIZE);
 	kunmap_atomic(vto);
 	kunmap_atomic(vfrom);
 }
@@ -339,6 +341,7 @@ static inline void copy_highpage(struct page *to, struct page *from)
 	vfrom = kmap_atomic(from);
 	vto = kmap_atomic(to);
 	copy_page(vto, vfrom);
+	kmsan_copy_page_meta(to, from);
 	kunmap_atomic(vto);
 	kunmap_atomic(vfrom);
 }
