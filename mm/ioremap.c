@@ -6,6 +6,7 @@
  *
  * (C) Copyright 1995 1996 Linus Torvalds
  */
+#include <linux/kmsan.h>
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <linux/sched.h>
@@ -227,6 +228,8 @@ int ioremap_page_range(unsigned long addr,
 	unsigned long next;
 	int err;
 	pgtbl_mod_mask mask = 0;
+	unsigned long old_addr = addr;
+	phys_addr_t old_phys_addr = phys_addr;
 
 	might_sleep();
 	BUG_ON(addr >= end);
@@ -242,6 +245,8 @@ int ioremap_page_range(unsigned long addr,
 	} while (pgd++, phys_addr += (next - addr), addr = next, addr != end);
 
 	flush_cache_vmap(start, end);
+	if (!err)
+		kmsan_ioremap_page_range(old_addr, end, old_phys_addr, prot);
 
 	if (mask & ARCH_PAGE_TABLE_SYNC_MASK)
 		arch_sync_kernel_mappings(start, end);
