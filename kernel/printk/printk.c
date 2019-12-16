@@ -1951,6 +1951,12 @@ int vprintk_store(int facility, int level,
 	 * prefix which might be passed-in as a parameter.
 	 */
 	text_len = vscnprintf(text, sizeof(textbuf), fmt, args);
+	/*
+	 * If any of vscnprintf() arguments is uninitialized, KMSAN will report
+	 * one or more errors and also probably mark text_len as uninitialized.
+	 * Initialize |text_len| to prevent the errors from spreading further.
+	 */
+	text_len = KMSAN_INIT_VALUE(text_len);
 
 	/* mark and strip a trailing newline */
 	if (text_len && text[text_len-1] == '\n') {
