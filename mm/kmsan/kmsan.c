@@ -312,7 +312,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	depth++;
 	/* Lowest bit is the UAF flag, higher bits hold the depth. */
 	extra_bits = (depth << 1) | (extra_bits & 1);
-
+	/* TODO(glider): how do we figure out we've dropped some frames? */
 	entries[0] = magic + depth;
 	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, extra_bits);
 	entries[2] = id;
@@ -331,6 +331,10 @@ void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
 		var_cast[i] = origin;
 }
 
+/*
+ * TODO(glider): writing an initialized byte shouldn't zero out the origin, if
+ * the remaining three bytes are uninitialized.
+ */
 void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 {
 	void *origin_start;
@@ -468,6 +472,10 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	}
 }
 
+/*
+ * TODO(glider): this check shouldn't be performed for origin pages, because
+ * they're always accessed after the shadow pages.
+ */
 bool metadata_is_contiguous(void *addr, size_t size, bool is_origin)
 {
 	u64 cur_addr = (u64)addr, next_addr;

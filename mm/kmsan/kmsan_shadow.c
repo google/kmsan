@@ -291,8 +291,8 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 	if (!kmsan_ready || IN_RUNTIME())
 		return;
 	if (!has_shadow_page(src)) {
-		kmsan_internal_unpoison_shadow(page_address(dst), PAGE_SIZE,
-					       /*checked*/false);
+		/* TODO(glider): are we leaking pages here? */
+		set_no_shadow_origin_page(dst);
 		return;
 	}
 	if (!has_shadow_page(dst))
@@ -329,9 +329,7 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 		return 0;
 	}
 
-	/*
-	 * We always want metadata allocations to succeed and to finish fast.
-	 */
+	/* TODO(glider): must we override the flags? */
 	flags = GFP_ATOMIC;
 	if (initialized)
 		flags |= __GFP_ZERO;
@@ -414,10 +412,19 @@ void kmsan_free_page(struct page *page, unsigned int order)
 		return;
 	}
 
+	if (IN_RUNTIME()) {
+		/*
+		 * TODO(glider): looks legit. depot_save_stack() may call
+		 * free_pages().
+		 */
+		return;
+	}
+
 	ENTER_RUNTIME(irq_flags);
 	shadow = shadow_page_for(&page[0]);
 	origin = origin_page_for(&page[0]);
 
+	/* TODO(glider): this is racy. */
 	for (i = 0; i < pages; i++) {
 		BUG_ON(has_shadow_page(shadow_page_for(&page[i])));
 		BUG_ON(has_shadow_page(origin_page_for(&page[i])));
