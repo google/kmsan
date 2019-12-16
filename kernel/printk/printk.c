@@ -2007,6 +2007,14 @@ int vprintk_store(int facility, int level,
 		if (prb_reserve_in_last(&e, prb, &r, caller_id, LOG_LINE_MAX)) {
 			text_len = printk_sprint(&r.text_buf[r.info->text_len], reserve_size,
 						 facility, &lflags, fmt, args);
+
+			/*
+			 * If any of vscnprintf() arguments is uninitialized, KMSAN will report
+			 * one or more errors and also probably mark text_len as uninitialized.
+			 * Initialize |text_len| to prevent the errors from spreading further.
+			 */
+			text_len = KMSAN_INIT_VALUE(text_len);
+
 			r.info->text_len += text_len;
 
 			if (lflags & LOG_NEWLINE) {
@@ -2037,6 +2045,14 @@ int vprintk_store(int facility, int level,
 
 	/* fill message */
 	text_len = printk_sprint(&r.text_buf[0], reserve_size, facility, &lflags, fmt, args);
+
+	/*
+	 * If any of vscnprintf() arguments is uninitialized, KMSAN will report
+	 * one or more errors and also probably mark text_len as uninitialized.
+	 * Initialize |text_len| to prevent the errors from spreading further.
+	 */
+        text_len = KMSAN_INIT_VALUE(text_len);
+
 	if (trunc_msg_len)
 		memcpy(&r.text_buf[text_len], trunc_msg, trunc_msg_len);
 	r.info->text_len = text_len + trunc_msg_len;
