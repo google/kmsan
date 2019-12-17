@@ -196,6 +196,7 @@ struct pt_regs;
 	ALLOW_ERROR_INJECTION(__x64_sys##name, ERRNO);			\
 	static long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__));	\
 	static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
+	/* Tell KMSAN to initialize |regs|. */				\
 	__no_sanitize_memory						\
 	asmlinkage long __x64_sys##name(const struct pt_regs *regs)	\
 	{								\

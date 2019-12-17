@@ -623,8 +623,9 @@ NOKPROBE_SYMBOL(do_int3);
  * to switch to the normal thread stack if the interrupted code was in
  * user mode. The actual stack switch is done in entry_64.S
  *
- * This function switches the registers - don't instrument it with KMSAN!
  */
+
+/* This function switches the registers - don't instrument it with KMSAN. */
 __no_sanitize_memory
 asmlinkage __visible notrace struct pt_regs *sync_regs(struct pt_regs *eregs)
 {
