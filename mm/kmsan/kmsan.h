@@ -73,10 +73,10 @@ void kmsan_report(depot_stack_handle_t origin,
 
 
 enum KMSAN_BUG_REASON {
-	REASON_ANY = 0,
-	REASON_COPY_TO_USER = 1,
-	REASON_USE_AFTER_FREE = 2,
-	REASON_SUBMIT_URB = 3,
+	REASON_ANY,
+	REASON_COPY_TO_USER,
+	REASON_USE_AFTER_FREE,
+	REASON_SUBMIT_URB,
 };
 
 /*
