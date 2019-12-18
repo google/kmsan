@@ -45,7 +45,6 @@ void kmsan_task_create(struct task_struct *task)
 }
 EXPORT_SYMBOL(kmsan_task_create);
 
-
 /* Called from kernel/exit.c */
 void kmsan_task_exit(struct task_struct *task)
 {
@@ -269,42 +268,6 @@ void kmsan_copy_to_user(const void *to, const void *from,
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
 
-void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags)
-{
-	unsigned long irq_flags;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-	ENTER_RUNTIME(irq_flags);
-	/* The users may want to poison/unpoison random memory. */
-	kmsan_internal_poison_shadow((void *)address, size, flags,
-				     KMSAN_POISON_NOCHECK);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_poison_shadow);
-
-void kmsan_unpoison_shadow(const void *address, size_t size)
-{
-	unsigned long irq_flags;
-
-	if (!kmsan_ready || IN_RUNTIME())
-		return;
-
-	ENTER_RUNTIME(irq_flags);
-	/* The users may want to poison/unpoison random memory. */
-	kmsan_internal_unpoison_shadow((void *)address, size,
-				       KMSAN_POISON_NOCHECK);
-	LEAVE_RUNTIME(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_unpoison_shadow);
-
-void kmsan_check_memory(const void *addr, size_t size)
-{
-	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0,
-					   REASON_ANY);
-}
-EXPORT_SYMBOL(kmsan_check_memory);
-
 void kmsan_gup_pgd_range(struct page **pages, int nr)
 {
 	int i;
@@ -420,3 +383,40 @@ void kmsan_handle_dma(const void *addr, size_t size,
 	}
 }
 EXPORT_SYMBOL(kmsan_handle_dma);
+
+/* Functions from kmsan-checks.h follow. */
+void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+	ENTER_RUNTIME(irq_flags);
+	/* The users may want to poison/unpoison random memory. */
+	kmsan_internal_poison_shadow((void *)address, size, flags,
+				     KMSAN_POISON_NOCHECK);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(kmsan_poison_shadow);
+
+void kmsan_unpoison_shadow(const void *address, size_t size)
+{
+	unsigned long irq_flags;
+
+	if (!kmsan_ready || IN_RUNTIME())
+		return;
+
+	ENTER_RUNTIME(irq_flags);
+	/* The users may want to poison/unpoison random memory. */
+	kmsan_internal_unpoison_shadow((void *)address, size,
+				       KMSAN_POISON_NOCHECK);
+	LEAVE_RUNTIME(irq_flags);
+}
+EXPORT_SYMBOL(kmsan_unpoison_shadow);
+
+void kmsan_check_memory(const void *addr, size_t size)
+{
+	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0,
+					   REASON_ANY);
+}
+EXPORT_SYMBOL(kmsan_check_memory);
