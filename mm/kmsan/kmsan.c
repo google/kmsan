@@ -19,16 +19,15 @@
 #include <linux/kmsan.h>
 #include <linux/memory.h>
 #include <linux/mm.h>
-#include <linux/preempt.h>
-#include <linux/percpu-defs.h>
 #include <linux/mm_types.h>
+#include <linux/mmzone.h>
+#include <linux/percpu-defs.h>
+#include <linux/preempt.h>
 #include <linux/slab.h>
 #include <linux/stackdepot.h>
 #include <linux/stacktrace.h>
 #include <linux/types.h>
 #include <linux/vmalloc.h>
-
-#include <linux/mmzone.h>
 
 #include "../slab.h"
 #include "kmsan.h"
