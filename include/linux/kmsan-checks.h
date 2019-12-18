@@ -29,25 +29,25 @@
  */
 
 __no_sanitize_memory
-static inline unsigned char KMSAN_INIT_1(unsigned char value)
+static inline u8 KMSAN_INIT_1(u8 value)
 {
 	return value;
 }
 
 __no_sanitize_memory
-static inline unsigned short KMSAN_INIT_2(unsigned short value)
+static inline u16 KMSAN_INIT_2(u16 value)
 {
 	return value;
 }
 
 __no_sanitize_memory
-static inline unsigned int KMSAN_INIT_4(unsigned int value)
+static inline u32 KMSAN_INIT_4(u32 value)
 {
 	return value;
 }
 
 __no_sanitize_memory
-static inline unsigned long KMSAN_INIT_8(unsigned long value)
+static inline u64 KMSAN_INIT_8(u64 value)
 {
 	return value;
 }
@@ -57,20 +57,16 @@ static inline unsigned long KMSAN_INIT_8(unsigned long value)
 		typeof(val) __ret;	\
 		switch (sizeof(val)) {	\
 		case 1:						\
-			*(unsigned char *)&__ret = KMSAN_INIT_1(	\
-					(unsigned char)val);	\
+			*(u8 *)&__ret = KMSAN_INIT_1((u8)val);	\
 			break;					\
 		case 2:						\
-			*(unsigned short *)&__ret = KMSAN_INIT_2(	\
-					(unsigned short)val);	\
+			*(u16 *)&__ret = KMSAN_INIT_2((u16)val);\
 			break;					\
 		case 4:						\
-			*(unsigned int *)&__ret = KMSAN_INIT_4(	\
-					(unsigned int)val);	\
+			*(u32 *)&__ret = KMSAN_INIT_4((u32)val);\
 			break;					\
 		case 8:						\
-			*(unsigned long *)&__ret = KMSAN_INIT_8(	\
-					(unsigned long)val);	\
+			*(u64 *)&__ret = KMSAN_INIT_8((u64)val);\
 			break;					\
 		default:					\
 			BUILD_BUG_ON(1);			\
