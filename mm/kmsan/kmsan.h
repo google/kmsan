@@ -51,9 +51,6 @@ DECLARE_PER_CPU(bool, kmsan_in_nmi);
 extern spinlock_t report_lock;
 extern bool kmsan_ready;
 
-/* Stolen from kernel/printk/internal.h */
-#define PRINTK_SAFE_CONTEXT_MASK	 0x3fffffff
-
 /* Used in other places - doesn't require a lock. */
 #define kmsan_pr_locked(...) \
 	do { \
