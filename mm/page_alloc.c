@@ -3265,11 +3265,12 @@ static struct page *rmqueue_pcplist(struct zone *preferred_zone,
 /*
  * Allocate a page from the given zone. Use pcplists for order-0 allocations.
  */
+
 /*
- * TODO(glider): rmqueue() may call __msan_poison_alloca() through a call to
- * set_pfnblock_flags_mask(). If __msan_poison_alloca() attempts to allocate
- * pages for the stack depot, it may call rmqueue() again, which will result
- * in a deadlock.
+ * Do not instrument rmqueue() with KMSAN. This function may call
+ * __msan_poison_alloca() through a call to set_pfnblock_flags_mask().
+ * If __msan_poison_alloca() attempts to allocate pages for the stack depot, it
+ * may call rmqueue() again, which will result in a deadlock.
  */
 __no_sanitize_memory
 static inline
