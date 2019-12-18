@@ -40,6 +40,7 @@
  * the variable is now required to link the kernel.
  */
 unsigned long __force_order;
+EXPORT_SYMBOL(__force_order);
 
 bool kmsan_ready;
 #define KMSAN_STACK_DEPTH 64
