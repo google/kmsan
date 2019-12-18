@@ -8,3 +8,4 @@ CFLAGS_kmsan_hooks.o := $(call cc-option, -fno-stack-protector)
 
 KMSAN_SANITIZE := n
 KCOV_INSTRUMENT := n
+UBSAN_SANITIZE := n
