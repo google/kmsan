@@ -33,7 +33,6 @@ void __init kmsan_initialize(void);
 /* These constants are defined in the MSan LLVM instrumentation pass. */
 #define KMSAN_RETVAL_SIZE 800
 #define KMSAN_PARAM_SIZE 800
-
 #define KMSAN_PARAM_ARRAY_SIZE (KMSAN_PARAM_SIZE / sizeof(depot_stack_handle_t))
 
 struct kmsan_context_state {
@@ -46,6 +45,10 @@ struct kmsan_context_state {
 	depot_stack_handle_t retval_origin_tls;
 	depot_stack_handle_t origin_tls;
 };
+
+#undef KMSAN_PARAM_ARRAY_SIZE
+#undef KMSAN_PARAM_SIZE
+#undef KMSAN_RETVAL_SIZE
 
 struct kmsan_task_state {
 	bool allow_reporting;
