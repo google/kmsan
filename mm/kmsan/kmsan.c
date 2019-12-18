@@ -32,6 +32,9 @@
 #include "../slab.h"
 #include "kmsan.h"
 
+#define KMSAN_STACK_DEPTH 64
+#define MAX_CHAIN_DEPTH 7
+
 /*
  * Some kernel asm() calls mention the non-existing |__force_order| variable
  * in the asm constraints to preserve the order of accesses to control
@@ -42,9 +45,6 @@ unsigned long __force_order;
 EXPORT_SYMBOL(__force_order);
 
 bool kmsan_ready;
-#define KMSAN_STACK_DEPTH 64
-#define MAX_CHAIN_DEPTH 7
-
 /*
  * According to Documentation/x86/kernel-stacks, kernel code can run on the
  * following stacks:
