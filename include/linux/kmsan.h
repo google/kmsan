@@ -13,6 +13,7 @@
 #ifndef LINUX_KMSAN_H
 #define LINUX_KMSAN_H
 
+#include <linux/dma-direction.h>
 #include <linux/gfp.h>
 #include <linux/stackdepot.h>
 #include <linux/types.h>
@@ -21,10 +22,8 @@
 struct page;
 struct kmem_cache;
 struct task_struct;
-struct vm_struct;
-
-
-extern bool kmsan_ready;
+struct sk_buff;
+struct urb;
 
 #ifdef CONFIG_KMSAN
 void __init kmsan_initialize_shadow(void);
@@ -91,6 +90,13 @@ void kmsan_softirq_exit(void);
 
 void kmsan_clear_page(void *page_addr);
 
+void kmsan_check_skb(const struct sk_buff *skb);
+void kmsan_handle_dma(const void *address, size_t size,
+		      enum dma_data_direction direction);
+void kmsan_handle_urb(const struct urb *urb, bool is_out);
+void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
+			size_t left);
+
 #else
 
 static inline void __init kmsan_initialize_shadow(void) { }
@@ -141,6 +147,14 @@ static inline void kmsan_softirq_enter(void) {}
 static inline void kmsan_softirq_exit(void) {}
 
 static inline void kmsan_clear_page(void *page_addr) {}
+
+static inline void kmsan_check_skb(const struct sk_buff *skb) {}
+static inline void kmsan_handle_urb(const struct urb *urb, bool is_out) {}
+static inline void kmsan_handle_dma(const void *address, size_t size,
+				    enum dma_data_direction direction) {}
+static inline void kmsan_copy_to_user(
+	const void *to, const void *from, size_t to_copy, size_t left) {}
+
 #endif
 
 #endif /* LINUX_KMSAN_H */

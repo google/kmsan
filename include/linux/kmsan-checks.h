@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * KMSAN checks.
+ * KMSAN checks to be used for one-off annotations in subsystems.
  *
  * Copyright (C) 2017-2019 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
@@ -15,19 +15,17 @@
 #define _LINUX_KMSAN_CHECKS_H
 
 #include <linux/build_bug.h>
-#include <linux/dma-direction.h>
 #include <linux/types.h>
-
-struct page;
-struct sk_buff;
-struct urb;
 
 #ifdef CONFIG_KMSAN
 
 /*
  * Helper functions that mark the return value initialized.
  * Note that Clang ignores the inline attribute in the cases when a no_sanitize
- * function is called from an instrumented one.
+ * function is called from an instrumented one. For the same reason these
+ * functions may not be declared __always_inline - in that case they dissolve in
+ * the callers and KMSAN won't be able to notice they should not be
+ * instrumented.
  */
 
 __no_sanitize_memory
@@ -80,42 +78,18 @@ static inline unsigned long KMSAN_INIT_8(unsigned long value)
 		__ret;						\
 	}) /**/
 
-void kmsan_ignore_page(struct page *page, int order);
 void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags);
 void kmsan_unpoison_shadow(const void *address, size_t size);
 void kmsan_check_memory(const void *address, size_t size);
-void kmsan_check_skb(const struct sk_buff *skb);
-void kmsan_handle_dma(const void *address, size_t size,
-		      enum dma_data_direction direction);
-void kmsan_handle_urb(const struct urb *urb, bool is_out);
-void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
-			size_t left);
-void *__msan_memcpy(void *dst, const void *src, u64 n);
-void kmsan_enter_runtime(unsigned long *flags);
-void kmsan_leave_runtime(unsigned long *flags);
 
 #else
 
 #define KMSAN_INIT_VALUE(value) (value)
 
-static inline void kmsan_ignore_page(struct page *page, int order) {}
 static inline void kmsan_poison_shadow(const void *address, size_t size,
 				       gfp_t flags) {}
 static inline void kmsan_unpoison_shadow(const void *address, size_t size) {}
 static inline void kmsan_check_memory(const void *address, size_t size) {}
-static inline void kmsan_check_skb(const struct sk_buff *skb) {}
-static inline void kmsan_handle_urb(const struct urb *urb, bool is_out) {}
-static inline void kmsan_handle_dma(const void *address, size_t size,
-				    enum dma_data_direction direction) {}
-static inline void kmsan_copy_to_user(
-	const void *to, const void *from, size_t to_copy, size_t left) {}
-static inline void *__msan_memcpy(void *dst, const void *src, size_t n)
-{
-	return NULL;
-}
-
-static inline void kmsan_enter_runtime(unsigned long *flags) {}
-static inline void kmsan_leave_runtime(unsigned long *flags) {}
 
 #endif
 
