@@ -2,8 +2,8 @@
 /*
  * Assembly bits to safely invoke KMSAN hooks from .S files.
  *
- * Adopted from KTSAN assembly hooks implementation by Dmitry Vyukov:
- * https://github.com/google/ktsan/blob/ktsan/arch/x86/include/asm/ktsan.h
+ * Adopted from KTSAN assembly hooks implementation by Dmitry Vyukov
+ * https://github.com/google/ktsan/
  *
  * Copyright (C) 2017-2019 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
@@ -18,86 +18,83 @@
 
 #ifdef CONFIG_KMSAN
 
-#define KMSAN_PUSH_REGS				\
-	pushq	%rax;				\
-	pushq	%rcx;				\
-	pushq	%rdx;				\
-	pushq	%rdi;				\
-	pushq	%rsi;				\
-	pushq	%r8;				\
-	pushq	%r9;				\
-	pushq	%r10;				\
-	pushq	%r11;				\
-/**/
+#ifdef __ASSEMBLY__
+.macro KMSAN_PUSH_REGS
+	pushq	%rax
+	pushq	%rcx
+	pushq	%rdx
+	pushq	%rdi
+	pushq	%rsi
+	pushq	%r8
+	pushq	%r9
+	pushq	%r10
+	pushq	%r11
+.endm
 
-#define KMSAN_POP_REGS				\
-	popq	%r11;				\
-	popq	%r10;				\
-	popq	%r9;				\
-	popq	%r8;				\
-	popq	%rsi;				\
-	popq	%rdi;				\
-	popq	%rdx;				\
-	popq	%rcx;				\
-	popq	%rax;				\
-/**/
+.macro KMSAN_POP_REGS
+	popq	%r11
+	popq	%r10
+	popq	%r9
+	popq	%r8
+	popq	%rsi
+	popq	%rdi
+	popq	%rdx
+	popq	%rcx
+	popq	%rax
 
-#define KMSAN_INTERRUPT_ENTER			\
-	KMSAN_PUSH_REGS				\
-	call	kmsan_interrupt_enter;		\
-	KMSAN_POP_REGS				\
-/**/
+.endm
 
-#define KMSAN_INTERRUPT_EXIT			\
-	KMSAN_PUSH_REGS				\
-	call	kmsan_interrupt_exit;		\
-	KMSAN_POP_REGS				\
-/**/
+.macro KMSAN_CALL_HOOK fname
+	KMSAN_PUSH_REGS
+	call \fname
+	KMSAN_POP_REGS
+.endm
 
-#define KMSAN_SOFTIRQ_ENTER			\
-	KMSAN_PUSH_REGS				\
-	call	kmsan_softirq_enter;		\
-	KMSAN_POP_REGS				\
-/**/
+.macro KMSAN_INTERRUPT_ENTER
+	KMSAN_CALL_HOOK kmsan_interrupt_enter
+.endm
 
-#define KMSAN_SOFTIRQ_EXIT			\
-	KMSAN_PUSH_REGS				\
-	call	kmsan_softirq_exit;		\
-	KMSAN_POP_REGS				\
-/**/
+.macro KMSAN_INTERRUPT_EXIT
+	KMSAN_CALL_HOOK kmsan_interrupt_exit
+.endm
 
-#define KMSAN_NMI_ENTER				\
-	KMSAN_PUSH_REGS				\
-	call	kmsan_nmi_enter;		\
-	KMSAN_POP_REGS				\
-/**/
+.macro KMSAN_SOFTIRQ_ENTER
+	KMSAN_CALL_HOOK kmsan_softirq_enter
+.endm
 
-#define KMSAN_NMI_EXIT				\
-	KMSAN_PUSH_REGS				\
-	call	kmsan_nmi_exit;			\
-	KMSAN_POP_REGS				\
-/**/
+.macro KMSAN_SOFTIRQ_EXIT
+	KMSAN_CALL_HOOK kmsan_softirq_exit
+.endm
 
-#define KMSAN_IST_ENTER(shift_ist)		\
-	KMSAN_PUSH_REGS				\
-	movq	$shift_ist, %rdi;		\
-	call	kmsan_ist_enter;		\
-	KMSAN_POP_REGS				\
-/**/
+.macro KMSAN_NMI_ENTER
+	KMSAN_CALL_HOOK kmsan_nmi_enter
+.endm
 
-#define KMSAN_IST_EXIT(shift_ist)		\
-	KMSAN_PUSH_REGS				\
-	movq	$shift_ist, %rdi;		\
-	call	kmsan_ist_exit;			\
-	KMSAN_POP_REGS				\
-/**/
+.macro KMSAN_NMI_EXIT
+	KMSAN_CALL_HOOK kmsan_nmi_exit
+.endm
 
-#define KMSAN_UNPOISON_PT_REGS			\
-	KMSAN_PUSH_REGS				\
-	call	kmsan_unpoison_pt_regs;		\
-	KMSAN_POP_REGS				\
-/**/
+.macro KMSAN_IST_ENTER shift_ist
+	KMSAN_PUSH_REGS
+	movq	\shift_ist, %rdi
+	call	kmsan_ist_enter
+	KMSAN_POP_REGS
+.endm
 
+.macro KMSAN_IST_EXIT shift_ist
+	KMSAN_PUSH_REGS
+	movq	\shift_ist, %rdi
+	call	kmsan_ist_exit
+	KMSAN_POP_REGS
+.endm
+
+.macro KMSAN_UNPOISON_PT_REGS
+	KMSAN_CALL_HOOK kmsan_unpoison_pt_regs
+.endm
+
+#else
+#error this header must be included into an assembly file
+#endif
 
 #else /* ifdef CONFIG_KMSAN */
 
