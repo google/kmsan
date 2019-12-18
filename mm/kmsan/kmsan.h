@@ -51,15 +51,6 @@ DECLARE_PER_CPU(bool, kmsan_in_nmi);
 extern spinlock_t report_lock;
 extern bool kmsan_ready;
 
-/* Used in other places - doesn't require a lock. */
-#define kmsan_pr_locked(...) \
-	do { \
-		unsigned long flags;			\
-		spin_lock_irqsave(&report_lock, flags); \
-		pr_err(__VA_ARGS__); \
-		spin_unlock_irqrestore(&report_lock, flags); \
-	} while (0)
-
 void kmsan_print_origin(depot_stack_handle_t origin);
 void kmsan_report(depot_stack_handle_t origin,
 		  void *address, int size, int off_first, int off_last,

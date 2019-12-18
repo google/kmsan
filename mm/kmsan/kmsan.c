@@ -106,10 +106,9 @@ void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
 		shadow_start = kmsan_get_metadata((void *)address, to_fill,
 						  META_SHADOW);
 		if (!shadow_start) {
-			if (checked) {
-				kmsan_pr_locked("WARNING: not memsetting %d bytes starting at %px, because the shadow is NULL\n", to_fill, address);
-				BUG();
-			}
+			if (checked)
+				panic("%s: not memsetting %d bytes starting at %px, because the shadow is NULL\n",
+				      __func__, to_fill, address);
 			/* Otherwise just move on. */
 		} else {
 			__memset(shadow_start, b, to_fill);
@@ -303,7 +302,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	if (depth >= MAX_CHAIN_DEPTH) {
 		skipped++;
 		if (skipped % 10000 == 0) {
-			kmsan_pr_locked("not chained %d origins\n", skipped);
+			pr_warn("not chained %d origins\n", skipped);
 			dump_stack();
 			kmsan_print_origin(id);
 		}
@@ -362,10 +361,9 @@ void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 
 void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked)
 {
-	if (checked && !metadata_is_contiguous(addr, size, META_ORIGIN)) {
-		kmsan_pr_locked("WARNING: not setting origin for %d bytes starting at %px, because the metadata is incontiguous\n", size, addr);
-		BUG();
-	}
+	if (checked && !metadata_is_contiguous(addr, size, META_ORIGIN))
+		panic("%s: WARNING: not setting origin for %d bytes starting at %px, because the metadata is incontiguous\n",
+		      __func__, size, addr);
 	kmsan_internal_set_origin(addr, size, origin);
 }
 
@@ -503,20 +501,20 @@ bool metadata_is_contiguous(void *addr, size_t size, bool is_origin)
 	return true;
 
 report:
-	kmsan_pr_locked("BUG: attempting to access two shadow page ranges.\n");
+	pr_err("BUG: attempting to access two shadow page ranges.\n");
 	dump_stack();
-	kmsan_pr_locked("\n");
-	kmsan_pr_locked("Access of size %d at %px.\n", size, addr);
-	kmsan_pr_locked("Addresses belonging to different ranges: %px and %px\n",
-		     cur_addr, next_addr);
-	kmsan_pr_locked("page[0].%s: %px, page[1].%s: %px\n",
-		     fname, cur_meta, fname, next_meta);
+	pr_err("\n");
+	pr_err("Access of size %d at %px.\n", size, addr);
+	pr_err("Addresses belonging to different ranges: %px and %px\n",
+	       cur_addr, next_addr);
+	pr_err("page[0].%s: %px, page[1].%s: %px\n",
+	       fname, cur_meta, fname, next_meta);
 	origin_p = kmsan_get_metadata(addr, 1, META_ORIGIN);
 	if (origin_p) {
-		kmsan_pr_locked("Origin: %08x\n", *origin_p);
+		pr_err("Origin: %08x\n", *origin_p);
 		kmsan_print_origin(*origin_p);
 	} else {
-		kmsan_pr_locked("Origin: unavailable\n");
+		pr_err("Origin: unavailable\n");
 	}
 	return false;
 }
