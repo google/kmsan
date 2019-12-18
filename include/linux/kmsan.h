@@ -31,18 +31,18 @@ void __init kmsan_initialize_shadow(void);
 void __init kmsan_initialize(void);
 
 /* These constants are defined in the MSan LLVM instrumentation pass. */
-#define RETVAL_SIZE 800
+#define KMSAN_RETVAL_SIZE 800
 #define KMSAN_PARAM_SIZE 800
 
-#define PARAM_ARRAY_SIZE (KMSAN_PARAM_SIZE / sizeof(depot_stack_handle_t))
+#define KMSAN_PARAM_ARRAY_SIZE (KMSAN_PARAM_SIZE / sizeof(depot_stack_handle_t))
 
 struct kmsan_context_state {
 	char param_tls[KMSAN_PARAM_SIZE];
-	char retval_tls[RETVAL_SIZE];
+	char retval_tls[KMSAN_RETVAL_SIZE];
 	char va_arg_tls[KMSAN_PARAM_SIZE];
 	char va_arg_origin_tls[KMSAN_PARAM_SIZE];
 	u64 va_arg_overflow_size_tls;
-	depot_stack_handle_t param_origin_tls[PARAM_ARRAY_SIZE];
+	depot_stack_handle_t param_origin_tls[KMSAN_PARAM_ARRAY_SIZE];
 	depot_stack_handle_t retval_origin_tls;
 	depot_stack_handle_t origin_tls;
 };
