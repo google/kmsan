@@ -28,7 +28,7 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 	depot_stack_handle_t head;
 
 	if (!origin) {
-		kmsan_pr_err("Origin not found, presumably a false report.\n");
+		pr_err("Origin not found, presumably a false report.\n");
 		return;
 	}
 
@@ -39,29 +39,29 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 			descr = (char *)entries[1];
 			pc1 = (void *)entries[2];
 			pc2 = (void *)entries[3];
-			kmsan_pr_err("Local variable description: %s\n", descr);
-			kmsan_pr_err("Variable was created at:\n");
-			kmsan_pr_err(" %pS\n", pc1);
-			kmsan_pr_err(" %pS\n", pc2);
+			pr_err("Local variable description: %s\n", descr);
+			pr_err("Variable was created at:\n");
+			pr_err(" %pS\n", pc1);
+			pr_err(" %pS\n", pc2);
 			break;
 		}
 		if ((nr_entries == 3) &&
 		    (magic == KMSAN_CHAIN_MAGIC_ORIGIN_FULL)) {
 			head = entries[1];
 			origin = entries[2];
-			kmsan_pr_err("Uninit was stored to memory at:\n");
+			pr_err("Uninit was stored to memory at:\n");
 			chained_nr_entries =
 				stack_depot_fetch(head, &chained_entries);
 			stack_trace_print(chained_entries, chained_nr_entries,
 					  0);
-			kmsan_pr_err("\n");
+			pr_err("\n");
 			continue;
 		}
-		kmsan_pr_err("Uninit was created at:\n");
+		pr_err("Uninit was created at:\n");
 		if (entries)
 			stack_trace_print(entries, nr_entries, 0);
 		else
-			kmsan_pr_err("No stack\n");
+			pr_err("No stack\n");
 		break;
 	}
 }
@@ -87,7 +87,7 @@ void kmsan_report(depot_stack_handle_t origin,
 
 	current->kmsan.allow_reporting = false;
 	spin_lock_irqsave(&report_lock, flags);
-	kmsan_pr_err("=====================================================\n");
+	pr_err("=====================================================\n");
 	if (get_dsh_extra_bits(origin) & 1)
 		is_uaf = true;
 	switch (reason) {
@@ -103,28 +103,28 @@ void kmsan_report(depot_stack_handle_t origin,
 				    "kernel-usb-infoleak";
 		break;
 	}
-	kmsan_pr_err("BUG: KMSAN: %s in %pS\n",
-		     bug_type, kmsan_internal_return_address(2));
+	pr_err("BUG: KMSAN: %s in %pS\n",
+	       bug_type, kmsan_internal_return_address(2));
 	dump_stack();
-	kmsan_pr_err("\n");
+	pr_err("\n");
 
 	kmsan_print_origin(origin);
 
 	if (size) {
-		kmsan_pr_err("\n");
+		pr_err("\n");
 		if (off_first == off_last)
-			kmsan_pr_err("Byte %d of %d is uninitialized\n",
-				     off_first, size);
+			pr_err("Byte %d of %d is uninitialized\n",
+			       off_first, size);
 		else
-			kmsan_pr_err("Bytes %d-%d of %d are uninitialized\n",
-				     off_first, off_last, size);
+			pr_err("Bytes %d-%d of %d are uninitialized\n",
+			       off_first, off_last, size);
 	}
 	if (address)
-		kmsan_pr_err("Memory access of size %d starts at %px\n",
-			     size, address);
+		pr_err("Memory access of size %d starts at %px\n",
+		       size, address);
 	if (user_addr && reason == REASON_COPY_TO_USER)
-		kmsan_pr_err("Data copied to user address %px\n", user_addr);
-	kmsan_pr_err("=====================================================\n");
+		pr_err("Data copied to user address %px\n", user_addr);
+	pr_err("=====================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irqrestore(&report_lock, flags);
 	if (panic_on_warn)

@@ -54,9 +54,6 @@ extern bool kmsan_ready;
 /* Stolen from kernel/printk/internal.h */
 #define PRINTK_SAFE_CONTEXT_MASK	 0x3fffffff
 
-/* Called by kmsan_report.c under a lock. */
-#define kmsan_pr_err(...) pr_err(__VA_ARGS__)
-
 /* Used in other places - doesn't require a lock. */
 #define kmsan_pr_locked(...) \
 	do { \
@@ -101,7 +98,7 @@ DECLARE_PER_CPU(int, kmsan_in_runtime);
 	do {	\
 		this_cpu_dec(kmsan_in_runtime);	\
 		if (this_cpu_read(kmsan_in_runtime)) { \
-			kmsan_pr_err("kmsan_in_runtime: %d\n", \
+			pr_err("kmsan_in_runtime: %d\n", \
 				this_cpu_read(kmsan_in_runtime)); \
 			BUG(); \
 		}	\
