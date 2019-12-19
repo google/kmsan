@@ -167,7 +167,7 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 		ret.s = dummy_load_page;
 		ret.o = dummy_load_page;
 	}
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return ret;
 	BUG_ON(!metadata_is_contiguous(address, size, META_SHADOW));
 
@@ -288,7 +288,7 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 {
 	unsigned long irq_flags;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	if (!has_shadow_page(src)) {
 		kmsan_internal_unpoison_shadow(page_address(dst), PAGE_SIZE,
@@ -302,13 +302,13 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 		return;
 	}
 
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	__memcpy(shadow_ptr_for(dst), shadow_ptr_for(src),
 		PAGE_SIZE);
 	BUG_ON(!has_origin_page(src) || !has_origin_page(dst));
 	__memcpy(origin_ptr_for(dst), origin_ptr_for(src),
 		PAGE_SIZE);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_copy_page_meta);
 
@@ -382,11 +382,11 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	unsigned long irq_flags;
 	int ret;
 
-	if (IN_RUNTIME())
+	if (kmsan_in_runtime())
 		return 0;
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	ret = kmsan_internal_alloc_meta_for_pages(page, order, flags, -1);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 	return ret;
 }
 
@@ -414,7 +414,7 @@ void kmsan_free_page(struct page *page, unsigned int order)
 		return;
 	}
 
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	shadow = shadow_page_for(&page[0]);
 	origin = origin_page_for(&page[0]);
 
@@ -428,7 +428,7 @@ void kmsan_free_page(struct page *page, unsigned int order)
 
 	BUG_ON(has_shadow_page(origin));
 	__free_pages(origin, order);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_free_page);
 
@@ -438,13 +438,13 @@ void kmsan_split_page(struct page *page, unsigned int order)
 	struct page *shadow, *origin;
 	unsigned long irq_flags;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	if (!has_shadow_page(&page[0])) {
 		BUG_ON(has_origin_page(&page[0]));
-		LEAVE_RUNTIME(irq_flags);
+		kmsan_leave_runtime(irq_flags);
 		return;
 	}
 	shadow = shadow_page_for(&page[0]);
@@ -452,7 +452,7 @@ void kmsan_split_page(struct page *page, unsigned int order)
 
 	origin = origin_page_for(&page[0]);
 	split_page(origin, order);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_split_page);
 
@@ -461,7 +461,7 @@ void kmsan_clear_page(void *page_addr)
 {
 	struct page *page;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	BUG_ON(!IS_ALIGNED((u64)page_addr, PAGE_SIZE));
 	page = vmalloc_to_page_or_null(page_addr);
@@ -483,7 +483,7 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 	struct page **s_pages, **o_pages;
 	unsigned long shadow_start, shadow_end, origin_start, origin_end;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	shadow_start = vmalloc_meta((void *)start, META_SHADOW);
 	if (!shadow_start)

@@ -64,32 +64,41 @@ enum KMSAN_BUG_REASON {
 /*
  * When a compiler hook is invoked, it may make a call to instrumented code
  * and eventually call itself recursively. To avoid that, we protect the
- * runtime entry points with ENTER_RUNTIME()/LEAVE_RUNTIME() macros and exit
- * the hook if IN_RUNTIME() is true. But when an interrupt occurs inside the
- * runtime, the hooks won’t run either, which may lead to errors.
+ * runtime entry points with kmsan_enter_runtime()/kmsan_leave_runtime() and
+ * exit the hook if kmsan_in_runtime() is true. But when an interrupt occurs
+ * inside the runtime, the hooks won’t run either, which may lead to errors.
  * Therefore we have to disable interrupts inside the runtime.
  */
-DECLARE_PER_CPU(int, kmsan_in_runtime);
-#define IN_RUNTIME()	(this_cpu_read(kmsan_in_runtime))
-#define ENTER_RUNTIME(irq_flags) \
-	do { \
-		preempt_disable(); \
-		local_irq_save(irq_flags); \
-		stop_nmi();		\
-		this_cpu_inc(kmsan_in_runtime); \
-		BUG_ON(this_cpu_read(kmsan_in_runtime) > 1); \
-	} while (0)
-#define LEAVE_RUNTIME(irq_flags)	\
-	do {	\
-		this_cpu_dec(kmsan_in_runtime);	\
-		if (this_cpu_read(kmsan_in_runtime)) { \
-			pr_err("kmsan_in_runtime: %d\n", \
-				this_cpu_read(kmsan_in_runtime)); \
-			BUG(); \
-		}	\
-		restart_nmi();		\
-		local_irq_restore(irq_flags);	\
-		preempt_enable(); } while (0)
+DECLARE_PER_CPU(int, kmsan_in_runtime_cnt);
+
+static __always_inline bool kmsan_in_runtime(void)
+{
+	return this_cpu_read(kmsan_in_runtime_cnt);
+}
+
+static __always_inline unsigned long kmsan_enter_runtime(void)
+{
+	int level;
+	unsigned long irq_flags;
+
+	preempt_disable();
+	local_irq_save(irq_flags);
+	stop_nmi();
+	level = this_cpu_inc_return(kmsan_in_runtime_cnt);
+	BUG_ON(level > 1);
+	return irq_flags;
+}
+
+static __always_inline void kmsan_leave_runtime(unsigned long irq_flags)
+{
+	int level = this_cpu_dec_return(kmsan_in_runtime_cnt);
+
+	if (level)
+		panic("kmsan_in_runtime: %d\n", level);
+	restart_nmi();
+	local_irq_restore(irq_flags);
+	preempt_enable();
+}
 
 void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
 void kmsan_memmove_metadata(void *dst, void *src, size_t n);

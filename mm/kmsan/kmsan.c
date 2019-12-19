@@ -60,7 +60,7 @@ DEFINE_PER_CPU(struct kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
 	       kmsan_percpu_cstate);
 /* 0 for task context, |i>0| for kmsan_context_state[i]. */
 DEFINE_PER_CPU(int, kmsan_context_level);
-DEFINE_PER_CPU(int, kmsan_in_runtime);
+DEFINE_PER_CPU(int, kmsan_in_runtime_cnt);
 
 struct kmsan_context_state *task_kmsan_context_state(void)
 {
@@ -68,7 +68,7 @@ struct kmsan_context_state *task_kmsan_context_state(void)
 	int level = this_cpu_read(kmsan_context_level);
 	struct kmsan_context_state *ret;
 
-	if (!kmsan_ready || IN_RUNTIME()) {
+	if (!kmsan_ready || kmsan_in_runtime()) {
 		ret = &per_cpu(kmsan_percpu_cstate[0], cpu);
 		__memset(ret, 0, sizeof(struct kmsan_context_state));
 		return ret;
@@ -404,11 +404,11 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 			 * bytes before, report them.
 			 */
 			if (cur_origin) {
-				ENTER_RUNTIME(irq_flags);
+				irq_flags = kmsan_enter_runtime();
 				kmsan_report(cur_origin, addr, size,
 					     cur_off_start, pos - 1, user_addr,
 					     reason);
-				LEAVE_RUNTIME(irq_flags);
+				kmsan_leave_runtime(irq_flags);
 			}
 			cur_origin = 0;
 			cur_off_start = -1;
@@ -422,11 +422,11 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 * poisoned bytes before, report them.
 				 */
 				if (cur_origin) {
-					ENTER_RUNTIME(irq_flags);
+					irq_flags = kmsan_enter_runtime();
 					kmsan_report(cur_origin, addr, size,
 						     cur_off_start, pos + i - 1,
 						     user_addr, reason);
-					LEAVE_RUNTIME(irq_flags);
+					kmsan_leave_runtime(irq_flags);
 				}
 				cur_origin = 0;
 				cur_off_start = -1;
@@ -442,11 +442,11 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 			 */
 			if (cur_origin != new_origin) {
 				if (cur_origin) {
-					ENTER_RUNTIME(irq_flags);
+					irq_flags = kmsan_enter_runtime();
 					kmsan_report(cur_origin, addr, size,
 						     cur_off_start, pos + i - 1,
 						     user_addr, reason);
-					LEAVE_RUNTIME(irq_flags);
+					kmsan_leave_runtime(irq_flags);
 				}
 				cur_origin = new_origin;
 				cur_off_start = pos + i;
@@ -456,10 +456,10 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	}
 	BUG_ON(pos != size);
 	if (cur_origin) {
-		ENTER_RUNTIME(irq_flags);
+		irq_flags = kmsan_enter_runtime();
 		kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1,
 			     user_addr, reason);
-		LEAVE_RUNTIME(irq_flags);
+		kmsan_leave_runtime(irq_flags);
 	}
 }
 

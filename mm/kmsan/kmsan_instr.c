@@ -58,7 +58,7 @@ void __msan_instrument_asm_store(void *addr, u64 size)
 {
 	unsigned long irq_flags;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	/*
 	 * Most of the accesses are below 32 bytes. The two exceptions so far
@@ -69,10 +69,10 @@ void __msan_instrument_asm_store(void *addr, u64 size)
 		size = 8;
 	if (is_bad_asm_addr(addr, size, /*is_store*/true))
 		return;
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	/* Unpoisoning the memory on best effort. */
 	kmsan_internal_unpoison_shadow(addr, size, /*checked*/false);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(__msan_instrument_asm_store);
 
@@ -85,7 +85,7 @@ void *__msan_memmove(void *dst, const void *src, size_t n)
 	if (!n)
 		/* Some people call memmove() with zero length. */
 		return result;
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return result;
 
 	/* Ok to skip address check here, we'll do it later. */
@@ -117,7 +117,7 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 		/* Some people call memcpy() with zero length. */
 		return result;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return result;
 
 	/* Ok to skip address check here, we'll do it later. */
@@ -146,15 +146,15 @@ void *__msan_memset(void *dst, int c, size_t n)
 	unsigned int shadow;
 
 	result = __memset(dst, c, n);
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return result;
 
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	shadow = 0;
 	kmsan_internal_memset_shadow(dst, shadow, n, /*checked*/false);
 	new_origin = 0;
 	kmsan_internal_set_origin(dst, n, new_origin);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 
 	return result;
 }
@@ -171,13 +171,13 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 	depot_stack_handle_t ret = 0;
 	unsigned long irq_flags;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return ret;
 
 	/* Creating new origins may allocate memory. */
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	ret = kmsan_internal_chain_origin(origin);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 	return ret;
 }
 EXPORT_SYMBOL(__msan_chain_origin);
@@ -192,7 +192,7 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	u64 page_offset;
 	void *shadow_start;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
 	while (size_copy) {
@@ -214,9 +214,9 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	entries[3] = (u64)kmsan_internal_return_address(1);
 
 	/* stack_depot_save() may allocate memory. */
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 	kmsan_internal_set_origin(address, size, handle);
 }
 EXPORT_SYMBOL(__msan_poison_alloca);
@@ -225,13 +225,13 @@ void __msan_unpoison_alloca(void *address, u64 size)
 {
 	unsigned long irq_flags;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	/* Assuming the shadow exists. */
 	kmsan_internal_unpoison_shadow(address, size, /*checked*/true);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(__msan_unpoison_alloca);
 
@@ -239,12 +239,12 @@ void __msan_warning(u32 origin)
 {
 	unsigned long irq_flags;
 
-	if (!kmsan_ready || IN_RUNTIME())
+	if (!kmsan_ready || kmsan_in_runtime())
 		return;
-	ENTER_RUNTIME(irq_flags);
+	irq_flags = kmsan_enter_runtime();
 	kmsan_report(origin, /*address*/0, /*size*/0,
 		/*off_first*/0, /*off_last*/0, /*user_addr*/0, REASON_ANY);
-	LEAVE_RUNTIME(irq_flags);
+	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(__msan_warning);
 
