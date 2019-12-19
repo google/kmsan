@@ -55,10 +55,7 @@ void kmsan_task_exit(struct task_struct *task)
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
-	irq_flags = kmsan_enter_runtime();
 	state->allow_reporting = false;
-
-	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_task_exit);
 
