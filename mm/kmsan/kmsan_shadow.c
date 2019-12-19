@@ -456,25 +456,6 @@ void kmsan_split_page(struct page *page, unsigned int order)
 }
 EXPORT_SYMBOL(kmsan_split_page);
 
-/* Called from include/linux/highmem.h */
-void kmsan_clear_page(void *page_addr)
-{
-	struct page *page;
-
-	if (!kmsan_ready || kmsan_in_runtime())
-		return;
-	BUG_ON(!IS_ALIGNED((u64)page_addr, PAGE_SIZE));
-	page = vmalloc_to_page_or_null(page_addr);
-	if (!page)
-		page = virt_to_page_or_null(page_addr);
-	if (!page || !has_shadow_page(page))
-		return;
-	__memset(shadow_ptr_for(page), 0, PAGE_SIZE);
-	BUG_ON(!has_origin_page(page));
-	__memset(origin_ptr_for(page), 0, PAGE_SIZE);
-}
-EXPORT_SYMBOL(kmsan_clear_page);
-
 /* Called from mm/vmalloc.c */
 void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 				   pgprot_t prot, struct page **pages)
