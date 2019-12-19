@@ -94,17 +94,16 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
-	irq_flags = kmsan_enter_runtime();
 
 	/* RCU slabs could be legally used after free within the RCU period */
 	if (unlikely(s->flags & (SLAB_TYPESAFE_BY_RCU | SLAB_POISON)))
-		goto leave;
+		return;
 	if (s->ctor)
-		goto leave;
+		return;
+	irq_flags = kmsan_enter_runtime();
 	kmsan_internal_poison_shadow(object, s->object_size,
 				     GFP_KERNEL,
 				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
-leave:
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_slab_free);
