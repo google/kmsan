@@ -60,9 +60,6 @@ DEFINE_PER_CPU(struct kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
 	       kmsan_percpu_cstate);
 /* 0 for task context, |i>0| for kmsan_context_state[i]. */
 DEFINE_PER_CPU(int, kmsan_context_level);
-DEFINE_PER_CPU(int, kmsan_in_interrupt);
-DEFINE_PER_CPU(bool, kmsan_in_softirq);
-DEFINE_PER_CPU(bool, kmsan_in_nmi);
 DEFINE_PER_CPU(int, kmsan_in_runtime);
 
 struct kmsan_context_state *task_kmsan_context_state(void)

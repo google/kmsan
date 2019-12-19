@@ -15,84 +15,51 @@
 
 static void kmsan_context_enter(void)
 {
-	int level = this_cpu_read(kmsan_context_level) + 1;
-
+	int level = this_cpu_inc_return(kmsan_context_level);
 	BUG_ON(level >= KMSAN_NESTED_CONTEXT_MAX);
-	this_cpu_write(kmsan_context_level, level);
 }
 
 static void kmsan_context_exit(void)
 {
-	int level = this_cpu_read(kmsan_context_level) - 1;
-
+	int level = this_cpu_dec_return(kmsan_context_level);
 	BUG_ON(level < 0);
-	this_cpu_write(kmsan_context_level, level);
 }
 
 void kmsan_interrupt_enter(void)
 {
-	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
-
-	/* Turns out it's possible for in_interrupt to be >0 here. */
 	kmsan_context_enter();
-	BUG_ON(in_interrupt > 1);
-	/* Can't check preempt_count() here, it may be zero. */
-	this_cpu_write(kmsan_in_interrupt, in_interrupt + 1);
 }
 EXPORT_SYMBOL(kmsan_interrupt_enter);
 
 void kmsan_interrupt_exit(void)
 {
-	int in_interrupt = this_cpu_read(kmsan_in_interrupt);
-
-	BUG_ON(!in_interrupt);
 	kmsan_context_exit();
-	/* Can't check preempt_count() here, it may be zero. */
-	this_cpu_write(kmsan_in_interrupt, in_interrupt - 1);
 }
 EXPORT_SYMBOL(kmsan_interrupt_exit);
 
 void kmsan_softirq_enter(void)
 {
-	bool in_softirq = this_cpu_read(kmsan_in_softirq);
-
-	BUG_ON(in_softirq);
 	kmsan_context_enter();
-	/* Can't check preempt_count() here, it may be zero. */
-	this_cpu_write(kmsan_in_softirq, true);
 }
 EXPORT_SYMBOL(kmsan_softirq_enter);
 
 void kmsan_softirq_exit(void)
 {
-	bool in_softirq = this_cpu_read(kmsan_in_softirq);
-
-	BUG_ON(!in_softirq);
 	kmsan_context_exit();
-	/* Can't check preempt_count() here, it may be zero. */
-	this_cpu_write(kmsan_in_softirq, false);
 }
 EXPORT_SYMBOL(kmsan_softirq_exit);
 
 void kmsan_nmi_enter(void)
 {
-	bool in_nmi = this_cpu_read(kmsan_in_nmi);
-
-	BUG_ON(in_nmi);
 	BUG_ON(preempt_count() & NMI_MASK);
 	kmsan_context_enter();
-	this_cpu_write(kmsan_in_nmi, true);
 }
 EXPORT_SYMBOL(kmsan_nmi_enter);
 
 void kmsan_nmi_exit(void)
 {
-	bool in_nmi = this_cpu_read(kmsan_in_nmi);
-
-	BUG_ON(!in_nmi);
 	BUG_ON(preempt_count() & NMI_MASK);
 	kmsan_context_exit();
-	this_cpu_write(kmsan_in_nmi, false);
 
 }
 EXPORT_SYMBOL(kmsan_nmi_exit);
