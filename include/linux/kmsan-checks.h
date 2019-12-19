@@ -52,6 +52,7 @@ static inline u64 KMSAN_INIT_8(u64 value)
 	return value;
 }
 
+/* Make the value initialized. */
 #define KMSAN_INIT_VALUE(val)		\
 	({				\
 		typeof(val) __ret;	\
@@ -74,8 +75,19 @@ static inline u64 KMSAN_INIT_8(u64 value)
 		__ret;						\
 	}) /**/
 
+/*
+ * Mark the memory range as uninitialized. Error reports for that memory will
+ * reference the call site of kmsan_poison_shadow() as origin.
+ */
 void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags);
+
+/* Mark the memory range as initialized. */
 void kmsan_unpoison_shadow(const void *address, size_t size);
+
+/*
+ * Check the memory range for being initialized and report errors for every
+ * uninitialized subrange.
+ */
 void kmsan_check_memory(const void *address, size_t size);
 
 #else
