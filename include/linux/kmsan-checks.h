@@ -52,7 +52,13 @@ static inline u64 KMSAN_INIT_8(u64 value)
 	return value;
 }
 
-/* Make the value initialized. */
+/**
+ * KMSAN_INIT_VALUE - Make the value initialized.
+ * @val: 1-, 2-, 4- or 8-byte integer that may be treated as uninitialized by
+ *       KMSAN's.
+ *
+ * Return: value of @val that KMSAN treats as initialized.
+ */
 #define KMSAN_INIT_VALUE(val)		\
 	({				\
 		typeof(val) __ret;	\
@@ -75,18 +81,35 @@ static inline u64 KMSAN_INIT_8(u64 value)
 		__ret;						\
 	}) /**/
 
-/*
- * Mark the memory range as uninitialized. Error reports for that memory will
- * reference the call site of kmsan_poison_shadow() as origin.
+/**
+ * kmsan_poison_shadow() - Mark the memory range as uninitialized.
+ * @address: address to start with.
+ * @size:    size of buffer to poison.
+ * @flags:   GFP flags for allocations done by this function.
+ *
+ * Until other data is written to this range, KMSAN will treat it as
+ * uninitialized. Error reports for this memory will reference the call site of
+ * kmsan_poison_shadow() as origin.
  */
 void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags);
 
-/* Mark the memory range as initialized. */
+/**
+ * kmsan_unpoison_shadow() -  Mark the memory range as initialized.
+ * @address: address to start with.
+ * @size:    size of buffer to unpoison.
+ *
+ * Until other data is written to this range, KMSAN will treat it as
+ * initialized.
+ */
 void kmsan_unpoison_shadow(const void *address, size_t size);
 
-/*
- * Check the memory range for being initialized and report errors for every
- * uninitialized subrange.
+/**
+ * kmsan_check_memory() - Check the memory range for being initialized.
+ * @address: address to start with.
+ * @size:    size of buffer to check.
+ *
+ * If any piece of the given range is marked as uninitialized, KMSAN will report
+ * an error.
  */
 void kmsan_check_memory(const void *address, size_t size);
 
