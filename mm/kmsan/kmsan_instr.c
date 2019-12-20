@@ -176,26 +176,11 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	depot_stack_handle_t handle;
 	unsigned long entries[4];
 	unsigned long irq_flags;
-	u64 size_copy = size, to_fill;
-	u64 addr_copy = (u64)address;
-	u64 page_offset;
-	void *shadow_start;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
-	while (size_copy) {
-		page_offset = addr_copy % PAGE_SIZE;
-		to_fill = min(PAGE_SIZE - page_offset, size_copy);
-		shadow_start = kmsan_get_metadata((void *)addr_copy, to_fill,
-						  META_SHADOW);
-		addr_copy += to_fill;
-		size_copy -= to_fill;
-		if (!shadow_start)
-			/* Can happen e.g. if the memory is untracked. */
-			continue;
-		__memset(shadow_start, -1, to_fill);
-	}
+	kmsan_internal_memset_shadow(address, -1, size, /*checked*/true);
 
 	entries[0] = KMSAN_ALLOCA_MAGIC_ORIGIN;
 	entries[1] = (u64)descr;
