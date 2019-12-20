@@ -90,13 +90,6 @@ void *__msan_memmove(void *dst, const void *src, size_t n)
 	if (!kmsan_ready || kmsan_in_runtime())
 		return result;
 
-	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = kmsan_get_metadata(dst, n, META_SHADOW);
-
-	if (!shadow_dst)
-		/* Can happen e.g. if the memory is untracked. */
-		return result;
-
 	kmsan_memmove_metadata(dst, (void *)src, n);
 
 	return result;
@@ -120,12 +113,6 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 		return result;
 
 	if (!kmsan_ready || kmsan_in_runtime())
-		return result;
-
-	/* Ok to skip address check here, we'll do it later. */
-	shadow_dst = kmsan_get_metadata(dst, n, META_SHADOW);
-	if (!shadow_dst)
-		/* Can happen e.g. if the memory is untracked. */
 		return result;
 
 	kmsan_memcpy_metadata(dst, (void *)src, n);

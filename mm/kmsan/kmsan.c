@@ -168,8 +168,8 @@ depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
  *   therefore if this doesn't happen with the kernel memory it can't happen
  *   with the shadow.
  */
-void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
-				   bool is_memmove)
+static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
+					  bool is_memmove)
 {
 	void *shadow_src, *shadow_dst;
 	depot_stack_handle_t *origin_src, *origin_dst;
