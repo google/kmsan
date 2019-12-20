@@ -47,43 +47,25 @@
 	KMSAN_POP_REGS
 .endm
 
-.macro KMSAN_INTERRUPT_ENTER
-	KMSAN_CALL_HOOK kmsan_interrupt_enter
+.macro KMSAN_CONTEXT_ENTER
+	KMSAN_CALL_HOOK kmsan_context_enter
 .endm
 
-.macro KMSAN_INTERRUPT_EXIT
-	KMSAN_CALL_HOOK kmsan_interrupt_exit
+.macro KMSAN_CONTEXT_EXIT
+	KMSAN_CALL_HOOK kmsan_context_exit
 .endm
 
-.macro KMSAN_SOFTIRQ_ENTER
-	KMSAN_CALL_HOOK kmsan_softirq_enter
-.endm
+#define KMSAN_INTERRUPT_ENTER KMSAN_CONTEXT_ENTER
+#define KMSAN_INTERRUPT_EXIT KMSAN_CONTEXT_EXIT
 
-.macro KMSAN_SOFTIRQ_EXIT
-	KMSAN_CALL_HOOK kmsan_softirq_exit
-.endm
+#define KMSAN_SOFTIRQ_ENTER KMSAN_CONTEXT_ENTER
+#define KMSAN_SOFTIRQ_EXIT KMSAN_CONTEXT_EXIT
 
-.macro KMSAN_NMI_ENTER
-	KMSAN_CALL_HOOK kmsan_nmi_enter
-.endm
+#define KMSAN_NMI_ENTER KMSAN_CONTEXT_ENTER
+#define KMSAN_NMI_EXIT KMSAN_CONTEXT_EXIT
 
-.macro KMSAN_NMI_EXIT
-	KMSAN_CALL_HOOK kmsan_nmi_exit
-.endm
-
-.macro KMSAN_IST_ENTER shift_ist
-	KMSAN_PUSH_REGS
-	movq	\shift_ist, %rdi
-	call	kmsan_ist_enter
-	KMSAN_POP_REGS
-.endm
-
-.macro KMSAN_IST_EXIT shift_ist
-	KMSAN_PUSH_REGS
-	movq	\shift_ist, %rdi
-	call	kmsan_ist_exit
-	KMSAN_POP_REGS
-.endm
+#define KMSAN_IST_ENTER(shift_ist) KMSAN_CONTEXT_ENTER
+#define KMSAN_IST_EXIT(shift_ist) KMSAN_CONTEXT_EXIT
 
 .macro KMSAN_UNPOISON_PT_REGS
 	KMSAN_CALL_HOOK kmsan_unpoison_pt_regs

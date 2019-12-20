@@ -217,14 +217,21 @@ void kmsan_ioremap_page_range(unsigned long addr, unsigned long end,
 void kmsan_iounmap_page_range(unsigned long start, unsigned long end);
 
 /**
- * kmsan_softirq_enter() - Notify KMSAN about a softirq entry.
+ * kmsan_softirq_enter() - Notify KMSAN about a context entry.
+ *
+ * This function should be called whenever the kernel leaves the current task
+ * and enters an IRQ, softirq or NMI context. KMSAN will switch the task state
+ * to a per-thread storage.
  */
-void kmsan_softirq_enter(void);
+void kmsan_context_enter(void);
 
 /**
- * kmsan_softirq_exit() - Notify KMSAN about a softirq exit.
+ * kmsan_softirq_exit() - Notify KMSAN about a context exit.
+ *
+ * This function should be called when the kernel leaves the previously entered
+ * context.
  */
-void kmsan_softirq_exit(void);
+void kmsan_context_exit(void);
 
 /**
  * kmsan_copy_to_user() - Notify KMSAN about a data transfer to userspace.
