@@ -178,12 +178,10 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	u32 *align_shadow_src, shadow;
 	bool backwards;
 
-	BUG_ON(!metadata_is_contiguous(dst, n, META_SHADOW));
-	BUG_ON(!metadata_is_contiguous(src, n, META_SHADOW));
-
 	shadow_dst = kmsan_get_metadata(dst, n, META_SHADOW);
 	if (!shadow_dst)
 		return;
+	BUG_ON(!metadata_is_contiguous(dst, n, META_SHADOW));
 
 	shadow_src = kmsan_get_metadata(src, n, META_SHADOW);
 	if (!shadow_src) {
@@ -194,6 +192,8 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 		__memset(shadow_dst, 0, n);
 		return;
 	}
+	BUG_ON(!metadata_is_contiguous(src, n, META_SHADOW));
+
 	if (is_memmove)
 		__memmove(shadow_dst, shadow_src, n);
 	else
