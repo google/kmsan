@@ -76,13 +76,12 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 		return;
 
 	irq_flags = kmsan_enter_runtime();
-	if (flags & __GFP_ZERO) {
+	if (flags & __GFP_ZERO)
 		kmsan_internal_unpoison_shadow(object, s->object_size,
 					       KMSAN_POISON_CHECK);
-	} else {
+	else
 		kmsan_internal_poison_shadow(object, s->object_size, flags,
 					     KMSAN_POISON_CHECK);
-	}
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_slab_alloc);
