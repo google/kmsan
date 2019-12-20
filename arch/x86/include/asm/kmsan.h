@@ -2,9 +2,6 @@
 /*
  * Assembly bits to safely invoke KMSAN hooks from .S files.
  *
- * Adopted from KTSAN assembly hooks implementation by Dmitry Vyukov
- * https://github.com/google/ktsan/
- *
  * Copyright (C) 2017-2019 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
