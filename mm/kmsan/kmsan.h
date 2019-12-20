@@ -106,6 +106,13 @@ depot_stack_handle_t kmsan_save_stack(void);
 depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
 						 unsigned int extra_bits);
 
+/*
+ * Pack and unpack the origin chain depth and UAF flag to/from the extra bits
+ * provided by the stack depot.
+ * The UAF flag is stored in the lowest bit, followed by the depth in the upper
+ * bits.
+ * set_dsh_extra_bits() is responsible for clamping the value.
+ */
 static __always_inline unsigned int kmsan_extra_bits(unsigned int depth,
 						     bool uaf)
 {
