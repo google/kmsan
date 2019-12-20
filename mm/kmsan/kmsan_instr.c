@@ -131,7 +131,6 @@ void *__msan_memset(void *dst, int c, size_t n)
 {
 	void *result;
 	unsigned long irq_flags;
-	depot_stack_handle_t new_origin;
 	unsigned int shadow;
 
 	result = __memset(dst, c, n);
@@ -139,10 +138,11 @@ void *__msan_memset(void *dst, int c, size_t n)
 		return result;
 
 	irq_flags = kmsan_enter_runtime();
-	shadow = 0;
-	kmsan_internal_memset_shadow(dst, shadow, n, /*checked*/false);
-	new_origin = 0;
-	kmsan_internal_set_origin(dst, n, new_origin);
+	/*
+	 * Clang doesn't pass parameter metadata here, so it is impossible to
+	 * use shadow of @c to set up the shadow for @dst.
+	 */
+	kmsan_internal_unpoison_shadow(dst, n, /*checked*/false);
 	kmsan_leave_runtime(irq_flags);
 
 	return result;
