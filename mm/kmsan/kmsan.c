@@ -282,9 +282,6 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	static int skipped;
 	u32 extra_bits;
 
-	if (!kmsan_ready)
-		return 0;
-
 	if (!id)
 		return id;
 	/*
