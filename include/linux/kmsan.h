@@ -104,7 +104,7 @@ void kmsan_free_page(struct page *page, unsigned int order);
 /**
  * kmsan_split_page() - Notify KMSAN about a split_page() call.
  * @page:  struct page pointer passed to split_page().
- * @order: order of splitted struct page.
+ * @order: order of split struct page.
  *
  * KMSAN splits the metadata pages for the given struct page, so that they
  * can be deallocated separately.
