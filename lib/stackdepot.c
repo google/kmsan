@@ -234,7 +234,7 @@ unsigned int stack_depot_fetch(depot_stack_handle_t handle,
 	slab = stack_slabs[parts.slabindex];
 	stack = slab + offset;
 	if (!stack) {
-		entries = NULL;
+		*entries = NULL;
 		return 0;
 	}
 
