@@ -200,7 +200,6 @@ void __msan_unpoison_alloca(void *address, u64 size)
 		return;
 
 	irq_flags = kmsan_enter_runtime();
-	/* Assuming the shadow exists. */
 	kmsan_internal_unpoison_shadow(address, size, /*checked*/true);
 	kmsan_leave_runtime(irq_flags);
 }
