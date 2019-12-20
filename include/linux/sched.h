@@ -15,6 +15,7 @@
 #include <linux/sem.h>
 #include <linux/shm.h>
 #include <linux/kcov.h>
+#include <linux/kmsan.h>
 #include <linux/mutex.h>
 #include <linux/plist.h>
 #include <linux/hrtimer.h>
@@ -1210,6 +1211,10 @@ struct task_struct {
 
 #if IS_ENABLED(CONFIG_KUNIT)
 	struct kunit			*kunit_test;
+#endif
+
+#ifdef CONFIG_KMSAN
+	struct kmsan_task_state		kmsan;
 #endif
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
