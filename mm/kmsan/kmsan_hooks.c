@@ -286,9 +286,8 @@ EXPORT_SYMBOL(kmsan_gup_pgd_range);
 /* Helper function to check an SKB. */
 void kmsan_check_skb(const struct sk_buff *skb)
 {
-	int start = skb_headlen(skb);
 	struct sk_buff *frag_iter;
-	int i, copy = 0;
+	int i;
 	skb_frag_t *f;
 	u32 p_off, p_len, copied;
 	struct page *p;
@@ -302,9 +301,9 @@ void kmsan_check_skb(const struct sk_buff *skb)
 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
 			f = &skb_shinfo(skb)->frags[i];
 
-			skb_frag_foreach_page(f,
-					      skb_frag_off(f)  - start,
-					      copy, p, p_off, p_len, copied) {
+			skb_frag_foreach_page(f, skb_frag_off(f),
+					      skb_frag_size(f),
+					      p, p_off, p_len, copied) {
 
 				vaddr = kmap_atomic(p);
 				kmsan_internal_check_memory(vaddr + p_off,
