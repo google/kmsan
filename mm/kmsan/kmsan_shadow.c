@@ -25,23 +25,17 @@
 #include "kmsan.h"
 #include "kmsan_shadow.h"
 
-#define shadow_page_for(page) \
-	((page)->shadow)
+#define shadow_page_for(page) ((page)->shadow)
 
-#define origin_page_for(page) \
-	((page)->origin)
+#define origin_page_for(page) ((page)->origin)
 
-#define shadow_ptr_for(page) \
-	(page_address((page)->shadow))
+#define shadow_ptr_for(page) (page_address((page)->shadow))
 
-#define origin_ptr_for(page) \
-	(page_address((page)->origin))
+#define origin_ptr_for(page) (page_address((page)->origin))
 
-#define has_shadow_page(page) \
-	(!!((page)->shadow))
+#define has_shadow_page(page) (!!((page)->shadow))
 
-#define has_origin_page(page) \
-	(!!((page)->origin))
+#define has_origin_page(page) (!!((page)->origin))
 
 #define set_no_shadow_origin_page(page)	\
 	do {				\
@@ -49,11 +43,10 @@
 		(page)->origin = NULL;	\
 	} while (0) /**/
 
-#define is_ignored_page(page)	\
-	(!!(((u64)((page)->shadow)) % 2))
+#define is_ignored_page(page) (!!(((u64)((page)->shadow)) % 2))
 
-#define ignore_page(pg)			\
-		((pg)->shadow = (struct page *)((u64)((pg)->shadow) | 1)) \
+#define ignore_page(pg)	\
+	((pg)->shadow = (struct page *)((u64)((pg)->shadow) | 1))
 
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
@@ -61,7 +54,7 @@ DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
 /*
  * Dummy load and store pages to be used when the real metadata is unavailable.
  * There are separate pages for loads and stores, so that every load returns a
- * zero, and every store doesn't affect other stores.
+ * zero, and every store doesn't affect other loads.
  */
 char dummy_load_page[PAGE_SIZE] __aligned(PAGE_SIZE);
 char dummy_store_page[PAGE_SIZE] __aligned(PAGE_SIZE);
@@ -108,10 +101,9 @@ static unsigned long vmalloc_meta(void *addr, bool is_origin)
 	unsigned long addr64 = (unsigned long)addr, off;
 
 	BUG_ON(is_origin && !IS_ALIGNED(addr64, ORIGIN_SIZE));
-	if (kmsan_internal_is_vmalloc_addr(addr)) {
+	if (kmsan_internal_is_vmalloc_addr(addr))
 		return addr64 + (is_origin ? VMALLOC_ORIGIN_OFFSET
 					   : VMALLOC_SHADOW_OFFSET);
-	}
 	if (kmsan_internal_is_module_addr(addr)) {
 		off = addr64 - MODULES_VADDR;
 		return off + (is_origin ? MODULES_ORIGIN_START
@@ -240,9 +232,8 @@ void *kmsan_get_metadata(void *address, size_t size, bool is_origin)
 	}
 	address = (void *)addr;
 	if (kmsan_internal_is_vmalloc_addr(address) ||
-	    kmsan_internal_is_module_addr(address)) {
+	    kmsan_internal_is_module_addr(address))
 		return (void *)vmalloc_meta(address, is_origin);
-	}
 
 	ret = get_cea_meta_or_null(address, is_origin);
 	if (ret)
@@ -501,12 +492,8 @@ ret:
 
 void kmsan_ignore_page(struct page *page, int order)
 {
-	int pages = 1 << order;
 	int i;
-	struct page *cp;
 
-	for (i = 0; i < pages; i++) {
-		cp = &page[i];
-		ignore_page(cp);
-	}
+	for (i = 0; i < 1 << order; i++)
+		ignore_page(&page[i]);
 }
