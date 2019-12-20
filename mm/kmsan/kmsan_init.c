@@ -14,6 +14,7 @@
 #include "kmsan.h"
 
 #include <asm/cpu_entry_area.h>
+#include <asm/sections.h>
 #include <linux/mm.h>
 #include <linux/memblock.h>
 
@@ -38,10 +39,6 @@ static void __init kmsan_record_future_shadow_range(void *start, void *end)
 	future_index++;
 }
 
-extern char _sdata[], _edata[];
-
-
-
 /*
  * Initialize the shadow for existing mappings during kernel initialization.
  * These include kernel text/data sections, NODE_DATA and future ranges
@@ -56,16 +53,15 @@ void __init kmsan_initialize_shadow(void)
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
 	phys_addr_t p_start, p_end;
 
-	for_each_reserved_mem_region(i, &p_start, &p_end) {
+	for_each_reserved_mem_region(i, &p_start, &p_end)
 		kmsan_record_future_shadow_range(phys_to_virt(p_start),
 						 phys_to_virt(p_end+1));
-	}
 	/* Allocate shadow for .data */
 	kmsan_record_future_shadow_range(_sdata, _edata);
 
 	for_each_online_node(nid)
 		kmsan_record_future_shadow_range(
-			NODE_DATA(nid),	(char *)NODE_DATA(nid) + nd_size);
+			NODE_DATA(nid), (char *)NODE_DATA(nid) + nd_size);
 
 	for (i = 0; i < future_index; i++)
 		kmsan_init_alloc_meta_for_range(start_end_pairs[i].start,
