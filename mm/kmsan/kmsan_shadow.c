@@ -141,17 +141,25 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 						     bool store)
 {
 	struct shadow_origin_ptr ret;
-	struct page *page;
-	u64 pad, offset, o_offset;
-	const u64 addr64 = (u64)address;
-	u64 o_addr64 = (u64)address;
 	void *shadow;
 
-	if (size > PAGE_SIZE) {
-		WARN(1, "size too big in %s(%px, %d, %d)\n",
+	if (size > PAGE_SIZE)
+		panic("size too big in %s(%px, %d, %d)\n",
 		     __func__, address, size, store);
-		BUG();
-	}
+
+	if (!kmsan_ready || kmsan_in_runtime())
+		goto return_dummy;
+
+	BUG_ON(!metadata_is_contiguous(address, size, META_SHADOW));
+	shadow = kmsan_get_metadata(address, size, META_SHADOW);
+	if (!shadow)
+		goto return_dummy;
+
+	ret.s = shadow;
+	ret.o = kmsan_get_metadata(address, size, META_ORIGIN);
+	return ret;
+
+return_dummy:
 	if (store) {
 		ret.s = dummy_store_page;
 		ret.o = dummy_store_page;
@@ -159,57 +167,6 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 		ret.s = dummy_load_page;
 		ret.o = dummy_load_page;
 	}
-	if (!kmsan_ready || kmsan_in_runtime())
-		return ret;
-	BUG_ON(!metadata_is_contiguous(address, size, META_SHADOW));
-
-	if (!IS_ALIGNED(addr64, ORIGIN_SIZE)) {
-		pad = addr64 % ORIGIN_SIZE;
-		o_addr64 -= pad;
-	}
-
-	if (kmsan_internal_is_vmalloc_addr(address) ||
-	    kmsan_internal_is_module_addr(address)) {
-		ret.s = (void *)vmalloc_meta(address, META_SHADOW);
-		ret.o = (void *)vmalloc_meta((void *)o_addr64, META_ORIGIN);
-		return ret;
-	}
-
-	if (!kmsan_virt_addr_valid(address)) {
-		page = vmalloc_to_page_or_null(address);
-		if (page)
-			goto next;
-		shadow = get_cea_meta_or_null(address, META_SHADOW);
-		if (shadow) {
-			ret.s = shadow;
-			ret.o = get_cea_meta_or_null((void *)o_addr64,
-						     META_ORIGIN);
-			return ret;
-		}
-	}
-	page = virt_to_page_or_null(address);
-	if (!page)
-		return ret;
-next:
-	if (is_ignored_page(page))
-		return ret;
-
-	if (!has_shadow_page(page) || !has_origin_page(page))
-		return ret;
-	offset = addr64 % PAGE_SIZE;
-	o_offset = o_addr64 % PAGE_SIZE;
-
-	if (offset + size - 1 > PAGE_SIZE) {
-		/*
-		 * The access overflows the current page and touches the
-		 * subsequent ones. Make sure the shadow/origin pages are also
-		 * consequent.
-		 */
-		BUG_ON(!metadata_is_contiguous(address, size, META_SHADOW));
-	}
-
-	ret.s = shadow_ptr_for(page) + offset;
-	ret.o = origin_ptr_for(page) + o_offset;
 	return ret;
 }
 
