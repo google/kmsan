@@ -39,8 +39,7 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 			descr = (char *)entries[1];
 			pc1 = (void *)entries[2];
 			pc2 = (void *)entries[3];
-			pr_err("Local variable description: %s\n", descr);
-			pr_err("Variable was created at:\n");
+			pr_err("Local variable %s created at:\n", descr);
 			pr_err(" %pS\n", pc1);
 			pr_err(" %pS\n", pc2);
 			break;
@@ -58,21 +57,37 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 			continue;
 		}
 		pr_err("Uninit was created at:\n");
-		if (entries)
+		if (nr_entries)
 			stack_trace_print(entries, nr_entries, 0);
 		else
-			pr_err("No stack\n");
+			pr_err("(stack is not available)\n");
 		break;
 	}
 }
 
+/**
+ * kmsan_report() - Report a use of uninitialized value.
+ * @origin:    Stack ID of the uninitialized value.
+ * @address:   Address at which the memory access happens.
+ * @size:      Memory access size.
+ * @off_first: Offset (from @address) of the first byte to be reported.
+ * @off_last:  Offset (from @address) of the last byte to be reported.
+ * @user_addr: When non-NULL, denotes the userspace address to which the kernel
+ *             is leaking data.
+ * @reason:    Error type from KMSAN_BUG_REASON enum.
+ *
+ * kmsan_report() prints an error message for a consequent group of bytes
+ * sharing the same origin. If an uninitialized value is used in a comparison,
+ * this function is called once without specifying the addresses. When checking
+ * a memory range, KMSAN may call kmsan_report() multiple times with the same
+ * @address, @size, @user_addr and @reason, but different @off_first and
+ * @off_last corresponding to different @origin values.
+ */
 void kmsan_report(depot_stack_handle_t origin,
 		  void *address, int size, int off_first, int off_last,
 		  const void *user_addr, int reason)
 {
 	unsigned long flags;
-	unsigned long *entries;
-	unsigned int nr_entries;
 	bool is_uaf = false;
 	char *bug_type = NULL;
 
@@ -82,8 +97,6 @@ void kmsan_report(depot_stack_handle_t origin,
 		return;
 	if (!origin)
 		return;
-
-	nr_entries = stack_depot_fetch(origin, &entries);
 
 	current->kmsan.allow_reporting = false;
 	spin_lock_irqsave(&report_lock, flags);
