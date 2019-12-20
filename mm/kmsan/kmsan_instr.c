@@ -81,7 +81,6 @@ EXPORT_SYMBOL(__msan_instrument_asm_store);
 void *__msan_memmove(void *dst, const void *src, size_t n)
 {
 	void *result;
-	void *shadow_dst;
 
 	result = __memmove(dst, src, n);
 	if (!n)
@@ -105,7 +104,6 @@ EXPORT_SYMBOL(__msan_memmove_nosanitize);
 void *__msan_memcpy(void *dst, const void *src, u64 n)
 {
 	void *result;
-	void *shadow_dst;
 
 	result = __memcpy(dst, src, n);
 	if (!n)
@@ -131,7 +129,6 @@ void *__msan_memset(void *dst, int c, size_t n)
 {
 	void *result;
 	unsigned long irq_flags;
-	unsigned int shadow;
 
 	result = __memset(dst, c, n);
 	if (!kmsan_ready || kmsan_in_runtime())
