@@ -222,7 +222,7 @@ struct kmsan_context_state *__msan_get_context_state(void)
 {
 	struct kmsan_context_state *ret;
 
-	ret = task_kmsan_context_state();
+	ret = kmsan_task_context_state();
 	BUG_ON(!ret);
 	return ret;
 }

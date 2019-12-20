@@ -86,7 +86,7 @@ void kmsan_report(depot_stack_handle_t origin,
 		  const void *user_addr, int reason)
 {
 	unsigned long flags;
-	bool is_uaf = false;
+	bool is_uaf;
 	char *bug_type = NULL;
 
 	if (!kmsan_ready)
@@ -99,8 +99,7 @@ void kmsan_report(depot_stack_handle_t origin,
 	current->kmsan.allow_reporting = false;
 	spin_lock_irqsave(&report_lock, flags);
 	pr_err("=====================================================\n");
-	if (get_dsh_extra_bits(origin) & 1)
-		is_uaf = true;
+	is_uaf = kmsan_uaf_from_eb(get_dsh_extra_bits(origin));
 	switch (reason) {
 	case REASON_ANY:
 		bug_type = is_uaf ? "use-after-free" : "uninit-value";

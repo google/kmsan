@@ -53,7 +53,6 @@ void kmsan_report(depot_stack_handle_t origin,
 		  void *address, int size, int off_first, int off_last,
 		  const void *user_addr, int reason);
 
-
 enum KMSAN_BUG_REASON {
 	REASON_ANY,
 	REASON_COPY_TO_USER,
@@ -106,6 +105,23 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n);
 depot_stack_handle_t kmsan_save_stack(void);
 depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
 						 unsigned int extra_bits);
+
+static __always_inline unsigned int kmsan_extra_bits(unsigned int depth,
+						     bool uaf)
+{
+	return (depth << 1) | uaf;
+}
+
+static __always_inline bool kmsan_uaf_from_eb(unsigned int extra_bits)
+{
+	return extra_bits & 1;
+}
+
+static __always_inline unsigned int kmsan_depth_from_eb(unsigned int extra_bits)
+{
+	return extra_bits >> 1;
+}
+
 void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags);
 void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);
@@ -118,7 +134,7 @@ void kmsan_internal_task_create(struct task_struct *task);
 void kmsan_internal_set_origin(void *addr, int size, u32 origin);
 void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked);
 
-struct kmsan_context_state *task_kmsan_context_state(void);
+struct kmsan_context_state *kmsan_task_context_state(void);
 
 bool metadata_is_contiguous(void *addr, size_t size, bool is_origin);
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,

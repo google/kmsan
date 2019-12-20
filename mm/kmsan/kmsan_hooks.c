@@ -49,7 +49,6 @@ EXPORT_SYMBOL(kmsan_task_create);
 /* Called from kernel/exit.c */
 void kmsan_task_exit(struct task_struct *task)
 {
-	unsigned long irq_flags;
 	struct kmsan_task_state *state = &task->kmsan;
 
 	if (!kmsan_ready || kmsan_in_runtime())
@@ -231,8 +230,6 @@ EXPORT_SYMBOL(kmsan_iounmap_page_range);
 void kmsan_copy_to_user(const void *to, const void *from,
 			size_t to_copy, size_t left)
 {
-	void *shadow;
-
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	/*

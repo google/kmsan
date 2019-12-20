@@ -62,7 +62,7 @@ DEFINE_PER_CPU(struct kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
 DEFINE_PER_CPU(int, kmsan_context_level);
 DEFINE_PER_CPU(int, kmsan_in_runtime_cnt);
 
-struct kmsan_context_state *task_kmsan_context_state(void)
+struct kmsan_context_state *kmsan_task_context_state(void)
 {
 	int cpu = smp_processor_id();
 	int level = this_cpu_read(kmsan_context_level);
@@ -120,10 +120,9 @@ void kmsan_internal_poison_shadow(void *address, size_t size,
 {
 	bool checked = poison_flags & KMSAN_POISON_CHECK;
 	depot_stack_handle_t handle;
-	u32 extra_bits = 0;
+	u32 extra_bits = kmsan_extra_bits(/*depth*/0,
+					  poison_flags & KMSAN_POISON_FREE);
 
-	if (poison_flags & KMSAN_POISON_FREE)
-		extra_bits = 1;
 	kmsan_internal_memset_shadow(address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags, extra_bits);
 	kmsan_set_origin_checked(address, size, handle, checked);
@@ -281,6 +280,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	int depth = 0;
 	static int skipped;
 	u32 extra_bits;
+	bool uaf;
 
 	if (!id)
 		return id;
@@ -291,8 +291,9 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	BUILD_BUG_ON((1 << STACK_DEPOT_EXTRA_BITS) <= (MAX_CHAIN_DEPTH << 1));
 
 	extra_bits = get_dsh_extra_bits(id);
+	depth = kmsan_depth_from_eb(extra_bits);
+	uaf = kmsan_uaf_from_eb(extra_bits);
 
-	depth = extra_bits >> 1;
 	if (depth >= MAX_CHAIN_DEPTH) {
 		skipped++;
 		if (skipped % 10000 == 0) {
@@ -303,8 +304,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 		return id;
 	}
 	depth++;
-	/* Lowest bit is the UAF flag, higher bits hold the depth. */
-	extra_bits = (depth << 1) | (extra_bits & 1);
+	extra_bits = kmsan_extra_bits(depth, uaf);
 
 	entries[0] = magic + depth;
 	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, extra_bits);
