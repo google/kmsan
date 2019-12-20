@@ -117,13 +117,12 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	irq_flags = kmsan_enter_runtime();
-	if (flags & __GFP_ZERO) {
+	if (flags & __GFP_ZERO)
 		kmsan_internal_unpoison_shadow((void *)ptr, size,
 					       /*checked*/true);
-	} else {
+	else
 		kmsan_internal_poison_shadow((void *)ptr, size, flags,
 					     KMSAN_POISON_CHECK);
-	}
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_kmalloc_large);
