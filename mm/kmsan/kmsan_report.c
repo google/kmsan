@@ -27,10 +27,8 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 	void *pc1 = NULL, *pc2 = NULL;
 	depot_stack_handle_t head;
 
-	if (!origin) {
-		pr_err("Origin not found, presumably a false report.\n");
+	if (!origin)
 		return;
-	}
 
 	while (true) {
 		nr_entries = stack_depot_fetch(origin, &entries);
