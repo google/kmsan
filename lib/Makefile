@@ -40,6 +40,7 @@ lib-y := ctype.o string.o vsprintf.o cmdline.o \
 
 lib-$(CONFIG_PRINTK) += dump_stack.o
 lib-$(CONFIG_SMP) += cpumask.o
+lib-$(CONFIG_KMSAN) += kmsan_annotations.o
 
 lib-y	+= kobject.o klist.o
 obj-y	+= lockref.o
