@@ -96,6 +96,11 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 	/* RCU slabs could be legally used after free within the RCU period */
 	if (unlikely(s->flags & (SLAB_TYPESAFE_BY_RCU | SLAB_POISON)))
 		return;
+	/*
+	 * If there's a constructor, freed memory must remain in the same state
+	 * till the next allocation. We cannot save its state to detect
+	 * use-after-free bugs, instead we just keep it unpoisoned.
+	 */
 	if (s->ctor)
 		return;
 	irq_flags = kmsan_enter_runtime();
