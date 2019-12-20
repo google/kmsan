@@ -65,8 +65,10 @@ void __msan_instrument_asm_store(void *addr, u64 size)
 	 * are clwb() (64 bytes) and FPU state (512 bytes).
 	 * It's unlikely that the assembly will touch more than 512 bytes.
 	 */
-	if (size > 512)
+	if (size > 512) {
+		WARN_ONCE(1, "assembly store size too big: %d\n", size);
 		size = 8;
+	}
 	if (is_bad_asm_addr(addr, size, /*is_store*/true))
 		return;
 	irq_flags = kmsan_enter_runtime();
