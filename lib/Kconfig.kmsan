@@ -1,0 +1,22 @@
+config HAVE_ARCH_KMSAN
+	bool
+
+if HAVE_ARCH_KMSAN
+
+config KMSAN
+	bool "KMSAN: detector of uninitialized memory use"
+	depends on SLUB && !KASAN
+	select STACKDEPOT
+	help
+	  KMSAN is a dynamic detector of uses of uninitialized memory in the
+	  kernel. It is based on compiler instrumentation provided by Clang
+	  and thus requires Clang 10.0.0+ to build.
+
+config TEST_KMSAN
+	tristate "Module for testing KMSAN for bug detection"
+	depends on m && KMSAN
+	help
+	  Test module that can trigger various uses of uninitialized memory
+	  detectable by KMSAN.
+
+endif
