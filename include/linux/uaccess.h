@@ -144,7 +144,7 @@ _copy_from_user(void *, const void __user *, unsigned long);
 static inline __must_check unsigned long
 _copy_to_user(void __user *to, const void *from, unsigned long n)
 {
-	unsigned long res;
+	unsigned long res = n;
 
 	might_fault();
 	if (access_ok(to, n)) {
