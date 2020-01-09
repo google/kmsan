@@ -264,16 +264,6 @@ int ext4_mpage_readpages(struct address_space *mapping,
 		if (page_has_buffers(page))
 			goto confused;
 
-		/*
-		 * The following code may treat adjacent pages allocated
-		 * separately as a bigger contiguous allocation.
-		 * KMSAN doesn't allow this, as the corresponding metadata
-		 * pages may be separated.
-		 * Skip this complex logic for KMSAN builds.
-		 */
-		if (IS_ENABLED(CONFIG_KMSAN))
-			goto confused;
-
 		block_in_file = (sector_t)page->index << (PAGE_SHIFT - blkbits);
 		last_block = block_in_file + nr_pages * blocks_per_page;
 		last_block_in_file = (ext4_readpage_limit(inode) +
