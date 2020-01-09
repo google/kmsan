@@ -356,6 +356,7 @@ __FORTIFY_INLINE char *strncat(char *p, const char *q, __kernel_size_t count)
 	return p;
 }
 
+#ifndef CONFIG_KMSAN
 __FORTIFY_INLINE void *memset(void *p, int c, __kernel_size_t size)
 {
 	size_t p_size = __builtin_object_size(p, 0);
@@ -366,7 +367,6 @@ __FORTIFY_INLINE void *memset(void *p, int c, __kernel_size_t size)
 	return __builtin_memset(p, c, size);
 }
 
-#ifndef CONFIG_KMSAN
 __FORTIFY_INLINE void *memcpy(void *p, const void *q, __kernel_size_t size)
 {
 	size_t p_size = __builtin_object_size(p, 0);
