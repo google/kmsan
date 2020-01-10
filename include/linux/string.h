@@ -381,7 +381,6 @@ __FORTIFY_INLINE void *memcpy(void *p, const void *q, __kernel_size_t size)
 		fortify_panic(__func__);
 	return __builtin_memcpy(p, q, size);
 }
-#endif
 
 __FORTIFY_INLINE void *memmove(void *p, const void *q, __kernel_size_t size)
 {
@@ -397,6 +396,7 @@ __FORTIFY_INLINE void *memmove(void *p, const void *q, __kernel_size_t size)
 		fortify_panic(__func__);
 	return __builtin_memmove(p, q, size);
 }
+#endif
 
 extern void *__real_memscan(void *, int, __kernel_size_t) __RENAME(memscan);
 __FORTIFY_INLINE void *memscan(void *p, int c, __kernel_size_t size)
