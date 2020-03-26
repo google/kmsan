@@ -28,29 +28,10 @@
  * instrumented.
  */
 
-__no_sanitize_memory
-static inline u8 KMSAN_INIT_1(u8 value)
-{
-	return value;
-}
-
-__no_sanitize_memory
-static inline u16 KMSAN_INIT_2(u16 value)
-{
-	return value;
-}
-
-__no_sanitize_memory
-static inline u32 KMSAN_INIT_4(u32 value)
-{
-	return value;
-}
-
-__no_sanitize_memory
-static inline u64 KMSAN_INIT_8(u64 value)
-{
-	return value;
-}
+u8 kmsan_init_1(u8 value);
+u16 kmsan_init_2(u16 value);
+u32 kmsan_init_4(u32 value);
+u64 kmsan_init_8(u64 value);
 
 /**
  * KMSAN_INIT_VALUE - Make the value initialized.
@@ -64,16 +45,16 @@ static inline u64 KMSAN_INIT_8(u64 value)
 		typeof(val) __ret;	\
 		switch (sizeof(val)) {	\
 		case 1:						\
-			*(u8 *)&__ret = KMSAN_INIT_1((u8)val);	\
+			*(u8 *)&__ret = kmsan_init_1((u8)val);	\
 			break;					\
 		case 2:						\
-			*(u16 *)&__ret = KMSAN_INIT_2((u16)val);\
+			*(u16 *)&__ret = kmsan_init_2((u16)val);\
 			break;					\
 		case 4:						\
-			*(u32 *)&__ret = KMSAN_INIT_4((u32)val);\
+			*(u32 *)&__ret = kmsan_init_4((u32)val);\
 			break;					\
 		case 8:						\
-			*(u64 *)&__ret = KMSAN_INIT_8((u64)val);\
+			*(u64 *)&__ret = kmsan_init_8((u64)val);\
 			break;					\
 		default:					\
 			BUILD_BUG_ON(1);			\
