@@ -333,7 +333,7 @@ static dma_addr_t vring_map_one_sg(const struct vring_virtqueue *vq,
 		 * is initialized by the hardware. Explicitly check/unpoison it
 		 * depending on the direction.
 		 */
-		kmsan_handle_dma(sg_virt(sg), sg->length, direction);
+		kmsan_handle_dma(sg_page(sg), sg->offset, sg->length, direction);
 		return (dma_addr_t)sg_phys(sg);
 	}
 
