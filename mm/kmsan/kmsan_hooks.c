@@ -358,25 +358,36 @@ static void kmsan_handle_dma_page(const void *addr, size_t size,
 }
 
 /* Helper function to handle DMA data transfers. */
-void kmsan_handle_dma(const void *addr, size_t size,
+void kmsan_handle_dma(struct page *page, size_t offset, size_t size,
 		      enum dma_data_direction dir)
 {
-	u64 page_offset, to_go, uaddr = (u64)addr;
+	u64 page_offset, to_go, addr;
 
+	addr = page_address(page) + offset;
 	/*
 	 * The kernel may occasionally give us adjacent DMA pages not belonging
 	 * to the same allocation. Process them separately to avoid triggering
 	 * internal KMSAN checks.
 	 */
 	while (size > 0) {
-		page_offset = uaddr % PAGE_SIZE;
+		page_offset = addr % PAGE_SIZE;
 		to_go = min(PAGE_SIZE - page_offset, (u64)size);
-		kmsan_handle_dma_page((void *)uaddr, to_go, dir);
-		uaddr += to_go;
+		kmsan_handle_dma_page((void *)addr, to_go, dir);
+		addr += to_go;
 		size -= to_go;
 	}
 }
 EXPORT_SYMBOL(kmsan_handle_dma);
+
+void kmsan_handle_dma_sg(struct scatterlist *sg, int nents, enum dma_data_direction dir)
+{
+	struct scatterlist *item;
+	int i;
+
+	for_each_sg(sg, item, nents, i)
+		kmsan_handle_dma(sg_page(item), item->offset, item->length,
+				 dir);
+}
 
 /* Functions from kmsan-checks.h follow. */
 void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags)

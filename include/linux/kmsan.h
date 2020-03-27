@@ -22,6 +22,7 @@
 struct page;
 struct kmem_cache;
 struct task_struct;
+struct scatterlist;
 struct sk_buff;
 struct urb;
 
@@ -258,17 +259,32 @@ void kmsan_check_skb(const struct sk_buff *skb);
 
 /**
  * kmsan_handle_dma() - Handle a DMA data transfer.
- * @address:   buffer address.
- * @size:      buffer size.
- * @direction: one of possible dma_data_direction values.
+ * @page:   first page of the buffer.
+ * @offset: offset of the buffer within the first page.
+ * @size:   buffer size.
+ * @dir:    one of possible dma_data_direction values.
  *
  * Depending on @direction, KMSAN:
  * * checks the buffer, if it is copied to device;
  * * initializes the buffer, if it is copied from device;
  * * does both, if this is a DMA_BIDIRECTIONAL transfer.
  */
-void kmsan_handle_dma(const void *address, size_t size,
-		      enum dma_data_direction direction);
+void kmsan_handle_dma(struct page *page, size_t offset, size_t size,
+		      enum dma_data_direction dir);
+
+/**
+ * kmsan_handle_dma_sg() - Handle a DMA transfer using scatterlist.
+ * @sg:    scatterlist holding DMA buffers.
+ * @nents: number of scatterlist entries.
+ * @dir:   one of possible dma_data_direction values.
+ *
+ * Depending on @direction, KMSAN:
+ * * checks the buffers in the scatterlist, if they are copied to device;
+ * * initializes the buffers, if they are copied from device;
+ * * does both, if this is a DMA_BIDIRECTIONAL transfer.
+ */
+void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
+			 enum dma_data_direction dir);
 
 /**
  * kmsan_handle_urb() - Handle a USB data transfer.
