@@ -9,6 +9,7 @@ It is based on compiler instrumentation, and is quite similar to the userspace
 
 Example report
 ==============
+
 Here is an example of a real KMSAN report in ``packet_bind_spkt()``::
 
   ==================================================================
@@ -88,9 +89,9 @@ KMSAN associates a metadata byte (also called shadow byte) with every byte of
 kernel memory.
 A bit in the shadow byte is set iff the corresponding bit of the kernel memory
 byte is uninitialized.
-Marking the memory uninitialized (i.e. setting its shadow bytes to 0xff) is
-called poisoning, marking it initialized (setting the shadow bytes to 0x00) is
-called unpoisoning.
+Marking the memory uninitialized (i.e. setting its shadow bytes to ``0xff``) is
+called poisoning, marking it initialized (setting the shadow bytes to ``0x00``)
+is called unpoisoning.
 
 When a new variable is allocated on the stack, it is poisoned by default by
 instrumentation code inserted by the compiler (unless it is a stack variable
@@ -173,6 +174,7 @@ argument is preserved.
 
 Origin chaining
 ~~~~~~~~~~~~~~~
+
 To ease debugging, KMSAN creates a new origin for every memory store.
 The new origin references both its creation stack and the previous origin the
 memory location had.
@@ -187,6 +189,7 @@ Clang instrumentation pass inserts calls to functions defined in
 
 Shadow manipulation
 ~~~~~~~~~~~~~~~~~~~
+
 For every memory access the compiler emits a call to a function that returns a
 pair of pointers to the shadow and origin addresses of the given memory::
 
@@ -201,7 +204,8 @@ pair of pointers to the shadow and origin addresses of the given memory::
 
 The function name depends on the memory access size.
 Each such function also checks if the shadow of the memory in the range
-[``addr``, ``addr + n``) is contiguous and reports an error otherwise.
+[``addr``, ``addr + n``) is contiguous and reports an error otherwise (refer to
+`Metadata allocation`_ for details).
 
 The compiler makes sure that for every loaded value its shadow and origin
 values are read from memory.
@@ -210,6 +214,7 @@ the metadata pointers.
 
 Origin tracking
 ~~~~~~~~~~~~~~~
+
 A special function is used to create a new origin value for a local variable
 and set the origin of that variable to that value::
 
@@ -279,6 +284,7 @@ In such cases they are ignored at runtime.
 
 Disabling the instrumentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 A function can be marked with ``__no_sanitize_memory``.
 Doing so does not remove KMSAN instrumentation from it, however it makes the
 compiler ignore the uninitialized values coming from the function's inputs,
@@ -300,6 +306,7 @@ shadow/origin values. As a rule of thumb, avoid using KMSAN_SANITIZE.
 
 Runtime library
 ---------------
+
 The code is located in ``mm/kmsan/``.
 
 Per-task KMSAN state
@@ -336,6 +343,7 @@ where ``current`` is unavailable, KMSAN switches to per-cpu interrupt state::
 
 Metadata allocation
 ~~~~~~~~~~~~~~~~~~~
+
 There are several places in the kernel for which the metadata is stored.
 
 1. Each ``struct page`` instance contains two pointers to its shadow and
@@ -380,8 +388,9 @@ deallocating the rest.
 
 LSB of the ``shadow`` pointer in a ``struct page`` may be set to 1. In this case
 shadow and origin pages are allocated, but KMSAN ignores accesses to them by
-falling back to dummy pages. Allocating the metadata pages is still needed to
-support ``vmap()/vunmap()`` operations on this struct page.
+falling back to dummy pages. Because this ``struct page`` could be used in a
+virtual mapping, we still allocate metadata for it. Accesses to such virtual
+mappings will be ignored by KMSAN as well.
 
 2. For vmalloc memory and modules, there is a direct mapping between the memory
 range, its shadow and origin. KMSAN lessens the vmalloc area by 3/4, making only
