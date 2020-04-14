@@ -274,6 +274,8 @@ void kmsan_gup_pgd_range(struct page **pages, int nr)
 	 * memory, unpoison the corresponding kernel pages.
 	 */
 	for (i = 0; i < nr; i++) {
+		if (PageHighMem(pages[i])
+			continue;
 		page_addr = page_address(pages[i]);
 		if (((u64)page_addr < TASK_SIZE) &&
 		    ((u64)page_addr + PAGE_SIZE < TASK_SIZE))
@@ -363,7 +365,9 @@ void kmsan_handle_dma(struct page *page, size_t offset, size_t size,
 {
 	u64 page_offset, to_go, addr;
 
-	addr = page_address(page) + offset;
+	if (PageHighMem(page))
+		return;
+	addr = (u64)page_address(page) + offset;
 	/*
 	 * The kernel may occasionally give us adjacent DMA pages not belonging
 	 * to the same allocation. Process them separately to avoid triggering
