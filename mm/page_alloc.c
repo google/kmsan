@@ -1495,6 +1495,8 @@ void __init memblock_free_pages(struct page *page, unsigned long pfn,
 {
 	if (early_page_uninitialised(pfn))
 		return;
+	if (!kmsan_memblock_free_pages(page, order))
+		return; // leak pages :(
 	__free_pages_core(page, order);
 }
 

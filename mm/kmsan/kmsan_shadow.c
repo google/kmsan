@@ -209,6 +209,7 @@ void *kmsan_get_metadata(void *address, size_t size, bool is_origin)
 	return ret;
 }
 
+/* Allocate metadata for pages allocated at boot time. */
 void __init kmsan_init_alloc_meta_for_range(void *start, void *end)
 {
 	u64 addr, size;
@@ -260,17 +261,21 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 }
 EXPORT_SYMBOL(kmsan_copy_page_meta);
 
-/* Helper function to allocate page metadata. */
+/*
+ * Helper function to allocate page metadata.
+ * TODO(glider): merge into kmsan_alloc_page().
+ * */
 static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 					       unsigned int order,
 					       gfp_t flags, int node)
 {
-	struct page *shadow, *origin;
+	struct page *shadow = shadow_page_for(page), *origin = origin_page_for(page);
 	int pages = 1 << order;
 	int i;
 	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
 	depot_stack_handle_t handle;
 
+#if 0
 	if (flags & __GFP_NO_KMSAN_SHADOW) {
 		for (i = 0; i < pages; i++)
 			set_no_shadow_origin_page(&page[i]);
@@ -291,9 +296,13 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 		}
 		return -ENOMEM;
 	}
+#endif
 	if (!initialized)
 		__memset(page_address(shadow), -1, PAGE_SIZE * pages);
+	else
+		__memset(page_address(shadow), 0, PAGE_SIZE * pages);
 
+#if 0
 	origin = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
 	/* Assume we've allocated the origin. */
 	if (!origin) {
@@ -302,6 +311,7 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 			set_no_shadow_origin_page(&page[i]);
 		return -ENOMEM;
 	}
+#endif
 
 	if (!initialized) {
 		handle = kmsan_save_stack_with_flags(flags, /*extra_bits*/0);
@@ -313,14 +323,17 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 			((depot_stack_handle_t *)page_address(origin))[i] =
 						handle;
 		}
+	} else {
+		__memset(page_address(origin), 0, PAGE_SIZE * pages);
 	}
-
+#if 0
 	for (i = 0; i < pages; i++) {
 		shadow_page_for(&page[i]) = &shadow[i];
 		set_no_shadow_origin_page(shadow_page_for(&page[i]));
 		origin_page_for(&page[i]) = &origin[i];
 		set_no_shadow_origin_page(origin_page_for(&page[i]));
 	}
+#endif
 	return 0;
 }
 
@@ -345,6 +358,8 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	int pages = 1 << order;
 	int i;
 	unsigned long irq_flags;
+
+	return;  // really nothing to do here. Could rewrite shadow instead.
 
 	if (!shadow_page_for(page)) {
 		for (i = 0; i < pages; i++) {
@@ -385,6 +400,8 @@ void kmsan_split_page(struct page *page, unsigned int order)
 {
 	struct page *shadow, *origin;
 	unsigned long irq_flags;
+
+	return;  // Nothing to see here, move along.
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
@@ -453,4 +470,40 @@ void kmsan_ignore_page(struct page *page, int order)
 
 	for (i = 0; i < 1 << order; i++)
 		ignore_page(&page[i]);
+}
+
+struct page *saved_shadow = NULL, *saved_origin = NULL;
+
+/*
+ * Eager metadata allocation. When the memblock allocator is freeing pages to
+ * pagealloc, we use 2/3 of them as metadata for the remaining 1/3.
+ * Most of the time memblock_free_pages() is called with order=10, see
+ * __free_pages_memory(). Therefore right now we just leak pages with different
+ * order (their total number is about 3*1024).
+ */
+bool kmsan_memblock_free_pages(struct page *page, unsigned int order)
+{
+	u64 start = page_address(page), end = start + PAGE_SIZE << order;
+	int i, pages = 1 << order;
+
+	if (order != 10)
+		/* Leaking these pages. */
+		return false;
+	if (!saved_shadow) {
+		saved_shadow = page;
+		return false;
+	}
+	if (!saved_origin) {
+		saved_origin = page;
+		return false;
+	}
+	for (i = 0; i < pages; i++) {
+		set_no_shadow_origin_page(&saved_shadow[i]);
+		set_no_shadow_origin_page(&saved_origin[i]);
+		shadow_page_for(&page[i]) = &saved_shadow[i];
+		origin_page_for(&page[i]) = &saved_origin[i];
+	}
+	saved_shadow = NULL;
+	saved_origin = NULL;
+	return true;
 }

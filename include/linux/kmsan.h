@@ -66,6 +66,11 @@ void __init kmsan_initialize_shadow(void);
 void __init kmsan_initialize(void);
 
 /**
+ * TODO: need a description here.
+ */
+bool __init kmsan_memblock_free_pages(struct page *page, unsigned int order);
+
+/**
  * kmsan_task_create() - Initialize KMSAN state for the task.
  * @task: task to initialize.
  */
@@ -111,6 +116,7 @@ void kmsan_free_page(struct page *page, unsigned int order);
  * can be deallocated separately.
  */
 void kmsan_split_page(struct page *page, unsigned int order);
+
 
 /**
  * kmsan_copy_page_meta() - Copy KMSAN metadata between two pages.
