@@ -274,7 +274,7 @@ void kmsan_gup_pgd_range(struct page **pages, int nr)
 	 * memory, unpoison the corresponding kernel pages.
 	 */
 	for (i = 0; i < nr; i++) {
-		if (PageHighMem(pages[i])
+		if (PageHighMem(pages[i]))
 			continue;
 		page_addr = page_address(pages[i]);
 		if (((u64)page_addr < TASK_SIZE) &&
