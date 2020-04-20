@@ -275,65 +275,20 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
 	depot_stack_handle_t handle;
 
-#if 0
-	if (flags & __GFP_NO_KMSAN_SHADOW) {
-		for (i = 0; i < pages; i++)
-			set_no_shadow_origin_page(&page[i]);
-		return 0;
-	}
-
-	/*
-	 * We always want metadata allocations to succeed and to finish fast.
-	 */
-	flags = GFP_ATOMIC;
-	if (initialized)
-		flags |= __GFP_ZERO;
-	shadow = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
-	if (!shadow) {
-		for (i = 0; i < pages; i++) {
-			set_no_shadow_origin_page(&page[i]);
-			set_no_shadow_origin_page(&page[i]);
-		}
-		return -ENOMEM;
-	}
-#endif
-	if (!initialized)
-		__memset(page_address(shadow), -1, PAGE_SIZE * pages);
-	else
-		__memset(page_address(shadow), 0, PAGE_SIZE * pages);
-
-#if 0
-	origin = alloc_pages_node(node, flags | __GFP_NO_KMSAN_SHADOW, order);
-	/* Assume we've allocated the origin. */
-	if (!origin) {
-		__free_pages(shadow, order);
-		for (i = 0; i < pages; i++)
-			set_no_shadow_origin_page(&page[i]);
-		return -ENOMEM;
-	}
-#endif
-
 	if (!initialized) {
+		__memset(page_address(shadow), -1, PAGE_SIZE * pages);
 		handle = kmsan_save_stack_with_flags(flags, /*extra_bits*/0);
 		/*
 		 * Addresses are page-aligned, pages are contiguous, so it's ok
 		 * to just fill the origin pages with |handle|.
 		 */
-		for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++) {
+		for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++)
 			((depot_stack_handle_t *)page_address(origin))[i] =
 						handle;
-		}
 	} else {
+		__memset(page_address(shadow), 0, PAGE_SIZE * pages);
 		__memset(page_address(origin), 0, PAGE_SIZE * pages);
 	}
-#if 0
-	for (i = 0; i < pages; i++) {
-		shadow_page_for(&page[i]) = &shadow[i];
-		set_no_shadow_origin_page(shadow_page_for(&page[i]));
-		origin_page_for(&page[i]) = &origin[i];
-		set_no_shadow_origin_page(origin_page_for(&page[i]));
-	}
-#endif
 	return 0;
 }
 
@@ -357,69 +312,11 @@ void kmsan_free_page(struct page *page, unsigned int order)
 	struct page *shadow, *origin, *cur_page;
 	int pages = 1 << order;
 	int i;
-	unsigned long irq_flags;
+	depot_stack_handle_t handle;
 
 	return;  // really nothing to do here. Could rewrite shadow instead.
-
-	if (!shadow_page_for(page)) {
-		for (i = 0; i < pages; i++) {
-			cur_page = &page[i];
-			BUG_ON(shadow_page_for(cur_page));
-		}
-		return;
-	}
-
-	if (!kmsan_ready) {
-		for (i = 0; i < pages; i++) {
-			cur_page = &page[i];
-			set_no_shadow_origin_page(cur_page);
-		}
-		return;
-	}
-
-	irq_flags = kmsan_enter_runtime();
-	shadow = shadow_page_for(&page[0]);
-	origin = origin_page_for(&page[0]);
-
-	for (i = 0; i < pages; i++) {
-		BUG_ON(has_shadow_page(shadow_page_for(&page[i])));
-		BUG_ON(has_shadow_page(origin_page_for(&page[i])));
-		set_no_shadow_origin_page(&page[i]);
-	}
-	BUG_ON(has_shadow_page(shadow));
-	__free_pages(shadow, order);
-
-	BUG_ON(has_shadow_page(origin));
-	__free_pages(origin, order);
-	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_free_page);
-
-/* Called from mm/page_alloc.c */
-void kmsan_split_page(struct page *page, unsigned int order)
-{
-	struct page *shadow, *origin;
-	unsigned long irq_flags;
-
-	return;  // Nothing to see here, move along.
-
-	if (!kmsan_ready || kmsan_in_runtime())
-		return;
-
-	irq_flags = kmsan_enter_runtime();
-	if (!has_shadow_page(&page[0])) {
-		BUG_ON(has_origin_page(&page[0]));
-		kmsan_leave_runtime(irq_flags);
-		return;
-	}
-	shadow = shadow_page_for(&page[0]);
-	split_page(shadow, order);
-
-	origin = origin_page_for(&page[0]);
-	split_page(origin, order);
-	kmsan_leave_runtime(irq_flags);
-}
-EXPORT_SYMBOL(kmsan_split_page);
 
 /* Called from mm/vmalloc.c */
 void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,

@@ -108,17 +108,6 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
 void kmsan_free_page(struct page *page, unsigned int order);
 
 /**
- * kmsan_split_page() - Notify KMSAN about a split_page() call.
- * @page:  struct page pointer passed to split_page().
- * @order: order of split struct page.
- *
- * KMSAN splits the metadata pages for the given struct page, so that they
- * can be deallocated separately.
- */
-void kmsan_split_page(struct page *page, unsigned int order);
-
-
-/**
  * kmsan_copy_page_meta() - Copy KMSAN metadata between two pages.
  * @dst: destination page.
  * @src: source page.
@@ -316,7 +305,6 @@ static inline int kmsan_alloc_page(struct page *page, unsigned int order,
 	return 0;
 }
 static inline void kmsan_free_page(struct page *page, unsigned int order) {}
-static inline void kmsan_split_page(struct page *page, unsigned int order) {}
 static inline void kmsan_copy_page_meta(struct page *dst, struct page *src) {}
 static inline void kmsan_gup_pgd_range(struct page **pages, int nr) {}
 
