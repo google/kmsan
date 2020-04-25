@@ -358,9 +358,7 @@ origin pages::
 Every time a ``struct page`` is allocated, the runtime library allocates two
 additional pages to hold its shadow and origins. This is done by adding hooks
 to ``alloc_pages()``/``free_pages()`` in ``mm/page_alloc.c``.
-To avoid allocating the metadata for non-interesting pages (right now only the
-shadow/origin page themselves and stackdepot storage) the
-``__GFP_NO_KMSAN_SHADOW`` flag is used.
+TODO: rewrite this passage
 
 There is a problem related to this allocation algorithm: when two contiguous
 memory blocks are allocated with two different ``alloc_pages()`` calls, their
