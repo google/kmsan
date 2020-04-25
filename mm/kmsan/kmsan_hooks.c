@@ -26,8 +26,6 @@
 #include "kmsan.h"
 
 /*
- * The functions may call back to instrumented code, which, in turn, may call
- * these hooks again. To avoid re-entrancy, we use __GFP_NO_KMSAN_SHADOW.
  * Instrumented functions shouldn't be called under
  * kmsan_enter_runtime()/kmsan_leave_runtime(), because this will lead to
  * skipping effects of functions like memset() inside instrumented code.
@@ -180,7 +178,7 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	struct page *shadow, *origin;
 	int i, nr;
 	unsigned long off = 0;
-	gfp_t gfp_mask = GFP_KERNEL | __GFP_ZERO | __GFP_NO_KMSAN_SHADOW;
+	gfp_t gfp_mask = GFP_KERNEL | __GFP_ZERO;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
