@@ -342,9 +342,9 @@ void vmalloc_sync_mappings(void)
 	 * For KMSAN, make sure metadata pages for vmalloc area and modules are
 	 * also synced.
 	 */
-	sync_global_pgds(VMALLOC_START & PGDIR_MASK, VMALLOC_META_END);
-	sync_global_pgds(MODULES_SHADOW_START & PGDIR_MASK,
-		MODULES_ORIGIN_END);
+	sync_global_pgds(VMALLOC_START & PGDIR_MASK, KMSAN_VMALLOC_META_END);
+	sync_global_pgds(KMSAN_MODULES_SHADOW_START & PGDIR_MASK,
+		KMSAN_MODULES_ORIGIN_END);
 #endif
 }
 
@@ -375,9 +375,9 @@ static noinline int vmalloc_fault(unsigned long address)
 	 * For KMSAN, make sure metadata pages for vmalloc area and modules are
 	 * also synced.
 	 */
-	if (!(address >= VMALLOC_START && address < VMALLOC_META_END) &&
-		!(address >= MODULES_SHADOW_START &&
-		  address < MODULES_ORIGIN_END))
+	if (!(address >= VMALLOC_START && address < KMSAN_VMALLOC_META_END) &&
+		!(address >= KMSAN_MODULES_SHADOW_START &&
+		  address < KMSAN_MODULES_ORIGIN_END))
 #else
 	if (!(address >= VMALLOC_START && address < VMALLOC_END))
 #endif
