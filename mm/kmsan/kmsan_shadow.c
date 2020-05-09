@@ -102,12 +102,12 @@ static unsigned long vmalloc_meta(void *addr, bool is_origin)
 
 	BUG_ON(is_origin && !IS_ALIGNED(addr64, ORIGIN_SIZE));
 	if (kmsan_internal_is_vmalloc_addr(addr))
-		return addr64 + (is_origin ? VMALLOC_ORIGIN_OFFSET
-					   : VMALLOC_SHADOW_OFFSET);
+		return addr64 + (is_origin ? KMSAN_VMALLOC_ORIGIN_OFFSET
+					   : KMSAN_VMALLOC_SHADOW_OFFSET);
 	if (kmsan_internal_is_module_addr(addr)) {
 		off = addr64 - MODULES_VADDR;
-		return off + (is_origin ? MODULES_ORIGIN_START
-					: MODULES_SHADOW_START);
+		return off + (is_origin ? KMSAN_MODULES_ORIGIN_START
+					: KMSAN_MODULES_SHADOW_START);
 	}
 	return 0;
 }
