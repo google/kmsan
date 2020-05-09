@@ -148,7 +148,7 @@ extern unsigned int ptrs_per_p4d;
  * belonging to vmalloc area is now laid out as follows:
  *
  * 1st quarter: VMALLOC_START to VMALLOC_END - new vmalloc area
- * 2nd quarter: VMALLOC_START+VMALLOC_SHADOW_OFFSET to
+ * 2nd quarter: VMALLOC_START+KMSAN_VMALLOC_SHADOW_OFFSET to
  *              VMALLOC_END+VMALLOC_SHADOW_OFFSET - vmalloc area shadow
  * 3rd quarter: VMALLOC_START+VMALLOC_ORIGIN_OFFSET to
  *              VMALLOC_END+VMALLOC_ORIGIN_OFFSET - vmalloc area origins
@@ -164,19 +164,19 @@ extern unsigned int ptrs_per_p4d;
  * vmalloc metadata addresses are calculated by adding shadow/origin offsets
  * to vmalloc address.
  */
-#define VMALLOC_SHADOW_OFFSET	VMALLOC_QUARTER_SIZE
-#define VMALLOC_ORIGIN_OFFSET	(VMALLOC_QUARTER_SIZE << 1)
+#define KMSAN_VMALLOC_SHADOW_OFFSET	VMALLOC_QUARTER_SIZE
+#define KMSAN_VMALLOC_ORIGIN_OFFSET	(VMALLOC_QUARTER_SIZE << 1)
 
-#define VMALLOC_META_END	(VMALLOC_END + VMALLOC_ORIGIN_OFFSET)
+#define KMSAN_VMALLOC_META_END	(VMALLOC_END + KMSAN_VMALLOC_ORIGIN_OFFSET)
 
 /*
  * The shadow/origin for modules are placed one by one in the last 1/4 of
  * vmalloc space.
  */
-#define MODULES_SHADOW_START	(VMALLOC_META_END + 1)
-#define MODULES_ORIGIN_START	(MODULES_SHADOW_START + MODULES_LEN)
-#define MODULES_ORIGIN_END	(MODULES_ORIGIN_START + MODULES_LEN)
-#endif
+#define KMSAN_MODULES_SHADOW_START (KMSAN_VMALLOC_META_END + 1)
+#define KMSAN_MODULES_ORIGIN_START (KMSAN_MODULES_SHADOW_START + MODULES_LEN)
+#define KMSAN_MODULES_ORIGIN_END   (KMSAN_MODULES_ORIGIN_START + MODULES_LEN)
+#endif /* CONFIG_KMSAN */
 
 #define MODULES_VADDR		(__START_KERNEL_map + KERNEL_IMAGE_SIZE)
 /* The module sections ends with the start of the fixmap */
