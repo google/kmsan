@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 
+/*
+ * This file is not linked with KMSAN runtime.
+ * Do not replace memcpy with __memcpy.
+ */
+#undef CONFIG_KMSAN
+
 #include <linux/efi.h>
 #include <asm/efi.h>
 
