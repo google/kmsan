@@ -309,11 +309,6 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 /* Called from mm/page_alloc.c */
 void kmsan_free_page(struct page *page, unsigned int order)
 {
-	struct page *shadow, *origin, *cur_page;
-	int pages = 1 << order;
-	int i;
-	depot_stack_handle_t handle;
-
 	return;  // really nothing to do here. Could rewrite shadow instead.
 }
 EXPORT_SYMBOL(kmsan_free_page);
@@ -380,7 +375,6 @@ struct page *saved_shadow = NULL, *saved_origin = NULL;
  */
 bool kmsan_memblock_free_pages(struct page *page, unsigned int order)
 {
-	u64 start = page_address(page), end = start + PAGE_SIZE << order;
 	int i, pages = 1 << order;
 
 	if (order != 10)
