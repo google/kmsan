@@ -49,6 +49,9 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 			pr_err("Uninit was stored to memory at:\n");
 			chained_nr_entries =
 				stack_depot_fetch(head, &chained_entries);
+			kmsan_internal_unpoison_shadow(chained_entries,
+				chained_nr_entries * sizeof(*chained_entries),
+				/*checked*/false);
 			stack_trace_print(chained_entries, chained_nr_entries,
 					  0);
 			pr_err("\n");
