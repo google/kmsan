@@ -43,11 +43,6 @@
 		(page)->origin = NULL;	\
 	} while (0) /**/
 
-#define is_ignored_page(page) (!!(((u64)((page)->shadow)) % 2))
-
-#define ignore_page(pg)	\
-	((pg)->shadow = (struct page *)((u64)((pg)->shadow) | 1))
-
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
 
@@ -199,8 +194,6 @@ void *kmsan_get_metadata(void *address, size_t size, bool is_origin)
 	page = virt_to_page_or_null(address);
 	if (!page)
 		return NULL;
-	if (is_ignored_page(page))
-		return NULL;
 	if (!has_shadow_page(page) || !has_origin_page(page))
 		return NULL;
 	off = addr % PAGE_SIZE;
@@ -246,10 +239,6 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 	}
 	if (!has_shadow_page(dst))
 		return;
-	if (is_ignored_page(src)) {
-		ignore_page(dst);
-		return;
-	}
 
 	irq_flags = kmsan_enter_runtime();
 	__memcpy(shadow_ptr_for(dst), shadow_ptr_for(src),
@@ -354,14 +343,6 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 ret:
 	kfree(s_pages);
 	kfree(o_pages);
-}
-
-void kmsan_ignore_page(struct page *page, int order)
-{
-	int i;
-
-	for (i = 0; i < 1 << order; i++)
-		ignore_page(&page[i]);
 }
 
 struct page *saved_shadow = NULL, *saved_origin = NULL;
