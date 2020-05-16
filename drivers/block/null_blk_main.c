@@ -1292,9 +1292,7 @@ blk_status_t null_process_cmd(struct nullb_cmd *cmd,
 	if (dev->memory_backed)
 		return null_handle_memory_backed(cmd, op);
 
-	// TODO(glider): this is incorrect but helps suppress uninit reports.
-	return null_handle_rq(cmd);
-	// return BLK_STS_OK;
+	return BLK_STS_OK;
 }
 
 static blk_status_t null_handle_cmd(struct nullb_cmd *cmd, sector_t sector,
