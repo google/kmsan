@@ -524,17 +524,34 @@ err_free:
 }
 EXPORT_SYMBOL(bio_alloc_bioset);
 
+void zero_fill_bvec(const struct bio_vec *bvec)
+{
+	struct page *page = bvec->bv_page;
+	u32 offset = bvec->bv_offset;
+	u32 left = bvec->bv_len;
+
+	while (left) {
+		u32 len = min_t(u32, left, PAGE_SIZE - offset);
+		void *kaddr;
+
+		kaddr = kmap_atomic(page);
+		memset(kaddr + offset, 0, len);
+		flush_dcache_page(page);
+		kunmap_atomic(kaddr);
+		page++;
+		left -= len;
+		offset = 0;
+	}
+}
+EXPORT_SYMBOL(zero_fill_bvec);
+
 void zero_fill_bio_iter(struct bio *bio, struct bvec_iter start)
 {
-	unsigned long flags;
 	struct bio_vec bv;
 	struct bvec_iter iter;
 
 	__bio_for_each_segment(bv, bio, iter, start) {
-		char *data = bvec_kmap_irq(&bv, &flags);
-		memset(data, 0, bv.bv_len);
-		flush_dcache_page(bv.bv_page);
-		bvec_kunmap_irq(data, &flags);
+		zero_fill_bvec(&bv);
 	}
 }
 EXPORT_SYMBOL(zero_fill_bio_iter);
