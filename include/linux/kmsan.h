@@ -296,6 +296,11 @@ void kmsan_handle_urb(const struct urb *urb, bool is_out);
 static inline void __init kmsan_initialize_shadow(void) { }
 static inline void __init kmsan_initialize(void) { }
 
+static inline bool __init kmsan_memblock_free_pages(struct page *page,
+						    unsigned int order)
+{
+	return 0;
+}
 static inline void kmsan_task_create(struct task_struct *task) {}
 static inline void kmsan_task_exit(struct task_struct *task) {}
 

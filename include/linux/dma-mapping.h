@@ -319,7 +319,9 @@ static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
 	else
 		ents = ops->map_sg(dev, sg, nents, dir, attrs);
 	BUG_ON(ents < 0);
+#ifdef CONFIG_KMSAN
 	kmsan_handle_dma_sg(sg, nents, dir);
+#endif
 	debug_dma_map_sg(dev, sg, nents, ents, dir);
 
 	return ents;
