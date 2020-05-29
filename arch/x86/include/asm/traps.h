@@ -8,7 +8,7 @@
 #include <asm/debugreg.h>
 #include <asm/siginfo.h>			/* TRAP_TRACE, ... */
 
-#define dotraplinkage __visible
+#define dotraplinkage __visible __no_sanitize_memory
 
 asmlinkage void divide_error(void);
 asmlinkage void debug(void);
