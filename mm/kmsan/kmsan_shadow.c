@@ -332,13 +332,13 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 	shadow_end = vmalloc_meta((void *)end, META_SHADOW);
 	origin_start = vmalloc_meta((void *)start, META_ORIGIN);
 	origin_end = vmalloc_meta((void *)end, META_ORIGIN);
-	mapped = __vmap_page_range_noflush(shadow_start, shadow_end,
+	mapped = map_kernel_range_noflush(shadow_start, shadow_end - shadow_start,
 					   prot, s_pages);
-	BUG_ON(mapped != nr);
+	BUG_ON(!mapped);
 	flush_tlb_kernel_range(shadow_start, shadow_end);
-	mapped = __vmap_page_range_noflush(origin_start, origin_end,
+	mapped = map_kernel_range_noflush(origin_start, origin_end - origin_start,
 					   prot, o_pages);
-	BUG_ON(mapped != nr);
+	BUG_ON(!mapped);
 	flush_tlb_kernel_range(origin_start, origin_end);
 ret:
 	kfree(s_pages);
