@@ -225,7 +225,15 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 {
 	int ret;
 	bool early = me->state == MODULE_STATE_UNFORMED;
+#ifdef CONFIG_KMSAN
+	/*
+	 * TODO(glider): we redefine memcpy() to __msan_memcpy() in string.h, but this only applies
+	 * to function calls.
+	 */
+	void *(*write)(void *, const void *, size_t) = __msan_memcpy;
+#else
 	void *(*write)(void *, const void *, size_t) = memcpy;
+#endif
 
 	if (!early) {
 		write = text_poke;
