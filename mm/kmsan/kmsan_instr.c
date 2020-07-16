@@ -95,13 +95,13 @@ void *__msan_memmove(void *dst, const void *src, size_t n)
 }
 EXPORT_SYMBOL(__msan_memmove);
 
-void *__msan_memmove_nosanitize(void *dst, void *src, u64 n)
+void *__msan_memmove_nosanitize(void *dst, void *src, size_t n)
 {
 	return __memmove(dst, src, n);
 }
 EXPORT_SYMBOL(__msan_memmove_nosanitize);
 
-void *__msan_memcpy(void *dst, const void *src, u64 n)
+void *__msan_memcpy(void *dst, const void *src, size_t n)
 {
 	void *result;
 
@@ -119,7 +119,7 @@ void *__msan_memcpy(void *dst, const void *src, u64 n)
 }
 EXPORT_SYMBOL(__msan_memcpy);
 
-void *__msan_memcpy_nosanitize(void *dst, void *src, u64 n)
+void *__msan_memcpy_nosanitize(void *dst, void *src, size_t n)
 {
 	return __memcpy(dst, src, n);
 }
