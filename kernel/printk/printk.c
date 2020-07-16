@@ -36,6 +36,7 @@
 #include <linux/syscalls.h>
 #include <linux/crash_core.h>
 #include <linux/ratelimit.h>
+#include <linux/kmsan-checks.h>
 #include <linux/kmsg_dump.h>
 #include <linux/syslog.h>
 #include <linux/cpu.h>
