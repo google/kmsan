@@ -160,8 +160,9 @@ static unsigned long vmalloc_origin(unsigned long addr)
 /* Called from mm/vmalloc.c */
 void kmsan_vunmap_page_range(unsigned long start, unsigned long end)
 {
-	__vunmap_page_range(vmalloc_shadow(start), vmalloc_shadow(end));
-	__vunmap_page_range(vmalloc_origin(start), vmalloc_origin(end));
+	unsigned long size = end - start;
+	unmap_kernel_range(vmalloc_shadow(start), size);
+	unmap_kernel_range(vmalloc_origin(start), size);
 }
 EXPORT_SYMBOL(kmsan_vunmap_page_range);
 
@@ -188,12 +189,10 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	for (i = 0; i < nr; i++, off += PAGE_SIZE) {
 		shadow = alloc_pages(gfp_mask, 1);
 		origin = alloc_pages(gfp_mask, 1);
-		__vmap_page_range_noflush(vmalloc_shadow(start + off),
-				vmalloc_shadow(start + off + PAGE_SIZE),
-				prot, &shadow);
-		__vmap_page_range_noflush(vmalloc_origin(start + off),
-				vmalloc_origin(start + off + PAGE_SIZE),
-				prot, &origin);
+		map_kernel_range_noflush(vmalloc_shadow(start + off),
+				PAGE_SIZE, prot, &shadow);
+		map_kernel_range_noflush(vmalloc_origin(start + off),
+				PAGE_SIZE, prot, &origin);
 	}
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
@@ -218,8 +217,8 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	for (i = 0; i < nr; i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
 		shadow = vmalloc_to_page_or_null((void *)v_shadow);
 		origin = vmalloc_to_page_or_null((void *)v_origin);
-		__vunmap_page_range(v_shadow, v_shadow + PAGE_SIZE);
-		__vunmap_page_range(v_origin, v_origin + PAGE_SIZE);
+		unmap_kernel_range(v_shadow, PAGE_SIZE);
+		unmap_kernel_range(v_origin, PAGE_SIZE);
 		if (shadow)
 			__free_pages(shadow, 1);
 		if (origin)
