@@ -13,7 +13,7 @@
 #define __HAVE_ARCH_MEMCPY 1
 #if defined(CONFIG_KMSAN)
 #undef memcpy
-/* __msan_memcpy() is defined in compiler.h */
+void *__msan_memcpy(void *dst, const void *src, size_t size);
 #define memcpy(dst, src, len) __msan_memcpy(dst, src, len)
 #else
 extern void *memcpy(void *to, const void *from, size_t len);
