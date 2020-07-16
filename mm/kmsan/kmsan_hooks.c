@@ -261,28 +261,6 @@ void kmsan_copy_to_user(const void *to, const void *from,
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
 
-void kmsan_gup_pgd_range(struct page **pages, int nr)
-{
-	int i;
-	void *page_addr;
-
-	/*
-	 * gup_pgd_range() has just created a number of new pages that KMSAN
-	 * treats as uninitialized. In the case they belong to the userspace
-	 * memory, unpoison the corresponding kernel pages.
-	 */
-	for (i = 0; i < nr; i++) {
-		if (PageHighMem(pages[i]))
-			continue;
-		page_addr = page_address(pages[i]);
-		if (((u64)page_addr < TASK_SIZE) &&
-		    ((u64)page_addr + PAGE_SIZE < TASK_SIZE))
-			kmsan_unpoison_shadow(page_addr, PAGE_SIZE);
-	}
-
-}
-EXPORT_SYMBOL(kmsan_gup_pgd_range);
-
 /* Helper function to check an SKB. */
 void kmsan_check_skb(const struct sk_buff *skb)
 {
@@ -420,6 +398,28 @@ void kmsan_unpoison_shadow(const void *address, size_t size)
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_unpoison_shadow);
+
+void kmsan_gup_pgd_range(struct page **pages, int nr)
+{
+	int i;
+	void *page_addr;
+
+	/*
+	 * gup_pgd_range() has just created a number of new pages that KMSAN
+	 * treats as uninitialized. In the case they belong to the userspace
+	 * memory, unpoison the corresponding kernel pages.
+	 */
+	for (i = 0; i < nr; i++) {
+		if (PageHighMem(pages[i]))
+			continue;
+		page_addr = page_address(pages[i]);
+		if (((u64)page_addr < TASK_SIZE) &&
+		    ((u64)page_addr + PAGE_SIZE < TASK_SIZE))
+			kmsan_unpoison_shadow(page_addr, PAGE_SIZE);
+	}
+
+}
+EXPORT_SYMBOL(kmsan_gup_pgd_range);
 
 void kmsan_check_memory(const void *addr, size_t size)
 {
