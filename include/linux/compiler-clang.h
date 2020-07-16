@@ -45,6 +45,7 @@
 		__attribute__((no_sanitize("undefined")))
 #else
 #define __no_sanitize_undefined
+#endif
 
 #if __has_feature(memory_sanitizer)
 # define __SANITIZE_MEMORY__
