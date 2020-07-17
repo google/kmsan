@@ -503,12 +503,15 @@ nmi_restart:
 	this_cpu_write(nmi_dr7, local_db_save());
 
 	irq_state = irqentry_nmi_enter(regs);
+	kmsan_context_enter();
+	kmsan_unpoison_pt_regs(regs);
 
 	inc_irq_stat(__nmi_count);
 
 	if (!ignore_nmis)
 		default_do_nmi(regs);
 
+	kmsan_context_exit();
 	irqentry_nmi_exit(regs, irq_state);
 
 	local_db_restore(this_cpu_read(nmi_dr7));
