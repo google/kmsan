@@ -1405,6 +1405,7 @@ DEFINE_IDTENTRY_VC_KERNEL(exc_vmm_communication)
 	irq_state = irqentry_nmi_enter(regs);
 
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 
 	if (!vc_raw_handle_exception(regs, error_code)) {
 		/* Show some debug info */
@@ -1437,6 +1438,7 @@ DEFINE_IDTENTRY_VC_USER(exc_vmm_communication)
 
 	irqentry_enter_from_user_mode(regs);
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 
 	if (!vc_raw_handle_exception(regs, error_code)) {
 		/*
