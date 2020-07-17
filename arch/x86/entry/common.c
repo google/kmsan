@@ -13,6 +13,7 @@
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/errno.h>
+#include <linux/kmsan.h>
 #include <linux/ptrace.h>
 #include <linux/tracehook.h>
 #include <linux/audit.h>
@@ -369,6 +370,7 @@ __visible noinstr void do_syscall_64(unsigned long nr, struct pt_regs *regs)
 {
 	struct thread_info *ti;
 
+	kmsan_unpoison_pt_regs(regs);
 	check_user_regs(regs);
 
 	enter_from_user_mode();
