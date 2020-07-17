@@ -99,6 +99,7 @@ static __always_inline void __##func(struct pt_regs *regs,		\
 __visible noinstr void func(struct pt_regs *regs,			\
 			    unsigned long error_code)			\
 {									\
+	kmsan_unpoison_pt_regs(regs);						\
 	irqentry_state_t state = irqentry_enter(regs);			\
 									\
 	instrumentation_begin();					\
@@ -164,7 +165,12 @@ __visible noinstr void func(struct pt_regs *regs)
  * is required before the enter/exit() helpers are invoked.
  */
 #define DEFINE_IDTENTRY_RAW_ERRORCODE(func)				\
-__visible noinstr void func(struct pt_regs *regs, unsigned long error_code)
+static __always_inline noinstr void __##func(struct pt_regs *regs, unsigned long error_code); \
+__visible noinstr void func(struct pt_regs *regs, unsigned long error_code) {	\
+	kmsan_unpoison_pt_regs(regs);						\
+	__##func(regs, error_code);						\
+}										\
+static __always_inline noinstr void __##func(struct pt_regs *regs, unsigned long error_code) \
 
 /**
  * DECLARE_IDTENTRY_IRQ - Declare functions for device interrupt IDT entry

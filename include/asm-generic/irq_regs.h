@@ -9,6 +9,7 @@
 #define _ASM_GENERIC_IRQ_REGS_H
 
 #include <linux/percpu.h>
+#include <linux/kmsan.h>
 
 /*
  * Per-cpu current frame pointer - the location of the last exception frame on
@@ -26,6 +27,7 @@ static inline struct pt_regs *get_irq_regs(void)
 static inline struct pt_regs *set_irq_regs(struct pt_regs *new_regs)
 {
 	struct pt_regs *old_regs;
+	kmsan_unpoison_pt_regs(new_regs);
 
 	old_regs = __this_cpu_read(__irq_regs);
 	__this_cpu_write(__irq_regs, new_regs);
