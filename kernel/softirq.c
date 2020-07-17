@@ -11,6 +11,7 @@
 
 #include <linux/export.h>
 #include <linux/kernel_stat.h>
+#include <linux/kmsan.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/mm.h>
@@ -649,7 +650,9 @@ static void run_ksoftirqd(unsigned int cpu)
 		 * We can safely run softirq on inline stack, as we are not deep
 		 * in the task stack here.
 		 */
+		kmsan_context_enter();
 		__do_softirq();
+		kmsan_context_exit();
 		local_irq_enable();
 		cond_resched();
 		return;

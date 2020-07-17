@@ -126,7 +126,12 @@
 		 * sequence which matches the above direct invocation.	\
 		 */							\
 		__this_cpu_write(hardirq_stack_inuse, true);		\
+		/* TODO: replace context with checks for		\
+		 * xxirq_stack_inuse?					\
+		 */							\
+		kmsan_context_enter();					\
 		call_on_irqstack(func, asm_call, constr);		\
+		kmsan_context_exit();					\
 		__this_cpu_write(hardirq_stack_inuse, false);		\
 	}								\
 }
@@ -197,7 +202,12 @@
 #define do_softirq_own_stack()						\
 {									\
 	__this_cpu_write(hardirq_stack_inuse, true);			\
+	/* TODO: replace context with checks for			\
+	 * xxirq_stack_inuse?						\
+	 */								\
+	kmsan_context_enter();						\
 	call_on_irqstack(__do_softirq, ASM_CALL_SOFTIRQ);		\
+	kmsan_context_exit();						\
 	__this_cpu_write(hardirq_stack_inuse, false);			\
 }
 
