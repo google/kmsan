@@ -150,9 +150,9 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 struct page *vmalloc_to_page_or_null(void *vaddr);
 
 /* Declared in mm/vmalloc.c */
-void __vunmap_page_range(unsigned long addr, unsigned long end);
-int __vmap_page_range_noflush(unsigned long start, unsigned long end,
-				   pgprot_t prot, struct page **pages);
+void __unmap_kernel_range_noflush(unsigned long start, unsigned long size);
+int __map_kernel_range_noflush(unsigned long addr, unsigned long size,
+			     pgprot_t prot, struct page **pages);
 
 void *kmsan_internal_return_address(int arg);
 bool kmsan_internal_is_module_addr(void *vaddr);

@@ -158,13 +158,14 @@ static unsigned long vmalloc_origin(unsigned long addr)
 }
 
 /* Called from mm/vmalloc.c */
-void kmsan_vunmap_page_range(unsigned long start, unsigned long end)
+void kmsan_unmap_kernel_range(unsigned long start, unsigned long size)
 {
-	unsigned long size = end - start;
-	unmap_kernel_range(vmalloc_shadow(start), size);
-	unmap_kernel_range(vmalloc_origin(start), size);
+	__unmap_kernel_range_noflush(vmalloc_shadow(start), size);
+	__unmap_kernel_range_noflush(vmalloc_origin(start), size);
+	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(start) + size);
+	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(start) + size);
 }
-EXPORT_SYMBOL(kmsan_vunmap_page_range);
+EXPORT_SYMBOL(kmsan_unmap_kernel_range);
 
 /* Called from lib/ioremap.c */
 /*
@@ -189,10 +190,10 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	for (i = 0; i < nr; i++, off += PAGE_SIZE) {
 		shadow = alloc_pages(gfp_mask, 1);
 		origin = alloc_pages(gfp_mask, 1);
-		map_kernel_range_noflush(vmalloc_shadow(start + off),
-				PAGE_SIZE, prot, &shadow);
-		map_kernel_range_noflush(vmalloc_origin(start + off),
-				PAGE_SIZE, prot, &origin);
+		__map_kernel_range_noflush(vmalloc_shadow(start + off),
+					PAGE_SIZE, prot, &shadow);
+		__map_kernel_range_noflush(vmalloc_origin(start + off),
+					PAGE_SIZE, prot, &origin);
 	}
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
@@ -217,13 +218,15 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	for (i = 0; i < nr; i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
 		shadow = vmalloc_to_page_or_null((void *)v_shadow);
 		origin = vmalloc_to_page_or_null((void *)v_origin);
-		unmap_kernel_range(v_shadow, PAGE_SIZE);
-		unmap_kernel_range(v_origin, PAGE_SIZE);
+		__unmap_kernel_range_noflush(v_shadow, PAGE_SIZE);
+		__unmap_kernel_range_noflush(v_origin, PAGE_SIZE);
 		if (shadow)
 			__free_pages(shadow, 1);
 		if (origin)
 			__free_pages(origin, 1);
 	}
+	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
+	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_iounmap_page_range);
