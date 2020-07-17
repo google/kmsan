@@ -31,7 +31,7 @@ EXPORT_SYMBOL(kmsan_context_exit);
 
 void kmsan_unpoison_pt_regs(struct pt_regs *regs)
 {
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_ready || kmsan_in_runtime() || !regs)
 		return;
 	kmsan_internal_unpoison_shadow(regs, sizeof(*regs), /*checked*/true);
 }
