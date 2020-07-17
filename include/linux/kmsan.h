@@ -292,6 +292,11 @@ void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
  */
 void kmsan_handle_urb(const struct urb *urb, bool is_out);
 
+/**
+ * TODO
+ */
+void kmsan_unpoison_pt_regs(struct pt_regs *regs);
+
 #else
 
 static inline void __init kmsan_initialize_shadow(void) { }
@@ -340,6 +345,7 @@ static inline void kmsan_check_skb(const struct sk_buff *skb) {}
 static inline void kmsan_handle_dma(struct page *page, size_t offset,
 				    size_t size, enum dma_data_direction dir) {}
 static inline void kmsan_handle_urb(const struct urb *urb, bool is_out) {}
+static inline void kmsan_unpoison_pt_regs(struct pt_regs *regs) {}
 
 #endif
 
