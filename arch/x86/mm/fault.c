@@ -1558,6 +1558,7 @@ DEFINE_IDTENTRY_RAW_ERRORCODE(exc_page_fault)
 	state = irqentry_enter(regs);
 
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 	handle_page_fault(regs, error_code, address);
 	instrumentation_end();
 
