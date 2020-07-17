@@ -303,12 +303,12 @@ void kmsan_free_page(struct page *page, unsigned int order)
 EXPORT_SYMBOL(kmsan_free_page);
 
 /* Called from mm/vmalloc.c */
-void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
+void kmsan_map_kernel_range_noflush(unsigned long start, unsigned long size,
 				   pgprot_t prot, struct page **pages)
 {
 	int nr, i, mapped;
 	struct page **s_pages, **o_pages;
-	unsigned long shadow_start, shadow_end, origin_start, origin_end;
+	unsigned long shadow_start, origin_start;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
@@ -316,8 +316,7 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 	if (!shadow_start)
 		return;
 
-	BUG_ON(start >= end);
-	nr = (end - start) / PAGE_SIZE;
+	nr = size / PAGE_SIZE;
 	s_pages = kcalloc(nr, sizeof(struct page *), GFP_KERNEL);
 	o_pages = kcalloc(nr, sizeof(struct page *), GFP_KERNEL);
 	if (!s_pages || !o_pages)
@@ -329,17 +328,15 @@ void kmsan_vmap_page_range_noflush(unsigned long start, unsigned long end,
 	prot = __pgprot(pgprot_val(prot) | _PAGE_NX);
 	prot = PAGE_KERNEL;
 
-	shadow_end = vmalloc_meta((void *)end, META_SHADOW);
 	origin_start = vmalloc_meta((void *)start, META_ORIGIN);
-	origin_end = vmalloc_meta((void *)end, META_ORIGIN);
-	mapped = map_kernel_range_noflush(shadow_start, shadow_end - shadow_start,
+	mapped = __map_kernel_range_noflush(shadow_start, size,
 					   prot, s_pages);
-	BUG_ON(!mapped);
-	flush_tlb_kernel_range(shadow_start, shadow_end);
-	mapped = map_kernel_range_noflush(origin_start, origin_end - origin_start,
+	BUG_ON(mapped);
+	flush_tlb_kernel_range(shadow_start, shadow_start + size);
+	mapped = __map_kernel_range_noflush(origin_start, size,
 					   prot, o_pages);
-	BUG_ON(!mapped);
-	flush_tlb_kernel_range(origin_start, origin_end);
+	BUG_ON(mapped);
+	flush_tlb_kernel_range(origin_start, origin_start + size);
 ret:
 	kfree(s_pages);
 	kfree(o_pages);
@@ -369,6 +366,7 @@ bool kmsan_memblock_free_pages(struct page *page, unsigned int order)
 		saved_origin = page;
 		return false;
 	}
+	pr_err("setting shadow for %px-%px\n", page_address(page), (unsigned long)page_address(page) + (PAGE_SIZE << order));
 	for (i = 0; i < pages; i++) {
 		set_no_shadow_origin_page(&saved_shadow[i]);
 		set_no_shadow_origin_page(&saved_origin[i]);
