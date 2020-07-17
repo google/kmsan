@@ -14,6 +14,7 @@
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/errno.h>
+#include <linux/kmsan.h>
 #include <linux/ptrace.h>
 #include <linux/export.h>
 #include <linux/nospec.h>
@@ -38,6 +39,7 @@
 #ifdef CONFIG_X86_64
 __visible noinstr void do_syscall_64(unsigned long nr, struct pt_regs *regs)
 {
+	kmsan_unpoison_pt_regs(regs);
 	nr = syscall_enter_from_user_mode(regs, nr);
 
 	instrumentation_begin();
