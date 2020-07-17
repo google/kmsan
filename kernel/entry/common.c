@@ -104,6 +104,7 @@ noinstr long syscall_enter_from_user_mode(struct pt_regs *regs, long syscall)
 	__enter_from_user_mode(regs);
 
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 	local_irq_enable();
 	ret = __syscall_enter_from_user_work(regs, syscall);
 	instrumentation_end();
@@ -297,6 +298,7 @@ void syscall_exit_to_user_mode_work(struct pt_regs *regs)
 __visible noinstr void syscall_exit_to_user_mode(struct pt_regs *regs)
 {
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 	__syscall_exit_to_user_mode_work(regs);
 	instrumentation_end();
 	__exit_to_user_mode();
@@ -310,6 +312,7 @@ noinstr void irqentry_enter_from_user_mode(struct pt_regs *regs)
 noinstr void irqentry_exit_to_user_mode(struct pt_regs *regs)
 {
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 	exit_to_user_mode_prepare(regs);
 	instrumentation_end();
 	__exit_to_user_mode();
