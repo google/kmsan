@@ -250,6 +250,7 @@ noinstr bool __kvm_handle_async_pf(struct pt_regs *regs, u32 token)
 
 	state = irqentry_enter(regs);
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 
 	/*
 	 * If the host managed to inject an async #PF into an interrupt
