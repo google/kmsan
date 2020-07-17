@@ -14,6 +14,7 @@
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/errno.h>
+#include <linux/kmsan.h>
 #include <linux/ptrace.h>
 #include <linux/export.h>
 #include <linux/nospec.h>
@@ -73,6 +74,11 @@ static __always_inline bool do_syscall_x32(struct pt_regs *regs, int nr)
 __visible noinstr void do_syscall_64(struct pt_regs *regs, int nr)
 {
 	add_random_kstack_offset();
+	/*
+	 * regs may be passed from non-instrumented code, so mark them as
+	 * initialized before touching them.
+	 */
+	kmsan_unpoison_pt_regs(regs);
 	nr = syscall_enter_from_user_mode(regs, nr);
 
 	instrumentation_begin();
@@ -192,6 +198,11 @@ __visible noinstr long do_fast_syscall_32(struct pt_regs *regs)
 	unsigned long landing_pad = (unsigned long)current->mm->context.vdso +
 					vdso_image_32.sym_int80_landing_pad;
 
+	/*
+	 * regs may be passed from non-instrumented code, so mark them as
+	 * initialized before touching them.
+	 */
+	kmsan_unpoison_pt_regs(regs);
 	/*
 	 * SYSENTER loses EIP, and even SYSCALL32 needs us to skip forward
 	 * so that 'regs->ip -= 2' lands back on an int $0x80 instruction.
