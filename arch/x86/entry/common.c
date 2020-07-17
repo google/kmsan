@@ -14,6 +14,7 @@
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/errno.h>
+#include <linux/kmsan.h>
 #include <linux/ptrace.h>
 #include <linux/export.h>
 #include <linux/nospec.h>
@@ -76,6 +77,7 @@ __visible noinstr void do_syscall_64(struct pt_regs *regs, int nr)
 	nr = syscall_enter_from_user_mode(regs, nr);
 
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 
 	if (!do_syscall_x64(regs, nr) && !do_syscall_x32(regs, nr) && nr != -1) {
 		/* Invalid system call, but still a system call. */
