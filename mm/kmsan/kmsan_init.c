@@ -73,6 +73,8 @@ void __init kmsan_initialize(void)
 {
 	/* Assuming current is init_task */
 	kmsan_internal_task_create(current);
+	pr_info("vmalloc area at: %px\n", VMALLOC_START);
+	pr_info("vmalloc shadow at: %px\n", VMALLOC_START+KMSAN_VMALLOC_SHADOW_OFFSET);
 	pr_info("Starting KernelMemorySanitizer\n");
 	kmsan_ready = true;
 }
