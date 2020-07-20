@@ -366,7 +366,6 @@ bool kmsan_memblock_free_pages(struct page *page, unsigned int order)
 		saved_origin = page;
 		return false;
 	}
-	pr_err("setting shadow for %px-%px\n", page_address(page), (unsigned long)page_address(page) + (PAGE_SIZE << order));
 	for (i = 0; i < pages; i++) {
 		set_no_shadow_origin_page(&saved_shadow[i]);
 		set_no_shadow_origin_page(&saved_origin[i]);
