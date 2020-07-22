@@ -118,7 +118,7 @@ instrument_copy_to_user(void __user *to, const void *from, unsigned long n)
 {
 	kasan_check_read(from, n);
 	kcsan_check_read(from, n);
-	kmsan_check_memory(from, n);
+	kmsan_copy_to_user(to, from, n, 0);
 }
 
 /**
