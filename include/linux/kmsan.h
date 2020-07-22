@@ -231,21 +231,6 @@ void kmsan_context_enter(void);
 void kmsan_context_exit(void);
 
 /**
- * kmsan_copy_to_user() - Notify KMSAN about a data transfer to userspace.
- * @to:      destination address in the userspace.
- * @from:    source address in the kernel.
- * @to_copy: number of bytes to copy.
- * @left:    number of bytes not copied.
- *
- * If this is a real userspace data transfer, KMSAN checks the bytes that were
- * actually copied to ensure there was no information leak. If @to belongs to
- * the kernel space (which is possible for compat syscalls), KMSAN just copies
- * the metadata.
- */
-void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
-			size_t left);
-
-/**
  * kmsan_check_skb() - Check an sk_buff for being initialized.
  *
  * KMSAN checks the memory belonging to a socket buffer and reports an error if
@@ -337,9 +322,6 @@ static inline void kmsan_iounmap_page_range(unsigned long start,
 
 static inline void kmsan_context_enter(void) {}
 static inline void kmsan_context_exit(void) {}
-
-static inline void kmsan_copy_to_user(
-	const void *to, const void *from, size_t to_copy, size_t left) {}
 
 static inline void kmsan_check_skb(const struct sk_buff *skb) {}
 static inline void kmsan_handle_dma(struct page *page, size_t offset,
