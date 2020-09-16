@@ -102,8 +102,7 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 	if (s->ctor)
 		return;
 	irq_flags = kmsan_enter_runtime();
-	kmsan_internal_poison_shadow(object, s->object_size,
-				     GFP_KERNEL,
+	kmsan_internal_poison_shadow(object, s->object_size, GFP_KERNEL,
 				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
 	kmsan_leave_runtime(irq_flags);
 }
@@ -121,7 +120,7 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 	irq_flags = kmsan_enter_runtime();
 	if (flags & __GFP_ZERO)
 		kmsan_internal_unpoison_shadow((void *)ptr, size,
-					       /*checked*/true);
+					       /*checked*/ true);
 	else
 		kmsan_internal_poison_shadow((void *)ptr, size, flags,
 					     KMSAN_POISON_CHECK);
@@ -140,9 +139,10 @@ void kmsan_kfree_large(const void *ptr)
 	irq_flags = kmsan_enter_runtime();
 	page = virt_to_head_page((void *)ptr);
 	BUG_ON(ptr != page_address(page));
-	kmsan_internal_poison_shadow(
-		(void *)ptr, PAGE_SIZE << compound_order(page), GFP_KERNEL,
-		KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
+	kmsan_internal_poison_shadow((void *)ptr,
+				     PAGE_SIZE << compound_order(page),
+				     GFP_KERNEL,
+				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_kfree_large);
@@ -174,7 +174,7 @@ EXPORT_SYMBOL(kmsan_unmap_kernel_range);
  * those are ignored.
  */
 void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
-	phys_addr_t phys_addr, pgprot_t prot)
+			      phys_addr_t phys_addr, pgprot_t prot)
 {
 	unsigned long irq_flags;
 	struct page *shadow, *origin;
@@ -191,9 +191,9 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 		shadow = alloc_pages(gfp_mask, 1);
 		origin = alloc_pages(gfp_mask, 1);
 		__map_kernel_range_noflush(vmalloc_shadow(start + off),
-					PAGE_SIZE, prot, &shadow);
+					   PAGE_SIZE, prot, &shadow);
 		__map_kernel_range_noflush(vmalloc_origin(start + off),
-					PAGE_SIZE, prot, &origin);
+					   PAGE_SIZE, prot, &origin);
 	}
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
@@ -232,8 +232,8 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 EXPORT_SYMBOL(kmsan_iounmap_page_range);
 
 /* Called from include/linux/uaccess.h, include/linux/uaccess.h */
-void kmsan_copy_to_user(const void *to, const void *from,
-			size_t to_copy, size_t left)
+void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
+			size_t left)
 {
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
@@ -251,7 +251,7 @@ void kmsan_copy_to_user(const void *to, const void *from,
 	if ((u64)to < TASK_SIZE) {
 		/* This is a user memory access, check it. */
 		kmsan_internal_check_memory((void *)from, to_copy - left, to,
-						REASON_COPY_TO_USER);
+					    REASON_COPY_TO_USER);
 		return;
 	}
 	/* Otherwise this is a kernel memory access. This happens when a compat
@@ -282,19 +282,19 @@ void kmsan_check_skb(const struct sk_buff *skb)
 			f = &skb_shinfo(skb)->frags[i];
 
 			skb_frag_foreach_page(f, skb_frag_off(f),
-					      skb_frag_size(f),
-					      p, p_off, p_len, copied) {
-
+					      skb_frag_size(f), p, p_off, p_len,
+					      copied)
+			{
 				vaddr = kmap_atomic(p);
 				kmsan_internal_check_memory(vaddr + p_off,
-						p_len, /*user_addr*/ 0,
-						REASON_ANY);
+							    p_len,
+							    /*user_addr*/ 0,
+							    REASON_ANY);
 				kunmap_atomic(vaddr);
 			}
 		}
 	}
-	skb_walk_frags(skb, frag_iter)
-		kmsan_check_skb(frag_iter);
+	skb_walk_frags(skb, frag_iter) kmsan_check_skb(frag_iter);
 }
 EXPORT_SYMBOL(kmsan_check_skb);
 
@@ -310,7 +310,7 @@ void kmsan_handle_urb(const struct urb *urb, bool is_out)
 	else
 		kmsan_internal_unpoison_shadow(urb->transfer_buffer,
 					       urb->transfer_buffer_length,
-					       /*checked*/false);
+					       /*checked*/ false);
 }
 EXPORT_SYMBOL(kmsan_handle_urb);
 
@@ -319,18 +319,18 @@ static void kmsan_handle_dma_page(const void *addr, size_t size,
 {
 	switch (dir) {
 	case DMA_BIDIRECTIONAL:
-		kmsan_internal_check_memory((void *)addr, size, /*user_addr*/0,
+		kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0,
 					    REASON_ANY);
 		kmsan_internal_unpoison_shadow((void *)addr, size,
-					       /*checked*/false);
+					       /*checked*/ false);
 		break;
 	case DMA_TO_DEVICE:
-		kmsan_internal_check_memory((void *)addr, size, /*user_addr*/0,
+		kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0,
 					    REASON_ANY);
 		break;
 	case DMA_FROM_DEVICE:
 		kmsan_internal_unpoison_shadow((void *)addr, size,
-					       /*checked*/false);
+					       /*checked*/ false);
 		break;
 	case DMA_NONE:
 		break;
@@ -361,12 +361,13 @@ void kmsan_handle_dma(struct page *page, size_t offset, size_t size,
 }
 EXPORT_SYMBOL(kmsan_handle_dma);
 
-void kmsan_handle_dma_sg(struct scatterlist *sg, int nents, enum dma_data_direction dir)
+void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
+			 enum dma_data_direction dir)
 {
 	struct scatterlist *item;
 	int i;
 
-	for_each_sg(sg, item, nents, i)
+	for_each_sg (sg, item, nents, i)
 		kmsan_handle_dma(sg_page(item), item->offset, item->length,
 				 dir);
 }
@@ -419,7 +420,6 @@ void kmsan_gup_pgd_range(struct page **pages, int nr)
 		    ((u64)page_addr + PAGE_SIZE < TASK_SIZE))
 			kmsan_unpoison_shadow(page_addr, PAGE_SIZE);
 	}
-
 }
 EXPORT_SYMBOL(kmsan_gup_pgd_range);
 
