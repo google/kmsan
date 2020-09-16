@@ -26,28 +26,32 @@ static bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
 
 struct shadow_origin_ptr __msan_metadata_ptr_for_load_n(void *addr, u64 size)
 {
-	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/ false);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_load_n);
 
 struct shadow_origin_ptr __msan_metadata_ptr_for_store_n(void *addr, u64 size)
 {
-	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);
+	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/ true);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
 
-#define DECLARE_METADATA_PTR_GETTER(size)	\
-struct shadow_origin_ptr __msan_metadata_ptr_for_load_##size(void *addr) \
-{		\
-	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/false);	\
-}		\
-EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);			\
-		\
-struct shadow_origin_ptr __msan_metadata_ptr_for_store_##size(void *addr) \
-{									\
-	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/true);	\
-}									\
-EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size)
+#define DECLARE_METADATA_PTR_GETTER(size)                                      \
+	struct shadow_origin_ptr __msan_metadata_ptr_for_load_##size(          \
+		void *addr)                                                    \
+	{                                                                      \
+		return kmsan_get_shadow_origin_ptr(addr, size,                 \
+						   /*store*/ false);           \
+	}                                                                      \
+	EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);                    \
+                                                                               \
+	struct shadow_origin_ptr __msan_metadata_ptr_for_store_##size(         \
+		void *addr)                                                    \
+	{                                                                      \
+		return kmsan_get_shadow_origin_ptr(addr, size,                 \
+						   /*store*/ true);            \
+	}                                                                      \
+	EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size)
 
 DECLARE_METADATA_PTR_GETTER(1);
 DECLARE_METADATA_PTR_GETTER(2);
@@ -69,11 +73,11 @@ void __msan_instrument_asm_store(void *addr, u64 size)
 		WARN_ONCE(1, "assembly store size too big: %d\n", size);
 		size = 8;
 	}
-	if (is_bad_asm_addr(addr, size, /*is_store*/true))
+	if (is_bad_asm_addr(addr, size, /*is_store*/ true))
 		return;
 	irq_flags = kmsan_enter_runtime();
 	/* Unpoisoning the memory on best effort. */
-	kmsan_internal_unpoison_shadow(addr, size, /*checked*/false);
+	kmsan_internal_unpoison_shadow(addr, size, /*checked*/ false);
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(__msan_instrument_asm_store);
@@ -139,7 +143,7 @@ void *__msan_memset(void *dst, int c, size_t n)
 	 * Clang doesn't pass parameter metadata here, so it is impossible to
 	 * use shadow of @c to set up the shadow for @dst.
 	 */
-	kmsan_internal_unpoison_shadow(dst, n, /*checked*/false);
+	kmsan_internal_unpoison_shadow(dst, n, /*checked*/ false);
 	kmsan_leave_runtime(irq_flags);
 
 	return result;
@@ -177,7 +181,7 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
-	kmsan_internal_memset_shadow(address, -1, size, /*checked*/true);
+	kmsan_internal_memset_shadow(address, -1, size, /*checked*/ true);
 
 	entries[0] = KMSAN_ALLOCA_MAGIC_ORIGIN;
 	entries[1] = (u64)descr;
@@ -200,7 +204,7 @@ void __msan_unpoison_alloca(void *address, u64 size)
 		return;
 
 	irq_flags = kmsan_enter_runtime();
-	kmsan_internal_unpoison_shadow(address, size, /*checked*/true);
+	kmsan_internal_unpoison_shadow(address, size, /*checked*/ true);
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(__msan_unpoison_alloca);
@@ -212,8 +216,9 @@ void __msan_warning(u32 origin)
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	irq_flags = kmsan_enter_runtime();
-	kmsan_report(origin, /*address*/0, /*size*/0,
-		/*off_first*/0, /*off_last*/0, /*user_addr*/0, REASON_ANY);
+	kmsan_report(origin, /*address*/ 0, /*size*/ 0,
+		     /*off_first*/ 0, /*off_last*/ 0, /*user_addr*/ 0,
+		     REASON_ANY);
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(__msan_warning);
