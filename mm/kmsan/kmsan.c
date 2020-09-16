@@ -89,8 +89,7 @@ void kmsan_internal_task_create(struct task_struct *task)
 	state->allow_reporting = true;
 }
 
-void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
-				  bool checked)
+void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
 {
 	void *shadow_start;
 	u64 page_offset, address = (u64)addr;
@@ -115,13 +114,13 @@ void kmsan_internal_memset_shadow(void *addr, int b, size_t size,
 	}
 }
 
-void kmsan_internal_poison_shadow(void *address, size_t size,
-				gfp_t flags, unsigned int poison_flags)
+void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags,
+				  unsigned int poison_flags)
 {
 	bool checked = poison_flags & KMSAN_POISON_CHECK;
 	depot_stack_handle_t handle;
-	u32 extra_bits = kmsan_extra_bits(/*depth*/0,
-					  poison_flags & KMSAN_POISON_FREE);
+	u32 extra_bits =
+		kmsan_extra_bits(/*depth*/ 0, poison_flags & KMSAN_POISON_FREE);
 
 	kmsan_internal_memset_shadow(address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags, extra_bits);
@@ -204,9 +203,11 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	BUG_ON(!metadata_is_contiguous(dst, n, META_ORIGIN));
 	BUG_ON(!metadata_is_contiguous(src, n, META_ORIGIN));
 	src_slots = (ALIGN((u64)src + n, ORIGIN_SIZE) -
-		     ALIGN_DOWN((u64)src, ORIGIN_SIZE)) / ORIGIN_SIZE;
+		     ALIGN_DOWN((u64)src, ORIGIN_SIZE)) /
+		    ORIGIN_SIZE;
 	dst_slots = (ALIGN((u64)dst + n, ORIGIN_SIZE) -
-		     ALIGN_DOWN((u64)dst, ORIGIN_SIZE)) / ORIGIN_SIZE;
+		     ALIGN_DOWN((u64)dst, ORIGIN_SIZE)) /
+		    ORIGIN_SIZE;
 	BUG_ON(!src_slots || !dst_slots);
 	BUG_ON((src_slots < 1) || (dst_slots < 1));
 	BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
@@ -264,12 +265,12 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 
 void kmsan_memcpy_metadata(void *dst, void *src, size_t n)
 {
-	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/false);
+	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/ false);
 }
 
 void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 {
-	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/true);
+	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/ true);
 }
 
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
@@ -429,8 +430,9 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				cur_off_start = -1;
 				continue;
 			}
-			origin = kmsan_get_metadata((void *)(addr64 + pos + i),
-						chunk_size - i, META_ORIGIN);
+			origin =
+				kmsan_get_metadata((void *)(addr64 + pos + i),
+						   chunk_size - i, META_ORIGIN);
 			BUG_ON(!origin);
 			new_origin = *origin;
 			/*
@@ -479,9 +481,8 @@ bool metadata_is_contiguous(void *addr, size_t size, bool is_origin)
 	if (!cur_meta)
 		all_untracked = true;
 	for (next_addr = cur_addr + PAGE_SIZE; next_addr < (u64)addr + size;
-		     cur_addr = next_addr,
-		     cur_meta = next_meta,
-		     next_addr += PAGE_SIZE) {
+	     cur_addr = next_addr, cur_meta = next_meta,
+	    next_addr += PAGE_SIZE) {
 		next_meta = kmsan_get_metadata((void *)next_addr, 1, is_origin);
 		if (!next_meta) {
 			if (!all_untracked)
@@ -501,8 +502,8 @@ report:
 	pr_err("Access of size %d at %px.\n", size, addr);
 	pr_err("Addresses belonging to different ranges: %px and %px\n",
 	       cur_addr, next_addr);
-	pr_err("page[0].%s: %px, page[1].%s: %px\n",
-	       fname, cur_meta, fname, next_meta);
+	pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta, fname,
+	       next_meta);
 	origin_p = kmsan_get_metadata(addr, 1, META_ORIGIN);
 	if (origin_p) {
 		pr_err("Origin: %08x\n", *origin_p);
