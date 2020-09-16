@@ -167,9 +167,9 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags);
 void kmsan_kfree_large(const void *ptr);
 
 /**
- * kmsan_vmap_page_range_noflush() - Notify KMSAN about a vmap.
+ * kmsan_map_kernel_range_noflush() - Notify KMSAN about a vmap.
  * @start: start address of vmapped range.
- * @end:   end address of vmapped range.
+ * @size:  size of vmapped range.
  * @prot:  page protection flags used for vmap.
  * @pages: array of pages.
  *
@@ -180,12 +180,12 @@ void kmsan_map_kernel_range_noflush(unsigned long start, unsigned long size,
 				   pgprot_t prot, struct page **pages);
 
 /**
- * kmsan_vunmap_page_range() - Notify KMSAN about a vunmap.
+ * kmsan_unmap_kernel_range() - Notify KMSAN about a vunmap.
  * @addr: start address of vunmapped range.
  * @size:  end address of vunmapped range.
  *
  * KMSAN unmaps the contiguous metadata ranges created by
- * kmsan_vmap_page_range_noflush().
+ * kmsan_map_kernel_range_noflush().
  */
 void kmsan_unmap_kernel_range(unsigned long start, unsigned long size);
 
@@ -286,6 +286,10 @@ void kmsan_unpoison_pt_regs(struct pt_regs *regs);
 
 static inline void __init kmsan_initialize_shadow(void) { }
 static inline void __init kmsan_initialize(void) { }
+static inline bool __init kmsan_memblock_free_pages(struct page *page, unsigned int order)
+{
+	return false;
+}
 
 static inline void kmsan_task_create(struct task_struct *task) {}
 static inline void kmsan_task_exit(struct task_struct *task) {}
@@ -305,13 +309,10 @@ static inline void kmsan_slab_free(struct kmem_cache *s, void *object) {}
 static inline void kmsan_kmalloc_large(const void *ptr, size_t size,
 				       gfp_t flags) {}
 static inline void kmsan_kfree_large(const void *ptr) {}
+static inline void kmsan_map_kernel_range_noflush(unsigned long start, unsigned long size,
+						  pgprot_t prot, struct page **pages) {}
+static inline void kmsan_unmap_kernel_range(unsigned long start, unsigned long size) {}
 
-static inline void kmsan_vmap_page_range_noflush(unsigned long start,
-						 unsigned long end,
-						 pgprot_t prot,
-						 struct page **pages) {}
-static inline void kmsan_vunmap_page_range(unsigned long start,
-					   unsigned long end) {}
 
 static inline void kmsan_ioremap_page_range(unsigned long start,
 					    unsigned long end,
@@ -326,6 +327,8 @@ static inline void kmsan_context_exit(void) {}
 static inline void kmsan_check_skb(const struct sk_buff *skb) {}
 static inline void kmsan_handle_dma(struct page *page, size_t offset,
 				    size_t size, enum dma_data_direction dir) {}
+static inline void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
+				       enum dma_data_direction dir) {}
 static inline void kmsan_handle_urb(const struct urb *urb, bool is_out) {}
 static inline void kmsan_unpoison_pt_regs(struct pt_regs *regs) {}
 
