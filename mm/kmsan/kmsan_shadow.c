@@ -37,10 +37,10 @@
 
 #define has_origin_page(page) (!!((page)->origin))
 
-#define set_no_shadow_origin_page(page)	\
-	do {				\
-		(page)->shadow = NULL;	\
-		(page)->origin = NULL;	\
+#define set_no_shadow_origin_page(page)                                        \
+	do {                                                                   \
+		(page)->shadow = NULL;                                         \
+		(page)->origin = NULL;                                         \
 	} while (0) /**/
 
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
@@ -97,12 +97,12 @@ static unsigned long vmalloc_meta(void *addr, bool is_origin)
 
 	BUG_ON(is_origin && !IS_ALIGNED(addr64, ORIGIN_SIZE));
 	if (kmsan_internal_is_vmalloc_addr(addr))
-		return addr64 + (is_origin ? KMSAN_VMALLOC_ORIGIN_OFFSET
-					   : KMSAN_VMALLOC_SHADOW_OFFSET);
+		return addr64 + (is_origin ? KMSAN_VMALLOC_ORIGIN_OFFSET :
+						   KMSAN_VMALLOC_SHADOW_OFFSET);
 	if (kmsan_internal_is_module_addr(addr)) {
 		off = addr64 - MODULES_VADDR;
-		return off + (is_origin ? KMSAN_MODULES_ORIGIN_START
-					: KMSAN_MODULES_SHADOW_START);
+		return off + (is_origin ? KMSAN_MODULES_ORIGIN_START :
+						KMSAN_MODULES_SHADOW_START);
 	}
 	return 0;
 }
@@ -119,8 +119,8 @@ static void *get_cea_meta_or_null(void *addr, bool is_origin)
 	off = (char *)addr - (char *)get_cpu_entry_area(cpu);
 	if ((off < 0) || (off >= CPU_ENTRY_AREA_SIZE))
 		return NULL;
-	metadata_array = is_origin ? cpu_entry_area_origin :
-				     cpu_entry_area_shadow;
+	metadata_array =
+		is_origin ? cpu_entry_area_origin : cpu_entry_area_shadow;
 	return &per_cpu(metadata_array[off], cpu);
 }
 
@@ -139,8 +139,8 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 	void *shadow;
 
 	if (size > PAGE_SIZE)
-		panic("size too big in %s(%px, %d, %d)\n",
-		     __func__, address, size, store);
+		panic("size too big in %s(%px, %d, %d)\n", __func__, address,
+		      size, store);
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		goto return_dummy;
@@ -234,18 +234,16 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 		return;
 	if (!has_shadow_page(src)) {
 		kmsan_internal_unpoison_shadow(page_address(dst), PAGE_SIZE,
-					       /*checked*/false);
+					       /*checked*/ false);
 		return;
 	}
 	if (!has_shadow_page(dst))
 		return;
 
 	irq_flags = kmsan_enter_runtime();
-	__memcpy(shadow_ptr_for(dst), shadow_ptr_for(src),
-		PAGE_SIZE);
+	__memcpy(shadow_ptr_for(dst), shadow_ptr_for(src), PAGE_SIZE);
 	BUG_ON(!has_origin_page(src) || !has_origin_page(dst));
-	__memcpy(origin_ptr_for(dst), origin_ptr_for(src),
-		PAGE_SIZE);
+	__memcpy(origin_ptr_for(dst), origin_ptr_for(src), PAGE_SIZE);
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_copy_page_meta);
@@ -255,10 +253,11 @@ EXPORT_SYMBOL(kmsan_copy_page_meta);
  * TODO(glider): merge into kmsan_alloc_page().
  * */
 static int kmsan_internal_alloc_meta_for_pages(struct page *page,
-					       unsigned int order,
-					       gfp_t flags, int node)
+					       unsigned int order, gfp_t flags,
+					       int node)
 {
-	struct page *shadow = shadow_page_for(page), *origin = origin_page_for(page);
+	struct page *shadow = shadow_page_for(page),
+		    *origin = origin_page_for(page);
 	int pages = 1 << order;
 	int i;
 	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
@@ -266,14 +265,14 @@ static int kmsan_internal_alloc_meta_for_pages(struct page *page,
 
 	if (!initialized) {
 		__memset(page_address(shadow), -1, PAGE_SIZE * pages);
-		handle = kmsan_save_stack_with_flags(flags, /*extra_bits*/0);
+		handle = kmsan_save_stack_with_flags(flags, /*extra_bits*/ 0);
 		/*
 		 * Addresses are page-aligned, pages are contiguous, so it's ok
 		 * to just fill the origin pages with |handle|.
 		 */
 		for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++)
 			((depot_stack_handle_t *)page_address(origin))[i] =
-						handle;
+				handle;
 	} else {
 		__memset(page_address(shadow), 0, PAGE_SIZE * pages);
 		__memset(page_address(origin), 0, PAGE_SIZE * pages);
@@ -298,13 +297,13 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 /* Called from mm/page_alloc.c */
 void kmsan_free_page(struct page *page, unsigned int order)
 {
-	return;  // really nothing to do here. Could rewrite shadow instead.
+	return; // really nothing to do here. Could rewrite shadow instead.
 }
 EXPORT_SYMBOL(kmsan_free_page);
 
 /* Called from mm/vmalloc.c */
 void kmsan_map_kernel_range_noflush(unsigned long start, unsigned long size,
-				   pgprot_t prot, struct page **pages)
+				    pgprot_t prot, struct page **pages)
 {
 	int nr, i, mapped;
 	struct page **s_pages, **o_pages;
@@ -329,12 +328,10 @@ void kmsan_map_kernel_range_noflush(unsigned long start, unsigned long size,
 	prot = PAGE_KERNEL;
 
 	origin_start = vmalloc_meta((void *)start, META_ORIGIN);
-	mapped = __map_kernel_range_noflush(shadow_start, size,
-					   prot, s_pages);
+	mapped = __map_kernel_range_noflush(shadow_start, size, prot, s_pages);
 	BUG_ON(mapped);
 	flush_tlb_kernel_range(shadow_start, shadow_start + size);
-	mapped = __map_kernel_range_noflush(origin_start, size,
-					   prot, o_pages);
+	mapped = __map_kernel_range_noflush(origin_start, size, prot, o_pages);
 	BUG_ON(mapped);
 	flush_tlb_kernel_range(origin_start, origin_start + size);
 ret:
