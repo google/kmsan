@@ -29,14 +29,14 @@
 #define KMSAN_ALLOCA_MAGIC_ORIGIN 0x4110c4071900
 #define KMSAN_CHAIN_MAGIC_ORIGIN_FULL 0xd419170cba00
 
-#define KMSAN_POISON_NOCHECK	0x0
-#define KMSAN_POISON_CHECK	0x1
-#define KMSAN_POISON_FREE	0x2
+#define KMSAN_POISON_NOCHECK 0x0
+#define KMSAN_POISON_CHECK 0x1
+#define KMSAN_POISON_FREE 0x2
 
 #define ORIGIN_SIZE 4
 
-#define META_SHADOW	(false)
-#define META_ORIGIN	(true)
+#define META_SHADOW (false)
+#define META_ORIGIN (true)
 
 #define KMSAN_NESTED_CONTEXT_MAX (8)
 /* [0] for dummy per-CPU context */
@@ -49,9 +49,9 @@ extern spinlock_t report_lock;
 extern bool kmsan_ready;
 
 void kmsan_print_origin(depot_stack_handle_t origin);
-void kmsan_report(depot_stack_handle_t origin,
-		  void *address, int size, int off_first, int off_last,
-		  const void *user_addr, int reason);
+void kmsan_report(depot_stack_handle_t origin, void *address, int size,
+		  int off_first, int off_last, const void *user_addr,
+		  int reason);
 
 enum KMSAN_BUG_REASON {
 	REASON_ANY,
@@ -152,10 +152,10 @@ struct page *vmalloc_to_page_or_null(void *vaddr);
 /* Declared in mm/vmalloc.c */
 void __unmap_kernel_range_noflush(unsigned long start, unsigned long size);
 int __map_kernel_range_noflush(unsigned long addr, unsigned long size,
-			     pgprot_t prot, struct page **pages);
+			       pgprot_t prot, struct page **pages);
 
 void *kmsan_internal_return_address(int arg);
 bool kmsan_internal_is_module_addr(void *vaddr);
 bool kmsan_internal_is_vmalloc_addr(void *addr);
 
-#endif  /* __MM_KMSAN_KMSAN_H */
+#endif /* __MM_KMSAN_KMSAN_H */
