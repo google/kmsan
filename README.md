@@ -3,7 +3,7 @@
 `KMSAN` is a detector of uninitialized memory use for the Linux kernel. It is
 currently in development.
 
-Contact: ramosian-glider@
+Contact: @ramosian-glider
 
 ## Code
 
@@ -12,26 +12,25 @@ Contact: ramosian-glider@
 
 ## How to build
 
-In order to build a kernel with KMSAN you'll need a fresh Clang (8.0.0, trunk 341646 or greater)
 
 ```
 export WORLD=`pwd`
 ```
 
-### Build Clang
+In order to build a kernel with KMSAN you'll need a fresh Clang. Please refer to https://clang.llvm.org/get_started.html and https://llvm.org/docs/CMake.html for the instructions on how to build Clang. Otherwise, consider using prebuilt compiler binaries from the Chromium project:
+
 ```
-# Starting from r341646 any Clang revision should work, but due to changed default flag values
-# a version >= r348261 is recommended.
-R=348261
-svn co -r $R http://llvm.org/svn/llvm-project/llvm/trunk llvm
-cd llvm
-(cd tools && svn co -r $R http://llvm.org/svn/llvm-project/cfe/trunk clang)
-(cd projects && svn co -r $R http://llvm.org/svn/llvm-project/compiler-rt/trunk compiler-rt)
-mkdir llvm_cmake_build && cd llvm_cmake_build
-cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON ../
-make -j64 clang
-export KMSAN_CLANG_PATH=`pwd`/bin/clang
+cd $WORLD
+# Instruction taken from http://llvm.org/docs/LibFuzzer.html
+mkdir TMP_CLANG
+cd TMP_CLANG
+git clone https://chromium.googlesource.com/chromium/src/tools/clang
+cd ..
+TMP_CLANG/clang/scripts/update.py
+cd $WORLD
+export KMSAN_CLANG_PATH=`pwd`/third_party/llvm-build/Release+Asserts/bin/
 ```
+
 
 ### Configure and build the kernel
 ```
