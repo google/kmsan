@@ -53,13 +53,13 @@ void __init kmsan_initialize_shadow(void)
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
 	phys_addr_t p_start, p_end;
 
-	for_each_reserved_mem_region(i, &p_start, &p_end)
+	for_each_reserved_mem_region (i, &p_start, &p_end)
 		kmsan_record_future_shadow_range(phys_to_virt(p_start),
-						 phys_to_virt(p_end+1));
+						 phys_to_virt(p_end + 1));
 	/* Allocate shadow for .data */
 	kmsan_record_future_shadow_range(_sdata, _edata);
 
-	for_each_online_node(nid)
+	for_each_online_node (nid)
 		kmsan_record_future_shadow_range(
 			NODE_DATA(nid), (char *)NODE_DATA(nid) + nd_size);
 
@@ -74,7 +74,8 @@ void __init kmsan_initialize(void)
 	/* Assuming current is init_task */
 	kmsan_internal_task_create(current);
 	pr_info("vmalloc area at: %px\n", VMALLOC_START);
-	pr_info("vmalloc shadow at: %px\n", VMALLOC_START+KMSAN_VMALLOC_SHADOW_OFFSET);
+	pr_info("vmalloc shadow at: %px\n",
+		VMALLOC_START + KMSAN_VMALLOC_SHADOW_OFFSET);
 	pr_info("Starting KernelMemorySanitizer\n");
 	kmsan_ready = true;
 }
