@@ -504,7 +504,6 @@ nmi_restart:
 
 	irq_state = idtentry_enter_nmi(regs);
 	kmsan_context_enter();
-	kmsan_unpoison_pt_regs(regs);
 
 	inc_irq_stat(__nmi_count);
 
