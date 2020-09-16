@@ -228,7 +228,6 @@ static __always_inline void handle_irq(struct irq_desc *desc,
 				       struct pt_regs *regs)
 {
 	kmsan_context_enter();
-	kmsan_unpoison_pt_regs(regs);
 	if (IS_ENABLED(CONFIG_X86_64))
 		generic_handle_irq_desc(desc);
 	else
