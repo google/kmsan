@@ -49,9 +49,10 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 			pr_err("Uninit was stored to memory at:\n");
 			chained_nr_entries =
 				stack_depot_fetch(head, &chained_entries);
-			kmsan_internal_unpoison_shadow(chained_entries,
+			kmsan_internal_unpoison_shadow(
+				chained_entries,
 				chained_nr_entries * sizeof(*chained_entries),
-				/*checked*/false);
+				/*checked*/ false);
 			stack_trace_print(chained_entries, chained_nr_entries,
 					  0);
 			pr_err("\n");
@@ -84,9 +85,9 @@ void kmsan_print_origin(depot_stack_handle_t origin)
  * @address, @size, @user_addr and @reason, but different @off_first and
  * @off_last corresponding to different @origin values.
  */
-void kmsan_report(depot_stack_handle_t origin,
-		  void *address, int size, int off_first, int off_last,
-		  const void *user_addr, int reason)
+void kmsan_report(depot_stack_handle_t origin, void *address, int size,
+		  int off_first, int off_last, const void *user_addr,
+		  int reason)
 {
 	unsigned long flags;
 	bool is_uaf;
@@ -109,15 +110,15 @@ void kmsan_report(depot_stack_handle_t origin,
 		break;
 	case REASON_COPY_TO_USER:
 		bug_type = is_uaf ? "kernel-infoleak-after-free" :
-				    "kernel-infoleak";
+					  "kernel-infoleak";
 		break;
 	case REASON_SUBMIT_URB:
 		bug_type = is_uaf ? "kernel-usb-infoleak-after-free" :
-				    "kernel-usb-infoleak";
+					  "kernel-usb-infoleak";
 		break;
 	}
-	pr_err("BUG: KMSAN: %s in %pS\n",
-	       bug_type, kmsan_internal_return_address(2));
+	pr_err("BUG: KMSAN: %s in %pS\n", bug_type,
+	       kmsan_internal_return_address(2));
 	dump_stack();
 	pr_err("\n");
 
@@ -126,15 +127,15 @@ void kmsan_report(depot_stack_handle_t origin,
 	if (size) {
 		pr_err("\n");
 		if (off_first == off_last)
-			pr_err("Byte %d of %d is uninitialized\n",
-			       off_first, size);
+			pr_err("Byte %d of %d is uninitialized\n", off_first,
+			       size);
 		else
 			pr_err("Bytes %d-%d of %d are uninitialized\n",
 			       off_first, off_last, size);
 	}
 	if (address)
-		pr_err("Memory access of size %d starts at %px\n",
-		       size, address);
+		pr_err("Memory access of size %d starts at %px\n", size,
+		       address);
 	if (user_addr && reason == REASON_COPY_TO_USER)
 		pr_err("Data copied to user address %px\n", user_addr);
 	pr_err("=====================================================\n");
