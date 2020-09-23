@@ -174,6 +174,7 @@ EXPORT_SYMBOL_GPL(usb_control_msg);
  * @size: length in bytes of the data to send
  * @timeout: time in msecs to wait for the message to complete before timing
  *	out (if 0 the wait is forever)
+ * @memflags: the flags for memory allocation for buffers
  *
  * Context: !in_interrupt ()
  *
@@ -196,7 +197,8 @@ EXPORT_SYMBOL_GPL(usb_control_msg);
  */
 int usb_control_msg_send(struct usb_device *dev, __u8 endpoint, __u8 request,
 			 __u8 requesttype, __u16 value, __u16 index,
-			 const void *driver_data, __u16 size, int timeout)
+			 const void *driver_data, __u16 size, int timeout,
+			 gfp_t memflags)
 {
 	unsigned int pipe = usb_sndctrlpipe(dev, endpoint);
 	int ret;
@@ -206,7 +208,7 @@ int usb_control_msg_send(struct usb_device *dev, __u8 endpoint, __u8 request,
 		return -EINVAL;
 
 	if (size) {
-		data = kmemdup(driver_data, size, GFP_KERNEL);
+		data = kmemdup(driver_data, size, memflags);
 		if (!data)
 			return -ENOMEM;
 	}
@@ -235,6 +237,7 @@ EXPORT_SYMBOL_GPL(usb_control_msg_send);
  * @size: length in bytes of the data to be received
  * @timeout: time in msecs to wait for the message to complete before timing
  *	out (if 0 the wait is forever)
+ * @memflags: the flags for memory allocation for buffers
  *
  * Context: !in_interrupt ()
  *
@@ -263,7 +266,8 @@ EXPORT_SYMBOL_GPL(usb_control_msg_send);
  */
 int usb_control_msg_recv(struct usb_device *dev, __u8 endpoint, __u8 request,
 			 __u8 requesttype, __u16 value, __u16 index,
-			 void *driver_data, __u16 size, int timeout)
+			 void *driver_data, __u16 size, int timeout,
+			 gfp_t memflags)
 {
 	unsigned int pipe = usb_rcvctrlpipe(dev, endpoint);
 	int ret;
@@ -272,7 +276,7 @@ int usb_control_msg_recv(struct usb_device *dev, __u8 endpoint, __u8 request,
 	if (!size || !driver_data || usb_pipe_type_check(dev, pipe))
 		return -EINVAL;
 
-	data = kmalloc(size, GFP_KERNEL);
+	data = kmalloc(size, memflags);
 	if (!data)
 		return -ENOMEM;
 
