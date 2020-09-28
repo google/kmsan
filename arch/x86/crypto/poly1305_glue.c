@@ -10,6 +10,7 @@
 #include <linux/crypto.h>
 #include <linux/jump_label.h>
 #include <linux/kernel.h>
+#include <linux/kmsan.h>
 #include <linux/module.h>
 #include <asm/intel-family.h>
 #include <asm/simd.h>
@@ -240,6 +241,7 @@ static int crypto_poly1305_final(struct shash_desc *desc, u8 *dst)
 		return -ENOKEY;
 
 	poly1305_final_arch(dctx, dst);
+	kmsan_unpoison_shadow(dst, crypto_shash_digestsize(desc->tfm));
 	return 0;
 }
 
