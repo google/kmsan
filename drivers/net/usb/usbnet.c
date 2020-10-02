@@ -1995,7 +1995,7 @@ static int __usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
 			goto out;
 	}
 
-	err = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
+	err = usb_control_msg_recv(dev->udev, 0,
 			      cmd, reqtype, value, index, buf, size,
 			      USB_CTRL_GET_TIMEOUT);
 	if (err > 0 && err <= size) {
@@ -2033,7 +2033,7 @@ static int __usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
         }
     }
 
-	err = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
+	err = usb_control_msg_send(dev->udev, 0,
 			      cmd, reqtype, value, index, buf, size,
 			      USB_CTRL_SET_TIMEOUT);
 	kfree(buf);
