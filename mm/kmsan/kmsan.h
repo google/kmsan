@@ -80,11 +80,10 @@ static __always_inline unsigned long kmsan_enter_runtime(void)
 	int level;
 	unsigned long irq_flags;
 
-	preempt_disable();
 	local_irq_save(irq_flags);
 	stop_nmi();
 	level = this_cpu_inc_return(kmsan_in_runtime_cnt);
-	BUG_ON(level > 1);
+	BUG_ON(level != 1);
 	return irq_flags;
 }
 
@@ -96,7 +95,6 @@ static __always_inline void kmsan_leave_runtime(unsigned long irq_flags)
 		panic("kmsan_in_runtime: %d\n", level);
 	restart_nmi();
 	local_irq_restore(irq_flags);
-	preempt_enable();
 }
 
 void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
