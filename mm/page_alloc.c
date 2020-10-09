@@ -4935,12 +4935,8 @@ out:
 	}
 
 	trace_mm_page_alloc(page, order, alloc_mask, ac.migratetype);
+	kmsan_alloc_page(page, order, gfp_mask);
 
-	if (page)
-		if (kmsan_alloc_page(page, order, gfp_mask)) {
-			__free_pages(page, order);
-			page = NULL;
-		}
 	return page;
 }
 EXPORT_SYMBOL(__alloc_pages_nodemask);
