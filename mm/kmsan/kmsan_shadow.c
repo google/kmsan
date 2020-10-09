@@ -248,7 +248,7 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 }
 
 /* Called from mm/page_alloc.c */
-int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
+void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 {
 	unsigned long irq_flags;
 	struct page *shadow, *origin;
@@ -258,7 +258,7 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	depot_stack_handle_t handle;
 
 	if (!page)
-		return 0;
+		return;
 
 	shadow = shadow_page_for(page);
 	origin = origin_page_for(page);
@@ -266,10 +266,12 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	if (initialized) {
 		__memset(page_address(shadow), 0, PAGE_SIZE * pages);
 		__memset(page_address(origin), 0, PAGE_SIZE * pages);
-		return 0;
+		return;
 	}
+
+	/* Zero pages allocated by the runtime should also be initialized. */
 	if (kmsan_in_runtime())
-		return 0;
+		return;
 
 	__memset(page_address(shadow), -1, PAGE_SIZE * pages);
 	irq_flags = kmsan_enter_runtime();
@@ -282,8 +284,6 @@ int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++)
 		((depot_stack_handle_t *)page_address(origin))[i] =
 			handle;
-
-	return 0;
 }
 
 /* Called from mm/page_alloc.c */
