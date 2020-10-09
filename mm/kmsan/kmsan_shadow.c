@@ -248,50 +248,43 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 }
 EXPORT_SYMBOL(kmsan_copy_page_meta);
 
-/*
- * Helper function to allocate page metadata.
- * TODO(glider): merge into kmsan_alloc_page().
- * */
-static int kmsan_internal_alloc_meta_for_pages(struct page *page,
-					       unsigned int order, gfp_t flags,
-					       int node)
+/* Called from mm/page_alloc.c */
+int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 {
-	struct page *shadow = shadow_page_for(page),
-		    *origin = origin_page_for(page);
+	unsigned long irq_flags;
+	struct page *shadow, *origin;
 	int pages = 1 << order;
 	int i;
 	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
 	depot_stack_handle_t handle;
 
-	if (!initialized) {
-		__memset(page_address(shadow), -1, PAGE_SIZE * pages);
-		handle = kmsan_save_stack_with_flags(flags, /*extra_bits*/ 0);
-		/*
-		 * Addresses are page-aligned, pages are contiguous, so it's ok
-		 * to just fill the origin pages with |handle|.
-		 */
-		for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++)
-			((depot_stack_handle_t *)page_address(origin))[i] =
-				handle;
-	} else {
+	if (!page)
+		return 0;
+
+	shadow = shadow_page_for(page);
+	origin = origin_page_for(page);
+
+	if (initialized) {
 		__memset(page_address(shadow), 0, PAGE_SIZE * pages);
 		__memset(page_address(origin), 0, PAGE_SIZE * pages);
+		return 0;
 	}
-	return 0;
-}
-
-/* Called from mm/page_alloc.c */
-int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
-{
-	unsigned long irq_flags;
-	int ret;
-
 	if (kmsan_in_runtime())
 		return 0;
+
+	__memset(page_address(shadow), -1, PAGE_SIZE * pages);
 	irq_flags = kmsan_enter_runtime();
-	ret = kmsan_internal_alloc_meta_for_pages(page, order, flags, -1);
+	handle = kmsan_save_stack_with_flags(flags, /*extra_bits*/ 0);
 	kmsan_leave_runtime(irq_flags);
-	return ret;
+	/*
+	 * Addresses are page-aligned, pages are contiguous, so it's ok
+	 * to just fill the origin pages with |handle|.
+	 */
+	for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++)
+		((depot_stack_handle_t *)page_address(origin))[i] =
+			handle;
+
+	return 0;
 }
 
 /* Called from mm/page_alloc.c */
