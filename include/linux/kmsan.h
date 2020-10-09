@@ -88,22 +88,17 @@ void kmsan_task_exit(struct task_struct *task);
  * @order: order of allocated struct page.
  * @flags: GFP flags used by alloc_pages()
  *
- * Return:
- * * 0       - Ok
- * * -ENOMEM - allocation failure
- *
- * KMSAN allocates metadata (shadow and origin pages) for @page and marks
- * 1<<@order pages starting at @page as uninitialized, unless @flags contain
- * __GFP_ZERO.
+ * KMSAN marks 1<<@order pages starting at @page as uninitialized, unless
+ * @flags contain __GFP_ZERO.
  */
-int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
+void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags);
 
 /**
  * kmsan_free_page() - Notify KMSAN about a free_pages() call.
  * @page:  struct page pointer passed to free_pages().
  * @order: order of deallocated struct page.
  *
- * KMSAN deallocates the metadata pages for the given struct page.
+ * KMSAN marks freed memory as uninitialized.
  */
 void kmsan_free_page(struct page *page, unsigned int order);
 
