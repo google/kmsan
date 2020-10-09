@@ -246,7 +246,6 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 	__memcpy(origin_ptr_for(dst), origin_ptr_for(src), PAGE_SIZE);
 	kmsan_leave_runtime(irq_flags);
 }
-EXPORT_SYMBOL(kmsan_copy_page_meta);
 
 /* Called from mm/page_alloc.c */
 int kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
@@ -292,7 +291,6 @@ void kmsan_free_page(struct page *page, unsigned int order)
 {
 	return; // really nothing to do here. Could rewrite shadow instead.
 }
-EXPORT_SYMBOL(kmsan_free_page);
 
 /* Called from mm/vmalloc.c */
 void kmsan_map_kernel_range_noflush(unsigned long start, unsigned long size,
