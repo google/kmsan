@@ -176,7 +176,6 @@ EXPORT_SYMBOL(kmsan_unmap_kernel_range);
 void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 			      phys_addr_t phys_addr, pgprot_t prot)
 {
-	unsigned long irq_flags;
 	struct page *shadow, *origin;
 	int i, nr;
 	unsigned long off = 0;
@@ -186,7 +185,6 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 		return;
 
 	nr = (end - start) / PAGE_SIZE;
-	irq_flags = kmsan_enter_runtime();
 	for (i = 0; i < nr; i++, off += PAGE_SIZE) {
 		shadow = alloc_pages(gfp_mask, 1);
 		origin = alloc_pages(gfp_mask, 1);
@@ -197,7 +195,6 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	}
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
-	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_ioremap_page_range);
 
@@ -206,13 +203,11 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	int i, nr;
 	struct page *shadow, *origin;
 	unsigned long v_shadow, v_origin;
-	unsigned long irq_flags;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
 	nr = (end - start) / PAGE_SIZE;
-	irq_flags = kmsan_enter_runtime();
 	v_shadow = (unsigned long)vmalloc_shadow(start);
 	v_origin = (unsigned long)vmalloc_origin(start);
 	for (i = 0; i < nr; i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
@@ -227,7 +222,6 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	}
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
-	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(kmsan_iounmap_page_range);
 
