@@ -210,23 +210,6 @@ void kmsan_ioremap_page_range(unsigned long addr, unsigned long end,
 void kmsan_iounmap_page_range(unsigned long start, unsigned long end);
 
 /**
- * kmsan_context_enter() - Notify KMSAN about a context entry.
- *
- * This function should be called whenever the kernel leaves the current task
- * and enters an IRQ, softirq or NMI context. KMSAN will switch the task state
- * to a per-thread storage.
- */
-void kmsan_context_enter(void);
-
-/**
- * kmsan_context_exit() - Notify KMSAN about a context exit.
- *
- * This function should be called when the kernel leaves the previously entered
- * context.
- */
-void kmsan_context_exit(void);
-
-/**
  * kmsan_check_skb() - Check an sk_buff for being initialized.
  *
  * KMSAN checks the memory belonging to a socket buffer and reports an error if
@@ -316,9 +299,6 @@ static inline void kmsan_ioremap_page_range(unsigned long start,
 					    pgprot_t prot) {}
 static inline void kmsan_iounmap_page_range(unsigned long start,
 					    unsigned long end) {}
-
-static inline void kmsan_context_enter(void) {}
-static inline void kmsan_context_exit(void) {}
 
 static inline void kmsan_check_skb(const struct sk_buff *skb) {}
 static inline void kmsan_handle_dma(struct page *page, size_t offset,
