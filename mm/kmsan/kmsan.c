@@ -64,15 +64,7 @@ DEFINE_PER_CPU(int, kmsan_in_runtime_cnt);
 
 struct kmsan_context_state *kmsan_task_context_state(void)
 {
-	struct kmsan_context_state *ret;
-
-	if (!kmsan_ready || kmsan_in_runtime()) {
-		ret = raw_cpu_ptr(&kmsan_percpu_cstate[0]);
-		__memset(ret, 0, sizeof(struct kmsan_context_state));
-		return ret;
-	}
 	return in_task() ? &current->kmsan.cstate : raw_cpu_ptr(&kmsan_percpu_cstate[0]);
-
 }
 
 void kmsan_internal_task_create(struct task_struct *task)
