@@ -1,4 +1,4 @@
-obj-y := kmsan.o kmsan_instr.o kmsan_init.o kmsan_entry.o kmsan_hooks.o kmsan_report.o kmsan_shadow.o
+obj-y := kmsan.o kmsan_instr.o kmsan_init.o kmsan_hooks.o kmsan_report.o kmsan_shadow.o
 
 # KMSAN runtime functions may enable UACCESS checks, so build them without
 # stackprotector to avoid objtool warnings.
