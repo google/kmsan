@@ -23,9 +23,7 @@ static __always_inline void __run_on_irqstack(void (*func)(void))
 	void *tos = __this_cpu_read(hardirq_stack_ptr);
 
 	__this_cpu_add(irq_count, 1);
-	kmsan_context_enter();
 	asm_call_on_stack(tos - 8, func, NULL);
-	kmsan_context_exit();
 	__this_cpu_sub(irq_count, 1);
 }
 
