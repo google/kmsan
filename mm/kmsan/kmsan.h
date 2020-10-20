@@ -38,12 +38,7 @@
 #define META_SHADOW (false)
 #define META_ORIGIN (true)
 
-#define KMSAN_NESTED_CONTEXT_MAX (8)
-/* [0] for dummy per-CPU context */
-DECLARE_PER_CPU(struct kmsan_task_state[KMSAN_NESTED_CONTEXT_MAX],
-		kmsan_percpu_tstate);
-/* 0 for task context, |i>0| for kmsan_context_state[i]. */
-DECLARE_PER_CPU(int, kmsan_context_level);
+DECLARE_PER_CPU(struct kmsan_task_state, kmsan_percpu_tstate);
 
 extern spinlock_t report_lock;
 extern bool kmsan_ready;
