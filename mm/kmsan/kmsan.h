@@ -40,8 +40,8 @@
 
 #define KMSAN_NESTED_CONTEXT_MAX (8)
 /* [0] for dummy per-CPU context */
-DECLARE_PER_CPU(struct kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
-		kmsan_percpu_cstate);
+DECLARE_PER_CPU(struct kmsan_task_state[KMSAN_NESTED_CONTEXT_MAX],
+		kmsan_percpu_tstate);
 /* 0 for task context, |i>0| for kmsan_context_state[i]. */
 DECLARE_PER_CPU(int, kmsan_context_level);
 
@@ -68,28 +68,31 @@ enum KMSAN_BUG_REASON {
  * inside the runtime, the hooks won’t run either, which may lead to errors.
  * Therefore we have to disable interrupts inside the runtime.
  */
-DECLARE_PER_CPU(int, kmsan_in_runtime_cnt);
+struct kmsan_task_state *kmsan_get_task_state(void);
 
 static __always_inline bool kmsan_in_runtime(void)
 {
-	return this_cpu_read(kmsan_in_runtime_cnt);
+	return kmsan_get_task_state()->kmsan_in_runtime;
 }
 
 static __always_inline unsigned long kmsan_enter_runtime(void)
 {
 	int level;
 	unsigned long irq_flags;
+	struct kmsan_task_state *ctx;
 
 	local_irq_save(irq_flags);
 	stop_nmi();
-	level = this_cpu_inc_return(kmsan_in_runtime_cnt);
+	ctx = kmsan_get_task_state();
+	level = ++ctx->kmsan_in_runtime;
 	BUG_ON(level != 1);
 	return irq_flags;
 }
 
 static __always_inline void kmsan_leave_runtime(unsigned long irq_flags)
 {
-	int level = this_cpu_dec_return(kmsan_in_runtime_cnt);
+	struct kmsan_task_state *ctx = kmsan_get_task_state();
+	int level = --ctx->kmsan_in_runtime;
 
 	if (level)
 		panic("kmsan_in_runtime: %d\n", level);

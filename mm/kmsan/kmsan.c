@@ -56,15 +56,19 @@ bool kmsan_ready;
  * interrupt.
  */
 /* [0] for dummy per-CPU context. */
-DEFINE_PER_CPU(struct kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
-	       kmsan_percpu_cstate);
+DEFINE_PER_CPU(struct kmsan_task_state[KMSAN_NESTED_CONTEXT_MAX],
+	       kmsan_percpu_tstate);
 /* 0 for task context, |i>0| for kmsan_context_state[i]. */
 DEFINE_PER_CPU(int, kmsan_context_level);
-DEFINE_PER_CPU(int, kmsan_in_runtime_cnt);
+
+struct kmsan_task_state *kmsan_get_task_state(void)
+{
+	return in_task() ? &current->kmsan : raw_cpu_ptr(&kmsan_percpu_tstate[0]);
+}
 
 struct kmsan_context_state *kmsan_task_context_state(void)
 {
-	return in_task() ? &current->kmsan.cstate : raw_cpu_ptr(&kmsan_percpu_cstate[0]);
+	return in_task() ? &current->kmsan.cstate : raw_cpu_ptr(&kmsan_percpu_tstate[0].cstate);
 }
 
 void kmsan_internal_task_create(struct task_struct *task)
