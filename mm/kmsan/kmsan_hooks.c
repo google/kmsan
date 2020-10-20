@@ -429,3 +429,11 @@ void kmsan_check_memory(const void *addr, size_t size)
 					   REASON_ANY);
 }
 EXPORT_SYMBOL(kmsan_check_memory);
+
+void kmsan_unpoison_pt_regs(struct pt_regs *regs)
+{
+	if (!kmsan_ready || kmsan_in_runtime() || !regs)
+		return;
+	kmsan_internal_unpoison_shadow(regs, sizeof(*regs), /*checked*/ true);
+}
+EXPORT_SYMBOL(kmsan_unpoison_pt_regs);
