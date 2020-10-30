@@ -53,7 +53,7 @@ void __init kmsan_initialize_shadow(void)
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
 	phys_addr_t p_start, p_end;
 
-	for_each_reserved_mem_region (i, &p_start, &p_end)
+	for_each_reserved_mem_range(i, &p_start, &p_end)
 		kmsan_record_future_shadow_range(phys_to_virt(p_start),
 						 phys_to_virt(p_end + 1));
 	/* Allocate shadow for .data */
