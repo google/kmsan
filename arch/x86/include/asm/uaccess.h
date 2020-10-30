@@ -132,7 +132,7 @@ extern int __get_user_bad(void);
 			ASM_CALL_CONSTRAINT				\
 		     : "0" (ptr), "i" (sizeof(*(ptr))));		\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
-	kmsan_unpoison_shadow(&(x), sizeof(*(ptr)));			\
+	kmsan_unpoison_shadow((void *)&(x), sizeof(*(ptr)));		\
 	__builtin_expect(__ret_gu, 0);					\
 })
 
@@ -221,10 +221,12 @@ extern void __put_user_nocheck_8(void);
 	int __ret_pu;							\
 	void __user *__ptr_pu;						\
 	register __typeof__(*(ptr)) __val_pu asm("%"_ASM_AX);		\
+	__typeof__(*(ptr)) __vp_copy;					\
 	__chk_user_ptr(ptr);						\
 	__ptr_pu = (ptr);						\
 	__val_pu = (x);							\
-	kmsan_check_memory(&(__val_pu), sizeof(*(ptr)));		\
+	__vp_copy = __val_pu;						\
+	kmsan_check_memory((void *)&(__vp_copy), sizeof(*(ptr)));	\
 	asm volatile("call __" #fn "_%P[size]"				\
 		     : "=c" (__ret_pu),					\
 			ASM_CALL_CONSTRAINT				\
@@ -280,7 +282,7 @@ extern void __put_user_nocheck_8(void);
 do {									\
 	__typeof__(*(ptr)) __pus_val = x;				\
 	__chk_user_ptr(ptr);						\
-	kmsan_check_memory(&(__pus_val), size);				\
+	kmsan_check_memory((void *)&(__pus_val), size);			\
 	switch (size) {							\
 	case 1:								\
 		__put_user_goto(x, ptr, "b", "iq", label);		\
@@ -336,7 +338,7 @@ do {									\
 	default:							\
 		(x) = __get_user_bad();					\
 	}								\
-	kmsan_unpoison_shadow(&(x), size);				\
+	kmsan_unpoison_shadow((void *)&(x), size);			\
 } while (0)
 
 #define __get_user_asm(x, addr, itype, ltype, label)			\
