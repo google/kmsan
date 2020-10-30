@@ -55,7 +55,7 @@ void __init kmsan_initialize_shadow(void)
 
 	for_each_reserved_mem_range(i, &p_start, &p_end)
 		kmsan_record_future_shadow_range(phys_to_virt(p_start),
-						 phys_to_virt(p_end + 1));
+						 phys_to_virt(p_end));
 	/* Allocate shadow for .data */
 	kmsan_record_future_shadow_range(_sdata, _edata);
 
