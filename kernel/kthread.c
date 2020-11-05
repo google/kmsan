@@ -21,7 +21,6 @@
 #include <linux/unistd.h>
 #include <linux/file.h>
 #include <linux/export.h>
-#include <linux/kmsan.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/freezer.h>
@@ -389,7 +388,6 @@ struct task_struct *__kthread_create_on_node(int (*threadfn)(void *data),
 				     housekeeping_cpumask(HK_FLAG_KTHREAD));
 	}
 	kfree(create);
-	kmsan_task_create(task);
 	return task;
 }
 
