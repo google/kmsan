@@ -31,7 +31,7 @@
  * skipping effects of functions like memset() inside instrumented code.
  */
 
-/* Called from kernel/kthread.c, kernel/fork.c */
+/* Called from kernel/fork.c */
 void kmsan_task_create(struct task_struct *task)
 {
 	unsigned long irq_flags;
