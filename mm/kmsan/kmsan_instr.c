@@ -207,9 +207,8 @@ EXPORT_SYMBOL(__msan_warning);
 
 struct kmsan_context_state *__msan_get_context_state(void)
 {
-	struct kmsan_context_state *ret;
+	struct kmsan_context_state *ret = &kmsan_get_task_state()->cstate;
 
-	ret = kmsan_task_context_state();
 	BUG_ON(!ret);
 	return ret;
 }
