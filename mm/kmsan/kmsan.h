@@ -137,8 +137,6 @@ void kmsan_internal_task_create(struct task_struct *task);
 void kmsan_internal_set_origin(void *addr, int size, u32 origin);
 void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked);
 
-struct kmsan_context_state *kmsan_task_context_state(void);
-
 bool metadata_is_contiguous(void *addr, size_t size, bool is_origin);
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 int reason);
