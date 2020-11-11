@@ -1,3 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * KMSAN annotations.
+ *
+ * Copyright (C) 2017-2020 Google LLC
+ * Author: Alexander Potapenko <glider@google.com>
+ *
+ */
+
 #include <linux/export.h>
 #include <linux/kmsan-checks.h>
 
