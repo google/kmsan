@@ -72,7 +72,7 @@ void kmsan_print_origin(depot_stack_handle_t origin)
  * @off_last:  Offset (from @address) of the last byte to be reported.
  * @user_addr: When non-NULL, denotes the userspace address to which the kernel
  *             is leaking data.
- * @reason:    Error type from KMSAN_BUG_REASON enum.
+ * @reason:    Error type from enum kmsan_bug_reason.
  *
  * kmsan_report() prints an error message for a consequent group of bytes
  * sharing the same origin. If an uninitialized value is used in a comparison,
@@ -83,7 +83,7 @@ void kmsan_print_origin(depot_stack_handle_t origin)
  */
 void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
-		  int reason)
+		  enum kmsan_bug_reason reason)
 {
 	unsigned long flags;
 	bool is_uaf;
