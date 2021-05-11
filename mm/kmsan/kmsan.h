@@ -44,7 +44,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
 		  int reason);
 
-enum KMSAN_BUG_REASON {
+enum kmsan_bug_reason {
 	REASON_ANY,
 	REASON_COPY_TO_USER,
 	REASON_USE_AFTER_FREE,
