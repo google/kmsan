@@ -141,6 +141,7 @@ extern unsigned int ptrs_per_p4d;
 
 #ifndef CONFIG_KMSAN
 #define VMALLOC_END		(VMALLOC_START + (VMALLOC_SIZE_TB << 40) - 1)
+#define VMEMORY_END		VMALLOC_END
 #else
 /*
  * In KMSAN builds vmalloc area is four times smaller, and the remaining 3/4
@@ -173,9 +174,10 @@ extern unsigned int ptrs_per_p4d;
  * The shadow/origin for modules are placed one by one in the last 1/4 of
  * vmalloc space.
  */
-#define KMSAN_MODULES_SHADOW_START (KMSAN_VMALLOC_META_END + 1)
-#define KMSAN_MODULES_ORIGIN_START (KMSAN_MODULES_SHADOW_START + MODULES_LEN)
-#define KMSAN_MODULES_ORIGIN_END   (KMSAN_MODULES_ORIGIN_START + MODULES_LEN)
+#define KMSAN_MODULES_SHADOW_START	(KMSAN_VMALLOC_META_END + 1)
+#define KMSAN_MODULES_ORIGIN_START	(KMSAN_MODULES_SHADOW_START + MODULES_LEN)
+#define KMSAN_MODULES_ORIGIN_END	(KMSAN_MODULES_ORIGIN_START + MODULES_LEN)
+#define VMEMORY_END			KMSAN_MODULES_ORIGIN_END
 #endif /* CONFIG_KMSAN */
 
 #define MODULES_VADDR		(__START_KERNEL_map + KERNEL_IMAGE_SIZE)
