@@ -228,13 +228,13 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
+	if (!has_shadow_page(dst))
+		return;
 	if (!has_shadow_page(src)) {
 		kmsan_internal_unpoison_shadow(page_address(dst), PAGE_SIZE,
 					       /*checked*/ false);
 		return;
 	}
-	if (!has_shadow_page(dst))
-		return;
 
 	irq_flags = kmsan_enter_runtime();
 	__memcpy(shadow_ptr_for(dst), shadow_ptr_for(src), PAGE_SIZE);
