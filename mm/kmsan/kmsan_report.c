@@ -8,12 +8,15 @@
  */
 
 #include <linux/console.h>
+#include <linux/moduleparam.h>
 #include <linux/stackdepot.h>
 #include <linux/stacktrace.h>
 
 #include "kmsan.h"
 
 DEFINE_SPINLOCK(report_lock);
+int panic_on_kmsan __read_mostly;
+core_param(panic_on_kmsan, panic_on_kmsan, int, 0644);
 
 void kmsan_print_origin(depot_stack_handle_t origin)
 {
@@ -137,7 +140,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 	pr_err("=====================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irqrestore(&report_lock, flags);
-	if (panic_on_warn)
-		panic("panic_on_warn set ...\n");
+	if (panic_on_kmsan)
+		panic("panic_on_kmsan set ...\n");
 	current->kmsan.allow_reporting = true;
 }
