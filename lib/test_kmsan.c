@@ -19,6 +19,8 @@
 #include <linux/slab.h>
 #include <linux/kmsan-checks.h>
 
+DEFINE_PER_CPU(int, per_cpu_var);
+
 #define CHECK(x)					\
 	do {						\
 		if (x)					\
@@ -204,6 +206,18 @@ noinline void printk_test(void)
 	pr_info("%px contains %d\n", &uninit, uninit);
 }
 
+noinline void percpu_propagate(void)
+{
+	volatile int uninit, check;
+
+	pr_info("-----------------------------\n");
+	pr_info("uninit local stored to per_cpu memory (UMR report)\n");
+
+	this_cpu_write(per_cpu_var, uninit);
+	check = this_cpu_read(per_cpu_var);
+	CHECK(check);
+}
+
 static noinline int __init kmsan_tests_init(void)
 {
 	uninit_kmalloc_test();
@@ -217,6 +231,7 @@ static noinline int __init kmsan_tests_init(void)
 	init_kmsan_vmap_vunmap_test();
 	init_vmalloc_test();
 	uaf_test();
+	percpu_propagate();
 	printk_test();
 	return -EAGAIN;
 }
