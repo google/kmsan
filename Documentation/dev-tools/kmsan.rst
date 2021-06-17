@@ -238,7 +238,6 @@ At the beginning of every instrumented function KMSAN inserts a call to
     u64 va_arg_overflow_size_tls;
     depot_stack_handle_t param_origin_tls[PARAM_ARRAY_SIZE];
     depot_stack_handle_t retval_origin_tls;
-    depot_stack_handle_t origin_tls;
   };
 
 This structure is used by KMSAN to pass parameter shadows and origins between
