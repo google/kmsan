@@ -37,7 +37,6 @@ struct kmsan_context_state {
 	u64 va_arg_overflow_size_tls;
 	depot_stack_handle_t param_origin_tls[KMSAN_PARAM_ARRAY_SIZE];
 	depot_stack_handle_t retval_origin_tls;
-	depot_stack_handle_t origin_tls;
 };
 
 #undef KMSAN_PARAM_ARRAY_SIZE
