@@ -47,7 +47,6 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 enum kmsan_bug_reason {
 	REASON_ANY,
 	REASON_COPY_TO_USER,
-	REASON_USE_AFTER_FREE,
 	REASON_SUBMIT_URB,
 };
 
