@@ -7,6 +7,8 @@
  * on any machine that has kernel and user data in the same
  * address space, e.g. all NOMMU machines.
  */
+#include <linux/kmsan.h>
+#include <linux/kmsan-checks.h>
 #include <linux/string.h>
 
 #ifdef CONFIG_UACCESS_MEMCPY
