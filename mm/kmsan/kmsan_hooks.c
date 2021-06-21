@@ -145,12 +145,12 @@ EXPORT_SYMBOL(kmsan_kfree_large);
 
 static unsigned long vmalloc_shadow(unsigned long addr)
 {
-	return (unsigned long)kmsan_get_metadata((void *)addr, 1, META_SHADOW);
+	return (unsigned long)kmsan_get_metadata((void *)addr,  META_SHADOW);
 }
 
 static unsigned long vmalloc_origin(unsigned long addr)
 {
-	return (unsigned long)kmsan_get_metadata((void *)addr, 1, META_ORIGIN);
+	return (unsigned long)kmsan_get_metadata((void *)addr,  META_ORIGIN);
 }
 
 /* Called from mm/vmalloc.c */
