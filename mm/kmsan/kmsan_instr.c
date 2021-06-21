@@ -15,7 +15,7 @@ static bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
 {
 	if ((u64)addr < TASK_SIZE)
 		return true;
-	if (!kmsan_get_metadata(addr, size, META_SHADOW))
+	if (!kmsan_get_metadata(addr, META_SHADOW))
 		return true;
 	return false;
 }
