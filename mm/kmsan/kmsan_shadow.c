@@ -142,12 +142,12 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 		goto return_dummy;
 
 	BUG_ON(!metadata_is_contiguous(address, size, META_SHADOW));
-	shadow = kmsan_get_metadata(address, size, META_SHADOW);
+	shadow = kmsan_get_metadata(address, META_SHADOW);
 	if (!shadow)
 		goto return_dummy;
 
 	ret.s = shadow;
-	ret.o = kmsan_get_metadata(address, size, META_ORIGIN);
+	ret.o = kmsan_get_metadata(address, META_ORIGIN);
 	return ret;
 
 return_dummy:
@@ -167,7 +167,7 @@ return_dummy:
  * The return value of this function should not depend on whether we're in the
  * runtime or not.
  */
-void *kmsan_get_metadata(void *address, size_t size, bool is_origin)
+void *kmsan_get_metadata(void *address, bool is_origin)
 {
 	struct page *page;
 	void *ret;
@@ -176,7 +176,6 @@ void *kmsan_get_metadata(void *address, size_t size, bool is_origin)
 	if (is_origin && !IS_ALIGNED(addr, ORIGIN_SIZE)) {
 		pad = addr % ORIGIN_SIZE;
 		addr -= pad;
-		size += pad;
 	}
 	address = (void *)addr;
 	if (kmsan_internal_is_vmalloc_addr(address) ||
