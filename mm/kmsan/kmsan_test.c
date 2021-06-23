@@ -25,13 +25,14 @@
 #include <linux/tracepoint.h>
 #include <trace/events/printk.h>
 
+DEFINE_PER_CPU(int, per_cpu_var);
 
 /* Report as observed from console. */
 static struct {
 	spinlock_t lock;
-	int nlines;
-	char lines[1][256];
-	bool ignore;
+	bool available;
+	bool ignore;  // stop console output collection
+	char header[256];
 } observed = {
 	.lock = __SPIN_LOCK_UNLOCKED(observed.lock),
 };
@@ -40,38 +41,39 @@ static struct {
 static void probe_console(void *ignore, const char *buf, size_t len)
 {
 	unsigned long flags;
-	int nlines;
 
 	if (observed.ignore)
 		return;
 	spin_lock_irqsave(&observed.lock, flags);
-	nlines = observed.nlines;
 
-	if (strnstr(buf, "BUG: KMSAN: ", len) && strnstr(buf, "test_", len)) {
+	/* Either "[kmsan_test]" or "kmsan_" runtime library functions. */
+	if (strnstr(buf, "BUG: KMSAN: ", len) && strnstr(buf, "kmsan_", len)) {
 		/*
 		 * KMSAN report and related to the test.
 		 *
 		 * The provided @buf is not NUL-terminated; copy no more than
 		 * @len bytes and let strscpy() add the missing NUL-terminator.
 		 */
-		strscpy(observed.lines[0], buf, min(len + 1, sizeof(observed.lines[0])));
-		nlines = 1;
+		strscpy(observed.header, buf, min(len + 1, sizeof(observed.header)));
+		WRITE_ONCE(observed.available, true);
 	}
-
-	WRITE_ONCE(observed.nlines, nlines); /* Publish new nlines. */
 	spin_unlock_irqrestore(&observed.lock, flags);
 }
 
 /* Check if a report related to the test exists. */
 static bool report_available(void)
 {
-	return READ_ONCE(observed.nlines) == ARRAY_SIZE(observed.lines);
+	return READ_ONCE(observed.available);
 }
 
 /* Information we expect in a report. */
 struct expect_report {
-	enum kmsan_bug_reason reason; /* Error type. */
-	void *fn; /* Function pointer to expected function where access occurred. */
+	const char *error_type; /* Error type. */
+	/*
+	 * Kernel symbol from the error header, or NULL if no report is
+	 * expected.
+	 */
+	const char *symbol;
 };
 
 /* Check observed report matches information in @r. */
@@ -79,35 +81,27 @@ static bool report_matches(const struct expect_report *r)
 {
 	bool ret = false;
 	unsigned long flags;
-	typeof(observed.lines) expect;
+	typeof(observed.header) expected_header;
 	const char *end;
 	char *cur;
 
 	observed.ignore = true;
 	/* Doubled-checked locking. */
-	if (!report_available())
-		return false;
+	if (!report_available() || !r->symbol) {
+		return (!report_available() && !r->symbol);
+	}
 
 	/* Generate expected report contents. */
 
 	/* Title */
-	cur = expect[0];
-	end = &expect[0][sizeof(expect[0]) - 1];
+	cur = expected_header;
+	end = &expected_header[sizeof(expected_header) - 1];
 
-	switch (r->reason) {
-	case REASON_ANY:
-		cur += scnprintf(cur, end - cur, "BUG: KMSAN: uninit-value");
-		break;
-	case REASON_COPY_TO_USER:
-		cur += scnprintf(cur, end - cur, "BUG: KMSAN: kernel-infoleak");
-		break;
-	case REASON_SUBMIT_URB:
-		break;
-	}
+	cur += scnprintf(cur, end - cur, "BUG: KMSAN: %s", r->error_type);
 
-	scnprintf(cur, end - cur, " in %pS", r->fn);
+	scnprintf(cur, end - cur, " in %s", r->symbol);
 	/* The exact offset won't match, remove it; also strip module name. */
-	cur = strchr(expect[0], '+');
+	cur = strchr(expected_header, '+');
 	if (cur)
 		*cur = '\0';
 
@@ -116,7 +110,7 @@ static bool report_matches(const struct expect_report *r)
 		goto out; /* A new report is being captured. */
 
 	/* Finally match expected output to what we actually observed. */
-	ret = strstr(observed.lines[0], expect[0]);
+	ret = strstr(observed.header, expected_header);
 out:
 	spin_unlock_irqrestore(&observed.lock, flags);
 
@@ -142,25 +136,248 @@ noinline void check_false(char *arg) {
 			check_false(#x);	\
 	} while (0)
 
+#define EXPECTATION_ETYPE_FN(e, reason, fn)	\
+	struct expect_report e = {		\
+		.error_type = reason,		\
+		.symbol = fn,			\
+	};					\
+/**/
+
+#define EXPECTATION_NO_REPORT(e) EXPECTATION_ETYPE_FN(e, NULL, NULL)
+#define EXPECTATION_UNINIT_VALUE_FN(e, fn) EXPECTATION_ETYPE_FN(e, "uninit-value", fn)
+#define EXPECTATION_UNINIT_VALUE(e) EXPECTATION_UNINIT_VALUE_FN(e, __func__)
+#define EXPECTATION_USE_AFTER_FREE(e) EXPECTATION_ETYPE_FN(e, "use-after-free", __func__)
+
+int signed_sum3(int a, int b, int c)
+{
+	return a + b + c;
+}
+
 static void test_uninit_kmalloc(struct kunit *test)
 {
 	int *ptr;
-	struct expect_report expect = {
-		.reason = REASON_ANY,
-		.fn = test_uninit_kmalloc,
-	};
-
+	EXPECTATION_UNINIT_VALUE(expect);
 
 	pr_info("-----------------------------\n");
 	pr_info("uninitialized kmalloc test (UMR report)\n");
 	ptr = kmalloc(sizeof(int), GFP_KERNEL);
-	pr_info("kmalloc returned %p\n", ptr);
 	CHECK(*ptr);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
+
+static void test_init_kmalloc(struct kunit *test)
+{
+	int *ptr;
+	EXPECTATION_NO_REPORT(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("initialized kmalloc test (no reports)\n");
+	ptr = kmalloc(sizeof(int), GFP_KERNEL);
+	memset(ptr, 0, sizeof(int));
+	CHECK(*ptr);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static void test_init_kzalloc(struct kunit *test)
+{
+	int *ptr;
+	EXPECTATION_NO_REPORT(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("initialized kzalloc test (no reports)\n");
+	ptr = kzalloc(sizeof(int), GFP_KERNEL);
+	CHECK(*ptr);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static void test_uninit_multiple_args(struct kunit *test)
+{
+	volatile int a;
+	volatile char b = 3, c;
+	EXPECTATION_UNINIT_VALUE(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("uninitialized local passed to fn (UMR report)\n");
+	CHECK(signed_sum3(a, b, c));
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static void test_uninit_stack_var(struct kunit *test)
+{
+	volatile int cond;
+	EXPECTATION_UNINIT_VALUE(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("uninitialized stack variable (UMR report)\n");
+	CHECK(cond);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static void test_init_stack_var(struct kunit *test)
+{
+	volatile int cond = 1;
+	EXPECTATION_NO_REPORT(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("initialized stack variable (no reports)\n");
+	CHECK(cond);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static noinline void two_param_fn_2(int arg1, int arg2)
+{
+	CHECK(arg1);
+	CHECK(arg2);
+}
+
+static noinline void one_param_fn(int arg)
+{
+	two_param_fn_2(arg, arg);
+	CHECK(arg);
+}
+
+static noinline void two_param_fn(int arg1, int arg2)
+{
+	int init = 0;
+
+	one_param_fn(init);
+	CHECK(arg1);
+	CHECK(arg2);
+}
+
+static void test_params(struct kunit *test)
+{
+	volatile int uninit, init = 1;
+	EXPECTATION_UNINIT_VALUE_FN(expect, "two_param_fn");
+
+	pr_info("-----------------------------\n");
+	pr_info("uninit passed through a function parameter (UMR report)\n");
+	two_param_fn(uninit, init);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+noinline void do_uninit_local_array(char *array, int start, int stop)
+{
+	int i;
+	volatile char uninit;
+
+	for (i = start; i < stop; i++)
+		array[i] = uninit;
+}
+
+static void test_uninit_kmsan_check_memory(struct kunit *test)
+{
+	volatile char local_array[8];
+	EXPECTATION_UNINIT_VALUE_FN(expect, "kmsan_check_memory");
+
+	pr_info("-----------------------------\n");
+	pr_info("kmsan_check_memory() called on uninit local (UMR report)\n");
+	do_uninit_local_array((char *)local_array, 5, 7);
+
+	kmsan_check_memory((char *)local_array, 8);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static void test_init_kmsan_vmap_vunmap(struct kunit *test)
+{
+	const int npages = 2;
+	struct page *pages[npages];
+	void *vbuf;
+	int i;
+	EXPECTATION_NO_REPORT(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("pages initialized via vmap (no reports)\n");
+
+	for (i = 0; i < npages; i++)
+		pages[i] = alloc_page(GFP_KERNEL);
+	vbuf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
+	memset(vbuf, 0xfe, npages * PAGE_SIZE);
+	for (i = 0; i < npages; i++)
+		kmsan_check_memory(page_address(pages[i]), PAGE_SIZE);
+
+	if (vbuf)
+		vunmap(vbuf);
+	for (i = 0; i < npages; i++)
+		if (pages[i])
+			__free_page(pages[i]);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static void test_init_vmalloc(struct kunit *test)
+{
+	char *buf;
+	int npages = 8, i;
+	EXPECTATION_NO_REPORT(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("pages initialized via vmap (no reports)\n");
+	buf = vmalloc(PAGE_SIZE * npages);
+	buf[0] = 1;
+	memset(buf, 0xfe, PAGE_SIZE * npages);
+	CHECK(buf[0]);
+	for (i = 0; i < npages; i++)
+		kmsan_check_memory(&buf[PAGE_SIZE * i], PAGE_SIZE);
+	vfree(buf);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static void test_uaf(struct kunit *test)
+{
+	volatile int *var;
+	EXPECTATION_USE_AFTER_FREE(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("use-after-free in kmalloc-ed buffer (UMR report)\n");
+	var = kmalloc(80, GFP_KERNEL);
+	var[3] = 0xfeedface;
+	kfree((int *)var);
+	CHECK(var[3]);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static void test_percpu_propagate(struct kunit *test)
+{
+	volatile int uninit, check;
+	EXPECTATION_UNINIT_VALUE(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("uninit local stored to per_cpu memory (UMR report)\n");
+
+	this_cpu_write(per_cpu_var, uninit);
+	check = this_cpu_read(per_cpu_var);
+	CHECK(check);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+static void test_printk(struct kunit *test)
+{
+	volatile char uninit;
+	EXPECTATION_UNINIT_VALUE(expect);
+
+	pr_info("-----------------------------\n");
+	pr_info("uninit local passed to pr_info() (UMR report)\n");
+	pr_info("%px contains %c\n", &uninit, uninit);
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
+
 static struct kunit_case kmsan_test_cases[] = {
 	KUNIT_CASE(test_uninit_kmalloc),
+	KUNIT_CASE(test_init_kmalloc),
+	KUNIT_CASE(test_init_kzalloc),
+	KUNIT_CASE(test_uninit_multiple_args),
+	KUNIT_CASE(test_uninit_stack_var),
+	KUNIT_CASE(test_init_stack_var),
+	KUNIT_CASE(test_params),
+	KUNIT_CASE(test_uninit_kmsan_check_memory),
+	KUNIT_CASE(test_init_kmsan_vmap_vunmap),
+	KUNIT_CASE(test_init_vmalloc),
+	KUNIT_CASE(test_uaf),
+	KUNIT_CASE(test_percpu_propagate),
+	// TODO(glider): does not work yet.
+	// KUNIT_CASE(test_printk),
 	{},
 };
 
@@ -169,13 +386,11 @@ static struct kunit_case kmsan_test_cases[] = {
 static int test_init(struct kunit *test)
 {
 	unsigned long flags;
-	int i;
 
 	spin_lock_irqsave(&observed.lock, flags);
-	for (i = 0; i < ARRAY_SIZE(observed.lines); i++)
-		observed.lines[i][0] = '\0';
-	observed.nlines = 0;
+	observed.header[0] = '\0';
 	observed.ignore = false;
+	observed.available = false;
 	spin_unlock_irqrestore(&observed.lock, flags);
 
 	return 0;
