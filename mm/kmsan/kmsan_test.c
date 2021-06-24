@@ -31,7 +31,7 @@ DEFINE_PER_CPU(int, per_cpu_var);
 static struct {
 	spinlock_t lock;
 	bool available;
-	bool ignore;  // stop console output collection
+	bool ignore; // stop console output collection
 	char header[256];
 } observed = {
 	.lock = __SPIN_LOCK_UNLOCKED(observed.lock),
@@ -54,7 +54,8 @@ static void probe_console(void *ignore, const char *buf, size_t len)
 		 * The provided @buf is not NUL-terminated; copy no more than
 		 * @len bytes and let strscpy() add the missing NUL-terminator.
 		 */
-		strscpy(observed.header, buf, min(len + 1, sizeof(observed.header)));
+		strscpy(observed.header, buf,
+			min(len + 1, sizeof(observed.header)));
 		WRITE_ONCE(observed.available, true);
 	}
 	spin_unlock_irqrestore(&observed.lock, flags);
@@ -120,33 +121,37 @@ out:
 /* ===== Test cases ===== */
 
 // Prevent replacing branch with select in LLVM.
-noinline void check_true(char *arg) {
+noinline void check_true(char *arg)
+{
 	pr_info("%s is true\n", arg);
 }
 
-noinline void check_false(char *arg) {
+noinline void check_false(char *arg)
+{
 	pr_info("%s is false\n", arg);
 }
 
-#define CHECK(x)				\
-	do {					\
-		if (x)				\
-			check_true(#x);		\
-		else				\
-			check_false(#x);	\
+#define CHECK(x)                                                               \
+	do {                                                                   \
+		if (x)                                                         \
+			check_true(#x);                                        \
+		else                                                           \
+			check_false(#x);                                       \
 	} while (0)
 
-#define EXPECTATION_ETYPE_FN(e, reason, fn)	\
-	struct expect_report e = {		\
-		.error_type = reason,		\
-		.symbol = fn,			\
-	};					\
-/**/
+#define EXPECTATION_ETYPE_FN(e, reason, fn)                                    \
+	struct expect_report e = {                                             \
+		.error_type = reason,                                          \
+		.symbol = fn,                                                  \
+	};                                                                     \
+	/**/
 
 #define EXPECTATION_NO_REPORT(e) EXPECTATION_ETYPE_FN(e, NULL, NULL)
-#define EXPECTATION_UNINIT_VALUE_FN(e, fn) EXPECTATION_ETYPE_FN(e, "uninit-value", fn)
+#define EXPECTATION_UNINIT_VALUE_FN(e, fn)                                     \
+	EXPECTATION_ETYPE_FN(e, "uninit-value", fn)
 #define EXPECTATION_UNINIT_VALUE(e) EXPECTATION_UNINIT_VALUE_FN(e, __func__)
-#define EXPECTATION_USE_AFTER_FREE(e) EXPECTATION_ETYPE_FN(e, "use-after-free", __func__)
+#define EXPECTATION_USE_AFTER_FREE(e)                                          \
+	EXPECTATION_ETYPE_FN(e, "use-after-free", __func__)
 
 int signed_sum3(int a, int b, int c)
 {
@@ -164,7 +169,6 @@ static void test_uninit_kmalloc(struct kunit *test)
 	CHECK(*ptr);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
-
 
 static void test_init_kmalloc(struct kunit *test)
 {
@@ -361,7 +365,6 @@ static void test_printk(struct kunit *test)
 	pr_info("%px contains %c\n", &uninit, uninit);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
-
 
 static struct kunit_case kmsan_test_cases[] = {
 	KUNIT_CASE(test_uninit_kmalloc),
