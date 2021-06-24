@@ -12,13 +12,6 @@ config KMSAN
 	  kernel. It is based on compiler instrumentation provided by Clang
 	  and thus requires Clang 10.0.0+ to build.
 
-config TEST_KMSAN
-	tristate "Module for testing KMSAN for bug detection"
-	depends on m && KMSAN
-	help
-	  Test module that can trigger various uses of uninitialized memory
-	  detectable by KMSAN.
-
 config KMSAN_KUNIT_TEST
 	tristate "KMSAN integration test suite" if !KUNIT_ALL_TESTS
 	default KUNIT_ALL_TESTS
