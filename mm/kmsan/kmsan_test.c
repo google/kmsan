@@ -285,7 +285,7 @@ static void test_uninit_kmsan_check_memory(struct kunit *test)
 static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 {
 	const int npages = 2;
-	struct page *pages[npages];
+	struct page **pages;
 	void *vbuf;
 	int i;
 	EXPECTATION_NO_REPORT(expect);
@@ -293,6 +293,7 @@ static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 	pr_info("-----------------------------\n");
 	pr_info("pages initialized via vmap (no reports)\n");
 
+	pages = kmalloc(sizeof(struct page) * npages, GFP_KERNEL);
 	for (i = 0; i < npages; i++)
 		pages[i] = alloc_page(GFP_KERNEL);
 	vbuf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
@@ -305,6 +306,7 @@ static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 	for (i = 0; i < npages; i++)
 		if (pages[i])
 			__free_page(pages[i]);
+	kfree(pages);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
