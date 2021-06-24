@@ -46,8 +46,7 @@ static void probe_console(void *ignore, const char *buf, size_t len)
 		return;
 	spin_lock_irqsave(&observed.lock, flags);
 
-	/* Either "[kmsan_test]" or "kmsan_" runtime library functions. */
-	if (strnstr(buf, "BUG: KMSAN: ", len) && strnstr(buf, "kmsan_", len)) {
+	if (strnstr(buf, "BUG: KMSAN: ", len)) {
 		/*
 		 * KMSAN report and related to the test.
 		 *
@@ -357,12 +356,12 @@ static void test_percpu_propagate(struct kunit *test)
 
 static void test_printk(struct kunit *test)
 {
-	volatile char uninit;
-	EXPECTATION_UNINIT_VALUE(expect);
+	volatile int uninit;
+	EXPECTATION_UNINIT_VALUE_FN(expect, "number");
 
 	pr_info("-----------------------------\n");
 	pr_info("uninit local passed to pr_info() (UMR report)\n");
-	pr_info("%px contains %c\n", &uninit, uninit);
+	pr_info("%px contains %d\n", &uninit, uninit);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
@@ -379,8 +378,7 @@ static struct kunit_case kmsan_test_cases[] = {
 	KUNIT_CASE(test_init_vmalloc),
 	KUNIT_CASE(test_uaf),
 	KUNIT_CASE(test_percpu_propagate),
-	// TODO(glider): does not work yet.
-	// KUNIT_CASE(test_printk),
+	KUNIT_CASE(test_printk),
 	{},
 };
 
@@ -449,5 +447,5 @@ static void kmsan_test_exit(void)
 late_initcall(kmsan_test_init);
 module_exit(kmsan_test_exit);
 
-MODULE_LICENSE("GPL v2"); // TODO
+MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Alexander Potapenko <glider@google.com>");
