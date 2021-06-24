@@ -294,6 +294,7 @@ void kmsan_map_kernel_range_noflush(unsigned long start, unsigned long size,
 	int nr, i, mapped;
 	struct page **s_pages, **o_pages;
 	unsigned long shadow_start, origin_start;
+	unsigned long irq_flags;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
@@ -314,11 +315,13 @@ void kmsan_map_kernel_range_noflush(unsigned long start, unsigned long size,
 	prot = PAGE_KERNEL;
 
 	origin_start = vmalloc_meta((void *)start, META_ORIGIN);
+	irq_flags = kmsan_enter_runtime();
 	mapped = __map_kernel_range_noflush(shadow_start, size, prot, s_pages);
 	BUG_ON(mapped);
-	flush_tlb_kernel_range(shadow_start, shadow_start + size);
 	mapped = __map_kernel_range_noflush(origin_start, size, prot, o_pages);
 	BUG_ON(mapped);
+	kmsan_leave_runtime(irq_flags);
+	flush_tlb_kernel_range(shadow_start, shadow_start + size);
 	flush_tlb_kernel_range(origin_start, origin_start + size);
 ret:
 	kfree(s_pages);
