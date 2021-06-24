@@ -16,7 +16,7 @@
 
 #define NUM_FUTURE_RANGES 128
 struct start_end_pair {
-	void *start, *end;
+	u64 start, end;
 };
 
 static struct start_end_pair start_end_pairs[NUM_FUTURE_RANGES] __initdata;
@@ -28,10 +28,38 @@ static int future_index __initdata;
  */
 static void __init kmsan_record_future_shadow_range(void *start, void *end)
 {
+	int i;
+	u64 nstart = (u64)start, nend = (u64)end, cstart, cend;
+	bool merged = false;
+
 	BUG_ON(future_index == NUM_FUTURE_RANGES);
-	BUG_ON((start >= end) || !start || !end);
-	start_end_pairs[future_index].start = start;
-	start_end_pairs[future_index].end = end;
+	BUG_ON((nstart >= nend) || !nstart || !nend);
+	nstart = ALIGN_DOWN(nstart, PAGE_SIZE);
+	nend = ALIGN(nend, PAGE_SIZE);
+
+	/*
+	 * Scan the existing ranges to see if any of them overlaps with
+	 * [start, end). In that case, merge the two ranges instead of
+	 * creating a new one.
+	 * The number of ranges is less than 20, so there is no need to organize
+	 * them into a more intelligent data structure.
+	 */
+	for (i = 0; i < future_index; i++) {
+		cstart = start_end_pairs[i].start;
+		cend = start_end_pairs[i].end;
+		if ((cstart < nstart && cend < nstart) ||
+		    (cstart > nend && cend > nend))
+			/* ranges are disjoint - do not merge */
+			continue;
+		start_end_pairs[i].start = min(nstart, cstart);
+		start_end_pairs[i].end = max(nend, cend);
+		merged = true;
+		break;
+	}
+	if (merged)
+		return;
+	start_end_pairs[future_index].start = nstart;
+	start_end_pairs[future_index].end = nend;
 	future_index++;
 }
 
@@ -60,8 +88,8 @@ void __init kmsan_initialize_shadow(void)
 			NODE_DATA(nid), (char *)NODE_DATA(nid) + nd_size);
 
 	for (i = 0; i < future_index; i++)
-		kmsan_init_alloc_meta_for_range(start_end_pairs[i].start,
-						start_end_pairs[i].end);
+		kmsan_init_alloc_meta_for_range((void *)start_end_pairs[i].start,
+						(void *)start_end_pairs[i].end);
 }
 EXPORT_SYMBOL(kmsan_initialize_shadow);
 
