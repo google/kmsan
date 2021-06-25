@@ -328,59 +328,14 @@ ret:
 	kfree(o_pages);
 }
 
-struct page_pair {
-	struct page *shadow, *origin;
-};
-static struct page_pair held_back[MAX_ORDER] __initdata;
-
-/*
- * Eager metadata allocation. When the memblock allocator is freeing pages to
- * pagealloc, we use 2/3 of them as metadata for the remaining 1/3.
- * We store the pointers to the returned blocks of pages in held_back[] grouped
- * by their order: when kmsan_memblock_free_pages() is called for the first
- * time with a certain order, it is reserved as a shadow block, for the second
- * time - as an origin block. On the third time the incoming block receives its
- * shadow and origin ranges from the previously saved shadow and origin blocks,
- * after which held_back[order] can be used again.
- *
- * At the very end there may be leftover blocks in held_back[]. Right now they
- * are just leaked, although we can split them into smaller blocks and similarly
- * use 2/3 of them as metadata.
- * The maximum number of leaked pages is 2*(2^MAX_ORDER), which is 4096 if
- * MAX_ORDER is 11.
- */
-bool kmsan_memblock_free_pages(struct page *page, unsigned int order)
+void kmsan_setup_meta(struct page *page, struct page *shadow, struct page *origin, int order)
 {
 	int i;
-	struct page *shadow, *origin;
 
-	if (!held_back[order].shadow) {
-		held_back[order].shadow = page;
-		return false;
-	}
-	if (!held_back[order].origin) {
-		held_back[order].origin = page;
-		return false;
-	}
-	shadow = held_back[order].shadow;
-	origin = held_back[order].origin;
 	for (i = 0; i < (1 << order); i++) {
 		set_no_shadow_origin_page(&shadow[i]);
 		set_no_shadow_origin_page(&origin[i]);
 		shadow_page_for(&page[i]) = &shadow[i];
 		origin_page_for(&page[i]) = &origin[i];
 	}
-	held_back[order].shadow = NULL;
-	held_back[order].origin = NULL;
-	return true;
 }
-
-#if 0
-void dump_held(void) {
-	int i;
-	for (i = 0; i < MAX_ORDER; i++) {
-		pr_err("order: %d, shadow: %px, origin: %px\n", i, held_back[i].shadow, held_back[i].origin);
-	}
-}
-late_initcall(dump_held);
-#endif

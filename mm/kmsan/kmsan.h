@@ -137,11 +137,15 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 int reason);
 
 struct page *vmalloc_to_page_or_null(void *vaddr);
+void kmsan_setup_meta(struct page *page, struct page *shadow, struct page *origin, int order);
 
 /* Declared in mm/vmalloc.c */
 void __unmap_kernel_range_noflush(unsigned long start, unsigned long size);
 int __map_kernel_range_noflush(unsigned long addr, unsigned long size,
 			       pgprot_t prot, struct page **pages);
+
+/* Declared in mm/internal.h */
+void __free_pages_core(struct page *page, unsigned int order);
 
 void *kmsan_internal_return_address(int arg);
 bool kmsan_internal_is_module_addr(void *vaddr);

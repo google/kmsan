@@ -93,10 +93,137 @@ void __init kmsan_initialize_shadow(void)
 }
 EXPORT_SYMBOL(kmsan_initialize_shadow);
 
+struct page_pair {
+	struct page *shadow, *origin;
+};
+static struct page_pair held_back[MAX_ORDER] __initdata;
+
+/*
+ * Eager metadata allocation. When the memblock allocator is freeing pages to
+ * pagealloc, we use 2/3 of them as metadata for the remaining 1/3.
+ * We store the pointers to the returned blocks of pages in held_back[] grouped
+ * by their order: when kmsan_memblock_free_pages() is called for the first
+ * time with a certain order, it is reserved as a shadow block, for the second
+ * time - as an origin block. On the third time the incoming block receives its
+ * shadow and origin ranges from the previously saved shadow and origin blocks,
+ * after which held_back[order] can be used again.
+ *
+ * At the very end there may be leftover blocks in held_back[]. Right now they
+ * are just leaked, although we can split them into smaller blocks and similarly
+ * use 2/3 of them as metadata.
+ * The maximum number of leaked pages is 2*(2^MAX_ORDER), which is 4096 if
+ * MAX_ORDER is 11.
+ */
+bool kmsan_memblock_free_pages(struct page *page, unsigned int order)
+{
+	struct page *shadow, *origin;
+
+	if (!held_back[order].shadow) {
+		held_back[order].shadow = page;
+		return false;
+	}
+	if (!held_back[order].origin) {
+		held_back[order].origin = page;
+		return false;
+	}
+	shadow = held_back[order].shadow;
+	origin = held_back[order].origin;
+	kmsan_setup_meta(page, shadow, origin, order);
+
+	held_back[order].shadow = NULL;
+	held_back[order].origin = NULL;
+	return true;
+}
+
+#define MAX_BLOCKS 8
+struct smallstack {
+	struct page *items[MAX_BLOCKS];
+	int index;
+	int order;
+};
+struct smallstack collect = {
+	.index = 0,
+	.order = MAX_ORDER,
+};
+
+void smallstack_push(struct smallstack *stack, struct page *pages)
+{
+	BUG_ON(stack->index == MAX_BLOCKS);
+	stack->items[stack->index] = pages;
+	stack->index++;
+}
+
+struct page *smallstack_pop(struct smallstack *stack)
+{
+	struct page *ret;
+
+	BUG_ON(stack->index == 0);
+	stack->index--;
+	ret = stack->items[stack->index];
+	stack->items[stack->index] = NULL;
+	return ret;
+}
+
+void do_collection(void)
+{
+	struct page *page, *shadow, *origin;
+	while (collect.index >= 3) {
+		page = smallstack_pop(&collect);
+		shadow = smallstack_pop(&collect);
+		origin = smallstack_pop(&collect);
+		kmsan_setup_meta(page, shadow, origin, collect.order);
+		__free_pages_core(page, collect.order);
+	}
+}
+void collect_split(void)
+{
+	struct page *page;
+	struct smallstack tmp = {
+		.order = collect.order - 1,
+		.index = 0,
+	};
+
+	if (!collect.order)
+		return;
+	while (collect.index) {
+		page = smallstack_pop(&collect);
+		smallstack_push(&tmp, &page[0]);
+		smallstack_push(&tmp, &page[1 << tmp.order]);
+	}
+	__memcpy(&collect, &tmp, sizeof(struct smallstack));
+}
+/*
+ * Memblock is about to go away. Split the page blocks left over in held_back[]
+ * and return 1/3 of that memory to the system.
+ */
+static void kmsan_memblock_discard(void)
+{
+	int i;
+
+	/* For [order=10]: split shadow and origin into 4 parts of order=9, push them to collect.
+	 * then do garbage collection, there will be at most 2 parts left over.
+	 * For order=9, push to collect
+	 * do garbage collection
+	 * split the remaining parts and push them to collect
+	 */
+	collect.order = MAX_ORDER - 1;
+	for (i = MAX_ORDER - 1; i >= 0; i--) {
+		if (held_back[i].shadow)
+			smallstack_push(&collect, held_back[i].shadow);
+		if (held_back[i].origin)
+			smallstack_push(&collect, held_back[i].origin);
+		held_back[i].shadow = NULL;
+		held_back[i].origin = NULL;
+		do_collection();
+		collect_split();
+	}
+}
+
 void __init kmsan_initialize(void)
 {
 	/* Assuming current is init_task */
 	kmsan_internal_task_create(current);
+	kmsan_memblock_discard();
 	pr_info("vmalloc area at: %px\n", VMALLOC_START);
 	pr_info("vmalloc shadow at: %px\n",
 		VMALLOC_START + KMSAN_VMALLOC_SHADOW_OFFSET);
