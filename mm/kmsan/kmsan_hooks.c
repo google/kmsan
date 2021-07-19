@@ -369,6 +369,7 @@ void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 		kmsan_handle_dma(sg_page(item), item->offset, item->length,
 				 dir);
 }
+EXPORT_SYMBOL(kmsan_handle_dma_sg);
 
 /* Functions from kmsan-checks.h follow. */
 void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags)
