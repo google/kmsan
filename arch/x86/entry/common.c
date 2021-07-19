@@ -40,6 +40,10 @@
 __visible noinstr void do_syscall_64(unsigned long nr, struct pt_regs *regs)
 {
 	add_random_kstack_offset();
+	/*
+	 * regs may be passed from non-instrumented code, so mark them as
+	 * initialized before touching them.
+	 */
 	kmsan_unpoison_pt_regs(regs);
 	nr = syscall_enter_from_user_mode(regs, nr);
 
@@ -152,7 +156,6 @@ static noinstr bool __do_fast_syscall_32(struct pt_regs *regs)
 /* Returns 0 to return using IRET or 1 to return using SYSEXIT/SYSRETL. */
 __visible noinstr long do_fast_syscall_32(struct pt_regs *regs)
 {
-	kmsan_unpoison_pt_regs(regs);
 	/*
 	 * Called using the internal vDSO SYSENTER/SYSCALL32 calling
 	 * convention.  Adjust regs so it looks like we entered using int80.
@@ -160,6 +163,11 @@ __visible noinstr long do_fast_syscall_32(struct pt_regs *regs)
 	unsigned long landing_pad = (unsigned long)current->mm->context.vdso +
 					vdso_image_32.sym_int80_landing_pad;
 
+	/*
+	 * regs may be passed from non-instrumented code, so mark them as
+	 * initialized before touching them.
+	 */
+	kmsan_unpoison_pt_regs(regs);
 	/*
 	 * SYSENTER loses EIP, and even SYSCALL32 needs us to skip forward
 	 * so that 'regs->ip -= 2' lands back on an int $0x80 instruction.
