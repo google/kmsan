@@ -49,8 +49,10 @@ static __always_inline void __##func(struct pt_regs *regs);		\
 									\
 __visible noinstr void func(struct pt_regs *regs)			\
 {									\
+	irqentry_state_t state;						\
+									\
 	kmsan_unpoison_pt_regs(regs);					\
-	irqentry_state_t state = irqentry_enter(regs);			\
+	state = irqentry_enter(regs);					\
 									\
 	instrumentation_begin();					\
 	__##func (regs);						\
