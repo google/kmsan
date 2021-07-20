@@ -228,9 +228,9 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
-	if (!has_shadow_page(dst))
+	if (!dst || !has_shadow_page(dst))
 		return;
-	if (!has_shadow_page(src)) {
+	if (!src || !has_shadow_page(src)) {
 		kmsan_internal_unpoison_shadow(page_address(dst), PAGE_SIZE,
 					       /*checked*/ false);
 		return;
