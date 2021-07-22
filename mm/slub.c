@@ -5687,7 +5687,7 @@ static char *create_unique_id(struct kmem_cache *s)
 	p += sprintf(p, "%07u", s->size);
 
 	BUG_ON(p > name + ID_STR_LENGTH - 1);
-	kmsan_unpoison_shadow(name, p - name);
+	kmsan_unpoison_memory(name, p - name);
 	return name;
 }
 
@@ -5789,7 +5789,7 @@ static int sysfs_slab_alias(struct kmem_cache *s, const char *name)
 	al->name = name;
 	al->next = alias_list;
 	alias_list = al;
-	kmsan_unpoison_shadow(al, sizeof(struct saved_alias));
+	kmsan_unpoison_memory(al, sizeof(struct saved_alias));
 	return 0;
 }
 
