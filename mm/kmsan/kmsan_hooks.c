@@ -32,8 +32,6 @@ void kmsan_task_create(struct task_struct *task)
 {
 	unsigned long irq_flags;
 
-	if (!task)
-		return;
 	irq_flags = kmsan_enter_runtime();
 	kmsan_internal_task_create(task);
 	kmsan_leave_runtime(irq_flags);
