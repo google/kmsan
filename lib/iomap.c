@@ -357,19 +357,19 @@ void ioread8_rep(const void __iomem *addr, void *dst, unsigned long count)
 {
 	IO_COND(addr, insb(port,dst,count), mmio_insb(addr, dst, count));
 	/* KMSAN must treat values read from devices as initialized. */
-	kmsan_unpoison_shadow(dst, count);
+	kmsan_unpoison_memory(dst, count);
 }
 void ioread16_rep(const void __iomem *addr, void *dst, unsigned long count)
 {
 	IO_COND(addr, insw(port,dst,count), mmio_insw(addr, dst, count));
 	/* KMSAN must treat values read from devices as initialized. */
-	kmsan_unpoison_shadow(dst, count * 2);
+	kmsan_unpoison_memory(dst, count * 2);
 }
 void ioread32_rep(const void __iomem *addr, void *dst, unsigned long count)
 {
 	IO_COND(addr, insl(port,dst,count), mmio_insl(addr, dst, count));
 	/* KMSAN must treat values read from devices as initialized. */
-	kmsan_unpoison_shadow(dst, count * 4);
+	kmsan_unpoison_memory(dst, count * 4);
 }
 EXPORT_SYMBOL(ioread8_rep);
 EXPORT_SYMBOL(ioread16_rep);
