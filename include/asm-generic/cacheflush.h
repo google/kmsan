@@ -117,7 +117,7 @@ static inline void flush_cache_vunmap(unsigned long start, unsigned long end)
 #define copy_from_user_page(vma, page, vaddr, dst, src, len) \
 	do { \
 		memcpy(dst, src, len); \
-		kmsan_unpoison_shadow(dst, len); \
+		kmsan_unpoison_memory(dst, len); \
 	} while (0)
 #endif
 

@@ -132,7 +132,7 @@ extern int __get_user_bad(void);
 			ASM_CALL_CONSTRAINT				\
 		     : "0" (ptr), "i" (sizeof(*(ptr))));		\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
-	kmsan_unpoison_shadow((void *)&(x), sizeof(*(ptr)));		\
+	kmsan_unpoison_memory((void *)&(x), sizeof(*(ptr)));		\
 	__builtin_expect(__ret_gu, 0);					\
 })
 
@@ -338,7 +338,7 @@ do {									\
 	default:							\
 		(x) = __get_user_bad();					\
 	}								\
-	kmsan_unpoison_shadow((void *)&(x), size);			\
+	kmsan_unpoison_memory((void *)&(x), size);			\
 } while (0)
 
 #define __get_user_asm(x, addr, itype, ltype, label)			\
