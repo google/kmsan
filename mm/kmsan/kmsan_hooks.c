@@ -68,10 +68,10 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 
 	irq_flags = kmsan_enter_runtime();
 	if (flags & __GFP_ZERO)
-		kmsan_internal_unpoison_shadow(object, s->object_size,
+		kmsan_internal_unpoison_memory(object, s->object_size,
 					       KMSAN_POISON_CHECK);
 	else
-		kmsan_internal_poison_shadow(object, s->object_size, flags,
+		kmsan_internal_poison_memory(object, s->object_size, flags,
 					     KMSAN_POISON_CHECK);
 	kmsan_leave_runtime(irq_flags);
 }
@@ -96,7 +96,7 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 	if (s->ctor)
 		return;
 	irq_flags = kmsan_enter_runtime();
-	kmsan_internal_poison_shadow(object, s->object_size, GFP_KERNEL,
+	kmsan_internal_poison_memory(object, s->object_size, GFP_KERNEL,
 				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
 	kmsan_leave_runtime(irq_flags);
 }
@@ -113,10 +113,10 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 		return;
 	irq_flags = kmsan_enter_runtime();
 	if (flags & __GFP_ZERO)
-		kmsan_internal_unpoison_shadow((void *)ptr, size,
+		kmsan_internal_unpoison_memory((void *)ptr, size,
 					       /*checked*/ true);
 	else
-		kmsan_internal_poison_shadow((void *)ptr, size, flags,
+		kmsan_internal_poison_memory((void *)ptr, size, flags,
 					     KMSAN_POISON_CHECK);
 	kmsan_leave_runtime(irq_flags);
 }
@@ -133,7 +133,7 @@ void kmsan_kfree_large(const void *ptr)
 	irq_flags = kmsan_enter_runtime();
 	page = virt_to_head_page((void *)ptr);
 	BUG_ON(ptr != page_address(page));
-	kmsan_internal_poison_shadow((void *)ptr,
+	kmsan_internal_poison_memory((void *)ptr,
 				     PAGE_SIZE << compound_order(page),
 				     GFP_KERNEL,
 				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
@@ -143,12 +143,12 @@ EXPORT_SYMBOL(kmsan_kfree_large);
 
 static unsigned long vmalloc_shadow(unsigned long addr)
 {
-	return (unsigned long)kmsan_get_metadata((void *)addr,  META_SHADOW);
+	return (unsigned long)kmsan_get_metadata((void *)addr, META_SHADOW);
 }
 
 static unsigned long vmalloc_origin(unsigned long addr)
 {
-	return (unsigned long)kmsan_get_metadata((void *)addr,  META_ORIGIN);
+	return (unsigned long)kmsan_get_metadata((void *)addr, META_ORIGIN);
 }
 
 /* Called from mm/vmalloc.c */
@@ -168,7 +168,8 @@ EXPORT_SYMBOL(kmsan_vunmap_range_noflush);
  * those are ignored.
  */
 void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
-			      phys_addr_t phys_addr, pgprot_t prot, unsigned int page_shift)
+			      phys_addr_t phys_addr, pgprot_t prot,
+			      unsigned int page_shift)
 {
 	unsigned long irq_flags;
 	struct page *shadow, *origin;
@@ -184,12 +185,14 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	for (i = 0; i < nr; i++, off += PAGE_SIZE) {
 		shadow = alloc_pages(gfp_mask, 1);
 		origin = alloc_pages(gfp_mask, 1);
-		__vmap_pages_range_noflush(vmalloc_shadow(start + off),
-					   vmalloc_shadow(start + off + PAGE_SIZE),
-					   prot, &shadow, page_shift);
-		__vmap_pages_range_noflush(vmalloc_origin(start + off),
-					   vmalloc_origin(start + off + PAGE_SIZE),
-					   prot, &origin, page_shift);
+		__vmap_pages_range_noflush(
+			vmalloc_shadow(start + off),
+			vmalloc_shadow(start + off + PAGE_SIZE), prot, &shadow,
+			page_shift);
+		__vmap_pages_range_noflush(
+			vmalloc_origin(start + off),
+			vmalloc_origin(start + off + PAGE_SIZE), prot, &origin,
+			page_shift);
 	}
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
@@ -304,7 +307,7 @@ void kmsan_handle_urb(const struct urb *urb, bool is_out)
 					    urb->transfer_buffer_length,
 					    /*user_addr*/ 0, REASON_SUBMIT_URB);
 	else
-		kmsan_internal_unpoison_shadow(urb->transfer_buffer,
+		kmsan_internal_unpoison_memory(urb->transfer_buffer,
 					       urb->transfer_buffer_length,
 					       /*checked*/ false);
 }
@@ -317,7 +320,7 @@ static void kmsan_handle_dma_page(const void *addr, size_t size,
 	case DMA_BIDIRECTIONAL:
 		kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0,
 					    REASON_ANY);
-		kmsan_internal_unpoison_shadow((void *)addr, size,
+		kmsan_internal_unpoison_memory((void *)addr, size,
 					       /*checked*/ false);
 		break;
 	case DMA_TO_DEVICE:
@@ -325,7 +328,7 @@ static void kmsan_handle_dma_page(const void *addr, size_t size,
 					    REASON_ANY);
 		break;
 	case DMA_FROM_DEVICE:
-		kmsan_internal_unpoison_shadow((void *)addr, size,
+		kmsan_internal_unpoison_memory((void *)addr, size,
 					       /*checked*/ false);
 		break;
 	case DMA_NONE:
@@ -370,7 +373,7 @@ void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 EXPORT_SYMBOL(kmsan_handle_dma_sg);
 
 /* Functions from kmsan-checks.h follow. */
-void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags)
+void kmsan_poison_memory(const void *address, size_t size, gfp_t flags)
 {
 	unsigned long irq_flags;
 
@@ -378,13 +381,13 @@ void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags)
 		return;
 	irq_flags = kmsan_enter_runtime();
 	/* The users may want to poison/unpoison random memory. */
-	kmsan_internal_poison_shadow((void *)address, size, flags,
+	kmsan_internal_poison_memory((void *)address, size, flags,
 				     KMSAN_POISON_NOCHECK);
 	kmsan_leave_runtime(irq_flags);
 }
-EXPORT_SYMBOL(kmsan_poison_shadow);
+EXPORT_SYMBOL(kmsan_poison_memory);
 
-void kmsan_unpoison_shadow(const void *address, size_t size)
+void kmsan_unpoison_memory(const void *address, size_t size)
 {
 	unsigned long irq_flags;
 
@@ -393,11 +396,11 @@ void kmsan_unpoison_shadow(const void *address, size_t size)
 
 	irq_flags = kmsan_enter_runtime();
 	/* The users may want to poison/unpoison random memory. */
-	kmsan_internal_unpoison_shadow((void *)address, size,
+	kmsan_internal_unpoison_memory((void *)address, size,
 				       KMSAN_POISON_NOCHECK);
 	kmsan_leave_runtime(irq_flags);
 }
-EXPORT_SYMBOL(kmsan_unpoison_shadow);
+EXPORT_SYMBOL(kmsan_unpoison_memory);
 
 void kmsan_gup_pgd_range(struct page **pages, int nr)
 {
@@ -415,7 +418,7 @@ void kmsan_gup_pgd_range(struct page **pages, int nr)
 		page_addr = page_address(pages[i]);
 		if (((u64)page_addr < TASK_SIZE) &&
 		    ((u64)page_addr + PAGE_SIZE < TASK_SIZE))
-			kmsan_unpoison_shadow(page_addr, PAGE_SIZE);
+			kmsan_unpoison_memory(page_addr, PAGE_SIZE);
 	}
 }
 EXPORT_SYMBOL(kmsan_gup_pgd_range);
@@ -431,6 +434,6 @@ void kmsan_unpoison_pt_regs(struct pt_regs *regs)
 {
 	if (!kmsan_ready || kmsan_in_runtime() || !regs)
 		return;
-	kmsan_internal_unpoison_shadow(regs, sizeof(*regs), /*checked*/ true);
+	kmsan_internal_unpoison_memory(regs, sizeof(*regs), /*checked*/ true);
 }
 EXPORT_SYMBOL(kmsan_unpoison_pt_regs);
