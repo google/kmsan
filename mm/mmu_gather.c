@@ -261,7 +261,7 @@ static void __tlb_gather_mmu(struct mmu_gather *tlb, struct mm_struct *mm,
 	 * chains. This is technically correct, but consumes too much memory.
 	 * Unpoisoning the whole structure will prevent creating such chains.
 	 */
-	kmsan_unpoison_shadow(tlb, sizeof(*tlb));
+	kmsan_unpoison_memory(tlb, sizeof(*tlb));
 	tlb->mm = mm;
 	tlb->fullmm = fullmm;
 
