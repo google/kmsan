@@ -91,7 +91,7 @@ void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
 	}
 }
 
-void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags,
+void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags)
 {
 	bool checked = poison_flags & KMSAN_POISON_CHECK;
@@ -104,7 +104,7 @@ void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags,
 	kmsan_set_origin_checked(address, size, handle, checked);
 }
 
-void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked)
+void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked)
 {
 	kmsan_internal_memset_shadow(address, 0, size, checked);
 	kmsan_set_origin_checked(address, size, 0, checked);
@@ -370,7 +370,8 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	while (pos < size) {
 		chunk_size = min(size - pos,
 				 PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
-		shadow = kmsan_get_metadata((void *)(addr64 + pos), META_SHADOW);
+		shadow =
+			kmsan_get_metadata((void *)(addr64 + pos), META_SHADOW);
 		if (!shadow) {
 			/*
 			 * This page is untracked. If there were uninitialized
@@ -405,8 +406,8 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				cur_off_start = -1;
 				continue;
 			}
-			origin =
-				kmsan_get_metadata((void *)(addr64 + pos + i), META_ORIGIN);
+			origin = kmsan_get_metadata((void *)(addr64 + pos + i),
+						    META_ORIGIN);
 			BUG_ON(!origin);
 			new_origin = *origin;
 			/*

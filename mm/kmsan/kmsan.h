@@ -120,9 +120,9 @@ static __always_inline unsigned int kmsan_depth_from_eb(unsigned int extra_bits)
 	return extra_bits >> 1;
 }
 
-void kmsan_internal_poison_shadow(void *address, size_t size, gfp_t flags,
+void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags);
-void kmsan_internal_unpoison_shadow(void *address, size_t size, bool checked);
+void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked);
 void kmsan_internal_memset_shadow(void *address, int b, size_t size,
 				  bool checked);
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
@@ -137,12 +137,14 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 int reason);
 
 struct page *vmalloc_to_page_or_null(void *vaddr);
-void kmsan_setup_meta(struct page *page, struct page *shadow, struct page *origin, int order);
+void kmsan_setup_meta(struct page *page, struct page *shadow,
+		      struct page *origin, int order);
 
 /* Declared in mm/vmalloc.c */
 void __vunmap_range_noflush(unsigned long start, unsigned long end);
 int __vmap_pages_range_noflush(unsigned long addr, unsigned long end,
-	pgprot_t prot, struct page **pages, unsigned int page_shift);
+			       pgprot_t prot, struct page **pages,
+			       unsigned int page_shift);
 
 /* Declared in mm/internal.h */
 void __free_pages_core(struct page *page, unsigned int order);

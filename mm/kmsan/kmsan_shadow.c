@@ -231,7 +231,7 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 	if (!dst || !has_shadow_page(dst))
 		return;
 	if (!src || !has_shadow_page(src)) {
-		kmsan_internal_unpoison_shadow(page_address(dst), PAGE_SIZE,
+		kmsan_internal_unpoison_memory(page_address(dst), PAGE_SIZE,
 					       /*checked*/ false);
 		return;
 	}
@@ -278,8 +278,7 @@ void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	 * to just fill the origin pages with |handle|.
 	 */
 	for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++)
-		((depot_stack_handle_t *)page_address(origin))[i] =
-			handle;
+		((depot_stack_handle_t *)page_address(origin))[i] = handle;
 }
 
 /* Called from mm/page_alloc.c */
@@ -326,9 +325,11 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 	origin_start = vmalloc_meta((void *)start, META_ORIGIN);
 	origin_end = vmalloc_meta((void *)end, META_ORIGIN);
 	irq_flags = kmsan_enter_runtime();
-	mapped = __vmap_pages_range_noflush(shadow_start, shadow_end, prot, s_pages, page_shift);
+	mapped = __vmap_pages_range_noflush(shadow_start, shadow_end, prot,
+					    s_pages, page_shift);
 	BUG_ON(mapped);
-	mapped = __vmap_pages_range_noflush(origin_start, origin_end, prot, o_pages, page_shift);
+	mapped = __vmap_pages_range_noflush(origin_start, origin_end, prot,
+					    o_pages, page_shift);
 	BUG_ON(mapped);
 	kmsan_leave_runtime(irq_flags);
 	flush_tlb_kernel_range(shadow_start, shadow_end);
@@ -341,7 +342,8 @@ ret:
 	kfree(o_pages);
 }
 
-void kmsan_setup_meta(struct page *page, struct page *shadow, struct page *origin, int order)
+void kmsan_setup_meta(struct page *page, struct page *shadow,
+		      struct page *origin, int order)
 {
 	int i;
 
