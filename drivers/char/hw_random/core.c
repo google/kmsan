@@ -627,7 +627,7 @@ static int __init hwrng_modinit(void)
 	 * Prevent KMSAN reporting bugs when passing uninitialized data from
 	 * rng_fillbuf to mix_pool_bytes().
 	 */
-	kmsan_unpoison_shadow(rng_fillbuf, rng_buffer_size());
+	kmsan_unpoison_memory(rng_fillbuf, rng_buffer_size());
 
 	ret = register_miscdev();
 	if (ret) {
