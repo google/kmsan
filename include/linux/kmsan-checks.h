@@ -36,49 +36,49 @@ u64 kmsan_init_8(u64 value);
  *
  * Return: value of @val that KMSAN treats as initialized.
  */
-#define KMSAN_INIT_VALUE(val)		\
-	({				\
-		typeof(val) __ret;	\
-		switch (sizeof(val)) {	\
-		case 1:						\
-			*(u8 *)&__ret = kmsan_init_1((u8)val);	\
-			break;					\
-		case 2:						\
-			*(u16 *)&__ret = kmsan_init_2((u16)val);\
-			break;					\
-		case 4:						\
-			*(u32 *)&__ret = kmsan_init_4((u32)val);\
-			break;					\
-		case 8:						\
-			*(u64 *)&__ret = kmsan_init_8((u64)val);\
-			break;					\
-		default:					\
-			BUILD_BUG_ON(1);			\
-		}						\
-		__ret;						\
+#define KMSAN_INIT_VALUE(val)                                                  \
+	({                                                                     \
+		typeof(val) __ret;                                             \
+		switch (sizeof(val)) {                                         \
+		case 1:                                                        \
+			*(u8 *)&__ret = kmsan_init_1((u8)val);                 \
+			break;                                                 \
+		case 2:                                                        \
+			*(u16 *)&__ret = kmsan_init_2((u16)val);               \
+			break;                                                 \
+		case 4:                                                        \
+			*(u32 *)&__ret = kmsan_init_4((u32)val);               \
+			break;                                                 \
+		case 8:                                                        \
+			*(u64 *)&__ret = kmsan_init_8((u64)val);               \
+			break;                                                 \
+		default:                                                       \
+			BUILD_BUG_ON(1);                                       \
+		}                                                              \
+		__ret;                                                         \
 	}) /**/
 
 /**
- * kmsan_poison_shadow() - Mark the memory range as uninitialized.
+ * kmsan_poison_memory() - Mark the memory range as uninitialized.
  * @address: address to start with.
  * @size:    size of buffer to poison.
  * @flags:   GFP flags for allocations done by this function.
  *
  * Until other data is written to this range, KMSAN will treat it as
  * uninitialized. Error reports for this memory will reference the call site of
- * kmsan_poison_shadow() as origin.
+ * kmsan_poison_memory() as origin.
  */
-void kmsan_poison_shadow(const void *address, size_t size, gfp_t flags);
+void kmsan_poison_memory(const void *address, size_t size, gfp_t flags);
 
 /**
- * kmsan_unpoison_shadow() -  Mark the memory range as initialized.
+ * kmsan_unpoison_memory() -  Mark the memory range as initialized.
  * @address: address to start with.
  * @size:    size of buffer to unpoison.
  *
  * Until other data is written to this range, KMSAN will treat it as
  * initialized.
  */
-void kmsan_unpoison_shadow(const void *address, size_t size);
+void kmsan_unpoison_memory(const void *address, size_t size);
 
 /**
  * kmsan_check_memory() - Check the memory range for being initialized.
@@ -105,20 +105,24 @@ void kmsan_check_memory(const void *address, size_t size);
 void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
 			size_t left);
 
-
-
 #else
 
 #define KMSAN_INIT_VALUE(value) (value)
 
-static inline void kmsan_poison_shadow(const void *address, size_t size,
-				       gfp_t flags) {}
-static inline void kmsan_unpoison_shadow(const void *address, size_t size) {}
-static inline void kmsan_check_memory(const void *address, size_t size) {}
-static inline void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
-				      size_t left) {}
-
-
+static inline void kmsan_poison_memory(const void *address, size_t size,
+				       gfp_t flags)
+{
+}
+static inline void kmsan_unpoison_memory(const void *address, size_t size)
+{
+}
+static inline void kmsan_check_memory(const void *address, size_t size)
+{
+}
+static inline void kmsan_copy_to_user(const void *to, const void *from,
+				      size_t to_copy, size_t left)
+{
+}
 
 #endif
 
