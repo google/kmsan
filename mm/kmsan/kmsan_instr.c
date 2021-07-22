@@ -73,7 +73,7 @@ void __msan_instrument_asm_store(void *addr, u64 size)
 		return;
 	irq_flags = kmsan_enter_runtime();
 	/* Unpoisoning the memory on best effort. */
-	kmsan_internal_unpoison_shadow(addr, size, /*checked*/ false);
+	kmsan_internal_unpoison_memory(addr, size, /*checked*/ false);
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(__msan_instrument_asm_store);
@@ -127,7 +127,7 @@ void *__msan_memset(void *dst, int c, size_t n)
 	 * Clang doesn't pass parameter metadata here, so it is impossible to
 	 * use shadow of @c to set up the shadow for @dst.
 	 */
-	kmsan_internal_unpoison_shadow(dst, n, /*checked*/ false);
+	kmsan_internal_unpoison_memory(dst, n, /*checked*/ false);
 	kmsan_leave_runtime(irq_flags);
 
 	return result;
@@ -185,7 +185,7 @@ void __msan_unpoison_alloca(void *address, u64 size)
 		return;
 
 	irq_flags = kmsan_enter_runtime();
-	kmsan_internal_unpoison_shadow(address, size, /*checked*/ true);
+	kmsan_internal_unpoison_memory(address, size, /*checked*/ true);
 	kmsan_leave_runtime(irq_flags);
 }
 EXPORT_SYMBOL(__msan_unpoison_alloca);
