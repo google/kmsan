@@ -10,7 +10,7 @@
 #include <linux/crypto.h>
 #include <linux/jump_label.h>
 #include <linux/kernel.h>
-#include <linux/kmsan.h>
+#include <linux/kmsan-checks.h>
 #include <linux/module.h>
 #include <linux/sizes.h>
 #include <asm/intel-family.h>
