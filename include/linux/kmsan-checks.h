@@ -29,34 +29,23 @@ u16 kmsan_init_2(u16 value);
 u32 kmsan_init_4(u32 value);
 u64 kmsan_init_8(u64 value);
 
+#define __decl_kmsan_init_type(type, fn) unsigned type : fn, signed type : fn
+
 /**
  * KMSAN_INIT_VALUE - Make the value initialized.
  * @val: 1-, 2-, 4- or 8-byte integer that may be treated as uninitialized by
- *       KMSAN's.
+ *       KMSAN.
  *
  * Return: value of @val that KMSAN treats as initialized.
  */
 #define KMSAN_INIT_VALUE(val)                                                  \
-	({                                                                     \
-		typeof(val) __ret;                                             \
-		switch (sizeof(val)) {                                         \
-		case 1:                                                        \
-			*(u8 *)&__ret = kmsan_init_1((u8)val);                 \
-			break;                                                 \
-		case 2:                                                        \
-			*(u16 *)&__ret = kmsan_init_2((u16)val);               \
-			break;                                                 \
-		case 4:                                                        \
-			*(u32 *)&__ret = kmsan_init_4((u32)val);               \
-			break;                                                 \
-		case 8:                                                        \
-			*(u64 *)&__ret = kmsan_init_8((u64)val);               \
-			break;                                                 \
-		default:                                                       \
-			BUILD_BUG_ON(1);                                       \
-		}                                                              \
-		__ret;                                                         \
-	}) /**/
+	(			\
+	(typeof(val))(_Generic((val),		\
+		__decl_kmsan_init_type(char, kmsan_init_1), \
+		__decl_kmsan_init_type(short, kmsan_init_2), \
+		__decl_kmsan_init_type(int, kmsan_init_4), \
+		__decl_kmsan_init_type(long, kmsan_init_8),\
+		void *: kmsan_init_8)(val) ))
 
 /**
  * kmsan_poison_memory() - Mark the memory range as uninitialized.
