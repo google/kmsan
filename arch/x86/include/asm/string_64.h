@@ -11,7 +11,7 @@
    function. */
 
 #define __HAVE_ARCH_MEMCPY 1
-#if defined(CONFIG_KMSAN)
+#if defined(__SANITIZE_MEMORY__)
 #undef memcpy
 void *__msan_memcpy(void *dst, const void *src, size_t size);
 #define memcpy __msan_memcpy
@@ -21,7 +21,7 @@ extern void *memcpy(void *to, const void *from, size_t len);
 extern void *__memcpy(void *to, const void *from, size_t len);
 
 #define __HAVE_ARCH_MEMSET
-#if defined(CONFIG_KMSAN)
+#if defined(__SANITIZE_MEMORY__)
 extern void *__msan_memset(void *s, int c, size_t n);
 #undef memset
 #define memset __msan_memset
@@ -67,7 +67,7 @@ static inline void *memset64(uint64_t *s, uint64_t v, size_t n)
 }
 
 #define __HAVE_ARCH_MEMMOVE
-#if defined(CONFIG_KMSAN)
+#if defined(__SANITIZE_MEMORY__)
 #undef memmove
 void *__msan_memmove(void *dest, const void *src, size_t len);
 #define memmove __msan_memmove
@@ -82,9 +82,7 @@ char *strcpy(char *dest, const char *src);
 char *strcat(char *dest, const char *src);
 int strcmp(const char *cs, const char *ct);
 
-#if (defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)) || \
-	(defined(CONFIG_KMSAN) && !defined(__SANITIZE_MEMORY__))
-
+#if (defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__))
 /*
  * For files that not instrumented (e.g. mm/slub.c) we
  * should use not instrumented version of mem* functions.
