@@ -8,11 +8,6 @@
  *     Thiebaud Weksteen <tweek@google.com>
  */
 
-/*
- * This file is not linked with KMSAN runtime.
- * Do not replace memcpy with __memcpy.
- */
-#undef CONFIG_KMSAN
 #include <linux/efi.h>
 #include <linux/tpm_eventlog.h>
 #include <asm/efi.h>
