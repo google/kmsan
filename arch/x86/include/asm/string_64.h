@@ -14,7 +14,7 @@
 #if defined(CONFIG_KMSAN)
 #undef memcpy
 void *__msan_memcpy(void *dst, const void *src, size_t size);
-#define memcpy(dst, src, len) __msan_memcpy(dst, src, len)
+#define memcpy __msan_memcpy
 #else
 extern void *memcpy(void *to, const void *from, size_t len);
 #endif
@@ -24,7 +24,7 @@ extern void *__memcpy(void *to, const void *from, size_t len);
 #if defined(CONFIG_KMSAN)
 extern void *__msan_memset(void *s, int c, size_t n);
 #undef memset
-#define memset(dst, c, len) __msan_memset(dst, c, len)
+#define memset __msan_memset
 #else
 void *memset(void *s, int c, size_t n);
 #endif
@@ -70,7 +70,7 @@ static inline void *memset64(uint64_t *s, uint64_t v, size_t n)
 #if defined(CONFIG_KMSAN)
 #undef memmove
 void *__msan_memmove(void *dest, const void *src, size_t len);
-#define memmove(dst, src, len) __msan_memmove(dst, src, len)
+#define memmove __msan_memmove
 #else
 void *memmove(void *dest, const void *src, size_t count);
 #endif
