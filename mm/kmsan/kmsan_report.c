@@ -102,7 +102,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 	current->kmsan.allow_reporting = false;
 	spin_lock_irqsave(&report_lock, flags);
 	pr_err("=====================================================\n");
-	is_uaf = kmsan_uaf_from_eb(get_dsh_extra_bits(origin));
+	is_uaf = kmsan_uaf_from_eb(stack_depot_get_extra_bits(origin));
 	switch (reason) {
 	case REASON_ANY:
 		bug_type = is_uaf ? "use-after-free" : "uninit-value";
