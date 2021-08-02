@@ -76,23 +76,13 @@ static int next_slab_inited;
 static size_t depot_offset;
 static DEFINE_RAW_SPINLOCK(depot_lock);
 
-depot_stack_handle_t set_dsh_extra_bits(depot_stack_handle_t handle,
-					u32 bits)
-{
-	union handle_parts parts = { .handle = handle };
-
-	parts.extra = bits & ((1U << STACK_DEPOT_EXTRA_BITS) - 1);
-	return parts.handle;
-}
-EXPORT_SYMBOL_GPL(set_dsh_extra_bits);
-
-u32 get_dsh_extra_bits(depot_stack_handle_t handle)
+unsigned int stack_depot_get_extra_bits(depot_stack_handle_t handle)
 {
 	union handle_parts parts = { .handle = handle };
 
 	return parts.extra;
 }
-EXPORT_SYMBOL_GPL(get_dsh_extra_bits);
+EXPORT_SYMBOL(stack_depot_get_extra_bits);
 
 static bool init_stack_slab(void **prealloc)
 {
@@ -270,20 +260,22 @@ unsigned int stack_depot_fetch(depot_stack_handle_t handle,
 EXPORT_SYMBOL_GPL(stack_depot_fetch);
 
 /**
- * stack_depot_save - Save a stack trace from an array
+ * stack_depot_save_extra - Save a stack trace together with extra bit flags
  *
  * @entries:		Pointer to storage array
  * @nr_entries:		Size of the storage array
+ * @extra_bits:		Flags to store in unused bits of depot_stack_handle_t
  * @alloc_flags:	Allocation gfp flags
  *
  * Return: The handle of the stack struct stored in depot
  */
-depot_stack_handle_t stack_depot_save(unsigned long *entries,
-				      unsigned int nr_entries,
-				      gfp_t alloc_flags)
+depot_stack_handle_t stack_depot_save_extra(unsigned long *entries,
+					    unsigned int nr_entries,
+					    unsigned int extra_bits,
+					    gfp_t alloc_flags)
 {
 	struct stack_record *found = NULL, **bucket;
-	depot_stack_handle_t retval = 0;
+	union handle_parts retval = { .handle = 0 };
 	struct page *page = NULL;
 	void *prealloc = NULL;
 	unsigned long flags;
@@ -358,11 +350,29 @@ exit:
 		free_pages((unsigned long)prealloc, STACK_ALLOC_ORDER);
 	}
 	if (found)
-		retval = found->handle.handle;
+		retval.handle = found->handle.handle;
 fast_exit:
-	return retval;
+	retval.extra = extra_bits;
+
+	return retval.handle;
 }
-EXPORT_SYMBOL_GPL(stack_depot_save);
+EXPORT_SYMBOL_GPL(stack_depot_save_extra);
+
+/**
+ * stack_depot_save - Save a stack trace into stack depot (simple version)
+ *
+ * @entries:		Pointer to storage array
+ * @nr_entries:		Size of the storage array
+ * @alloc_flags:	Allocation gfp flags
+ *
+ * Return: The handle of the stack struct stored in depot
+ */
+
+depot_stack_handle_t stack_depot_save(unsigned long *entries,
+					unsigned int nr_entries, gfp_t gfp_flags)
+{
+	return stack_depot_save_extra(entries, nr_entries, 0, gfp_flags);
+}
 
 static inline int in_irqentry_text(unsigned long ptr)
 {
