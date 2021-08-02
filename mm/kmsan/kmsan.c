@@ -123,8 +123,7 @@ depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
 	/* Don't sleep (see might_sleep_if() in __alloc_pages_nodemask()). */
 	flags &= ~__GFP_DIRECT_RECLAIM;
 
-	handle = stack_depot_save(entries, nr_entries, flags);
-	return set_dsh_extra_bits(handle, reserved);
+	return stack_depot_save_extra(entries, nr_entries, reserved, flags);
 }
 
 /*
@@ -268,7 +267,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	 */
 	BUILD_BUG_ON((1 << STACK_DEPOT_EXTRA_BITS) <= (MAX_CHAIN_DEPTH << 1));
 
-	extra_bits = get_dsh_extra_bits(id);
+	extra_bits = stack_depot_get_extra_bits(id);
 	depth = kmsan_depth_from_eb(extra_bits);
 	uaf = kmsan_uaf_from_eb(extra_bits);
 
@@ -287,8 +286,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	entries[0] = magic + depth;
 	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, extra_bits);
 	entries[2] = id;
-	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
-	return set_dsh_extra_bits(handle, extra_bits);
+	return stack_depot_save_extra(entries, ARRAY_SIZE(entries), extra_bits, GFP_ATOMIC);
 }
 
 void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
