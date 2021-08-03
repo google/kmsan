@@ -150,14 +150,14 @@ extern unsigned int ptrs_per_p4d;
  * belonging to vmalloc area is now laid out as follows:
  *
  * 1st quarter: VMALLOC_START to VMALLOC_END - new vmalloc area
- * 2nd quarter: VMALLOC_START+KMSAN_VMALLOC_SHADOW_OFFSET to
- *              VMALLOC_END+KMSAN_VMALLOC_SHADOW_OFFSET - vmalloc area shadow
- * 3rd quarter: VMALLOC_START+KMSAN_VMALLOC_ORIGIN_OFFSET to
- *              VMALLOC_END+KMSAN_VMALLOC_ORIGIN_OFFSET - vmalloc area origins
+ * 2nd quarter: KMSAN_VMALLOC_SHADOW_START to
+ * 		VMALLOC_END+KMSAN_VMALLOC_SHADOW_OFFSET - vmalloc area shadow
+ * 3rd quarter: KMSAN_VMALLOC_ORIGIN_START to
+ *              KMSAN_VMALLOC_ORIGIN_END - vmalloc area origins
  * 4th quarter: KMSAN_MODULES_SHADOW_START to KMSAN_MODULES_ORIGIN_START
  *              - shadow for modules,
- *              KMSAN_MODULES_ORIGIN_START to KMSAN_MODULES_ORIGIN_END
- *              - origins for modules.
+ *              KMSAN_MODULES_ORIGIN_START to
+ *              KMSAN_MODULES_ORIGIN_START + MODULES_LEN - origins for modules.
  */
 #define VMALLOC_QUARTER_SIZE	((VMALLOC_SIZE_TB << 40) >> 2)
 #define VMALLOC_END		(VMALLOC_START + VMALLOC_QUARTER_SIZE - 1)
@@ -169,15 +169,15 @@ extern unsigned int ptrs_per_p4d;
 #define KMSAN_VMALLOC_SHADOW_OFFSET	VMALLOC_QUARTER_SIZE
 #define KMSAN_VMALLOC_ORIGIN_OFFSET	(VMALLOC_QUARTER_SIZE << 1)
 
-#define KMSAN_VMALLOC_META_END	(VMALLOC_END + KMSAN_VMALLOC_ORIGIN_OFFSET)
+#define KMSAN_VMALLOC_SHADOW_START	(VMALLOC_START + KMSAN_VMALLOC_SHADOW_OFFSET)
+#define KMSAN_VMALLOC_ORIGIN_START	(VMALLOC_START + KMSAN_VMALLOC_ORIGIN_OFFSET)
 
 /*
  * The shadow/origin for modules are placed one by one in the last 1/4 of
  * vmalloc space.
  */
-#define KMSAN_MODULES_SHADOW_START	(KMSAN_VMALLOC_META_END + 1)
+#define KMSAN_MODULES_SHADOW_START	(VMALLOC_END + KMSAN_VMALLOC_ORIGIN_OFFSET + 1)
 #define KMSAN_MODULES_ORIGIN_START	(KMSAN_MODULES_SHADOW_START + MODULES_LEN)
-#define KMSAN_MODULES_ORIGIN_END	(KMSAN_MODULES_ORIGIN_START + MODULES_LEN)
 #endif /* CONFIG_KMSAN */
 
 #define MODULES_VADDR		(__START_KERNEL_map + KERNEL_IMAGE_SIZE)
