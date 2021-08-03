@@ -225,8 +225,6 @@ void __init kmsan_initialize(void)
 	kmsan_internal_task_create(current);
 	kmsan_memblock_discard();
 	pr_info("vmalloc area at: %px\n", VMALLOC_START);
-	pr_info("vmalloc shadow at: %px\n",
-		VMALLOC_START + KMSAN_VMALLOC_SHADOW_OFFSET);
 	pr_info("Starting KernelMemorySanitizer\n");
 	kmsan_ready = true;
 }
