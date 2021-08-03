@@ -288,10 +288,10 @@ void arch_sync_kernel_mappings(unsigned long start, unsigned long end)
 	_arch_sync_kernel_mappings(start, end);
 #ifdef CONFIG_KMSAN
 	if (start >= VMALLOC_START && end < VMALLOC_END) {
-		_arch_sync_kernel_mappings(start - VMALLOC_START + KMSAN_VMALLOC_SHADOW_OFFSET,
-					   end - VMALLOC_START + KMSAN_VMALLOC_SHADOW_OFFSET);
-		_arch_sync_kernel_mappings(start - VMALLOC_START + KMSAN_VMALLOC_ORIGIN_OFFSET,
-					   end - VMALLOC_START + KMSAN_VMALLOC_ORIGIN_OFFSET);
+		_arch_sync_kernel_mappings(start - VMALLOC_START + KMSAN_VMALLOC_SHADOW_START,
+					   end - VMALLOC_START + KMSAN_VMALLOC_SHADOW_START);
+		_arch_sync_kernel_mappings(start - VMALLOC_START + KMSAN_VMALLOC_ORIGIN_START,
+					   end - VMALLOC_START + KMSAN_VMALLOC_ORIGIN_START);
 	}
 #endif
 }
