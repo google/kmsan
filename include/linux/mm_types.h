@@ -220,12 +220,7 @@ struct page {
 #endif /* WANT_PAGE_VIRTUAL */
 
 #ifdef CONFIG_KMSAN
-	/*
-	 * Bits in struct page are scarce, so the LSB in *shadow is used to
-	 * indicate whether the page should be ignored by KMSAN or not.
-	 */
-	struct page *shadow;
-	struct page *origin;
+	struct page *kmsan_shadow, *kmsan_origin;
 #endif
 
 #ifdef LAST_CPUPID_NOT_IN_PAGE_FLAGS
