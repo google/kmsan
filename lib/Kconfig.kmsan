@@ -4,7 +4,7 @@ config HAVE_ARCH_KMSAN
 if HAVE_ARCH_KMSAN
 
 config KMSAN
-	bool "KMSAN: detector of uninitialized memory use"
+	bool "KMSAN: detector of uninitialized values use"
 	depends on SLUB && !KASAN
 	select STACKDEPOT
 	help
