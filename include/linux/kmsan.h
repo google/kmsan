@@ -27,7 +27,6 @@ struct urb;
 /* These constants are defined in the MSan LLVM instrumentation pass. */
 #define KMSAN_RETVAL_SIZE 800
 #define KMSAN_PARAM_SIZE 800
-#define KMSAN_PARAM_ARRAY_SIZE (KMSAN_PARAM_SIZE / sizeof(depot_stack_handle_t))
 
 struct kmsan_context_state {
 	char param_tls[KMSAN_PARAM_SIZE];
@@ -35,11 +34,10 @@ struct kmsan_context_state {
 	char va_arg_tls[KMSAN_PARAM_SIZE];
 	char va_arg_origin_tls[KMSAN_PARAM_SIZE];
 	u64 va_arg_overflow_size_tls;
-	depot_stack_handle_t param_origin_tls[KMSAN_PARAM_ARRAY_SIZE];
+	char param_origin_tls[KMSAN_PARAM_SIZE];
 	depot_stack_handle_t retval_origin_tls;
 };
 
-#undef KMSAN_PARAM_ARRAY_SIZE
 #undef KMSAN_PARAM_SIZE
 #undef KMSAN_RETVAL_SIZE
 
@@ -62,7 +60,10 @@ void __init kmsan_initialize_shadow(void);
 void __init kmsan_initialize(void);
 
 /**
- * TODO: need a description here.
+ * kmsan_memblock_free_pages() - handle freeing of memblock pages.
+ *
+ * Freed pages are either returned to buddy allocator or held back to be used
+ * as metadata pages.
  */
 bool __init kmsan_memblock_free_pages(struct page *page, unsigned int order);
 
@@ -254,7 +255,7 @@ void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 void kmsan_handle_urb(const struct urb *urb, bool is_out);
 
 /**
- * TODO
+ * kmsan_unpoison_pt_regs() - helper that marks struct pt_regs initialized.
  */
 void kmsan_unpoison_pt_regs(struct pt_regs *regs);
 
