@@ -22,22 +22,22 @@
 #include "kmsan.h"
 #include "kmsan_shadow.h"
 
-#define shadow_page_for(page) ((page)->shadow)
+#define shadow_page_for(page) ((page)->kmsan_shadow)
 
-#define origin_page_for(page) ((page)->origin)
+#define origin_page_for(page) ((page)->kmsan_origin)
 
-#define shadow_ptr_for(page) (page_address((page)->shadow))
+#define shadow_ptr_for(page) (page_address((page)->kmsan_shadow))
 
-#define origin_ptr_for(page) (page_address((page)->origin))
+#define origin_ptr_for(page) (page_address((page)->kmsan_origin))
 
-#define has_shadow_page(page) (!!((page)->shadow))
+#define has_shadow_page(page) (!!((page)->kmsan_shadow))
 
-#define has_origin_page(page) (!!((page)->origin))
+#define has_origin_page(page) (!!((page)->kmsan_origin))
 
 #define set_no_shadow_origin_page(page)                                        \
 	do {                                                                   \
-		(page)->shadow = NULL;                                         \
-		(page)->origin = NULL;                                         \
+		(page)->kmsan_shadow = NULL;                                   \
+		(page)->kmsan_origin = NULL;                                   \
 	} while (0) /**/
 
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
