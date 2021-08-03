@@ -116,7 +116,7 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src);
  * @nr:    array size.
  *
  * gup_pgd_range() creates new pages, some of which may belong to the userspace
- * memory. In that case these pages should be initialized.
+ * memory. In that case KMSAN marks them as initialized.
  */
 void kmsan_gup_pgd_range(struct page **pages, int nr);
 
@@ -127,7 +127,7 @@ void kmsan_gup_pgd_range(struct page **pages, int nr);
  * @flags:  GFP flags passed to the allocator.
  *
  * Depending on cache flags and GFP flags, KMSAN sets up the metadata of the
- * newly created object, marking it initialized or uninitialized.
+ * newly created object, marking it as initialized or uninitialized.
  */
 void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags);
 
@@ -255,7 +255,7 @@ void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 void kmsan_handle_urb(const struct urb *urb, bool is_out);
 
 /**
- * kmsan_unpoison_pt_regs() - helper that marks struct pt_regs initialized.
+ * kmsan_unpoison_pt_regs() - helper that marks struct pt_regs as initialized.
  */
 void kmsan_unpoison_pt_regs(struct pt_regs *regs);
 
