@@ -32,13 +32,13 @@ u64 kmsan_init_8(u64 value);
 #define __decl_kmsan_init_type(type, fn) unsigned type : fn, signed type : fn
 
 /**
- * KMSAN_INIT_VALUE - Make the value initialized.
+ * kmsan_init - Make the value initialized.
  * @val: 1-, 2-, 4- or 8-byte integer that may be treated as uninitialized by
  *       KMSAN.
  *
  * Return: value of @val that KMSAN treats as initialized.
  */
-#define KMSAN_INIT_VALUE(val)                                                  \
+#define kmsan_init(val)                                                        \
 	(			\
 	(typeof(val))(_Generic((val),		\
 		__decl_kmsan_init_type(char, kmsan_init_1), \
@@ -96,7 +96,7 @@ void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
 
 #else
 
-#define KMSAN_INIT_VALUE(value) (value)
+#define kmsan_init(value) (value)
 
 static inline void kmsan_poison_memory(const void *address, size_t size,
 				       gfp_t flags)

@@ -6,8 +6,8 @@
  * Author: Alexander Potapenko <glider@google.com>
  *
  */
-#ifndef LINUX_KMSAN_H
-#define LINUX_KMSAN_H
+#ifndef _LINUX_KMSAN_H
+#define _LINUX_KMSAN_H
 
 #include <linux/dma-direction.h>
 #include <linux/gfp.h>
@@ -181,7 +181,6 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
  */
 void kmsan_vunmap_range_noflush(unsigned long start, unsigned long end);
 
-
 /**
  * kmsan_ioremap_page_range() - Notify KMSAN about a ioremap_page_range() call.
  * @addr:      range start.
@@ -252,50 +251,91 @@ void kmsan_unpoison_pt_regs(struct pt_regs *regs);
 
 #else
 
-static inline void __init kmsan_initialize_shadow(void) { }
-static inline void __init kmsan_initialize(void) { }
-static inline bool __init kmsan_memblock_free_pages(struct page *page, unsigned int order)
+static inline void __init kmsan_initialize_shadow(void)
+{
+}
+static inline void __init kmsan_initialize(void)
+{
+}
+static inline bool __init kmsan_memblock_free_pages(struct page *page,
+						    unsigned int order)
 {
 	return true;
 }
 
-static inline void kmsan_task_create(struct task_struct *task) {}
-static inline void kmsan_task_exit(struct task_struct *task) {}
+static inline void kmsan_task_create(struct task_struct *task)
+{
+}
+static inline void kmsan_task_exit(struct task_struct *task)
+{
+}
 
 static inline int kmsan_alloc_page(struct page *page, unsigned int order,
 				   gfp_t flags)
 {
 	return 0;
 }
-static inline void kmsan_free_page(struct page *page, unsigned int order) {}
-static inline void kmsan_copy_page_meta(struct page *dst, struct page *src) {}
-static inline void kmsan_gup_pgd_range(struct page **pages, int nr) {}
+static inline void kmsan_free_page(struct page *page, unsigned int order)
+{
+}
+static inline void kmsan_copy_page_meta(struct page *dst, struct page *src)
+{
+}
+static inline void kmsan_gup_pgd_range(struct page **pages, int nr)
+{
+}
 
 static inline void kmsan_slab_alloc(struct kmem_cache *s, void *object,
-				    gfp_t flags) {}
-static inline void kmsan_slab_free(struct kmem_cache *s, void *object) {}
+				    gfp_t flags)
+{
+}
+static inline void kmsan_slab_free(struct kmem_cache *s, void *object)
+{
+}
 static inline void kmsan_kmalloc_large(const void *ptr, size_t size,
-				       gfp_t flags) {}
-static inline void kmsan_kfree_large(const void *ptr) {}
-static inline void kmsan_map_kernel_range_noflush(unsigned long start, unsigned long size,
-						  pgprot_t prot, struct page **pages) {}
-static inline void kmsan_unmap_kernel_range(unsigned long start, unsigned long size) {}
-
+				       gfp_t flags)
+{
+}
+static inline void kmsan_kfree_large(const void *ptr)
+{
+}
+static inline void kmsan_map_kernel_range_noflush(unsigned long start,
+						  unsigned long size,
+						  pgprot_t prot,
+						  struct page **pages)
+{
+}
+static inline void kmsan_unmap_kernel_range(unsigned long start,
+					    unsigned long size)
+{
+}
 
 static inline void kmsan_ioremap_page_range(unsigned long start,
 					    unsigned long end,
 					    phys_addr_t phys_addr,
-					    pgprot_t prot) {}
+					    pgprot_t prot)
+{
+}
 static inline void kmsan_iounmap_page_range(unsigned long start,
-					    unsigned long end) {}
+					    unsigned long end)
+{
+}
 
 static inline void kmsan_handle_dma(struct page *page, size_t offset,
-				    size_t size, enum dma_data_direction dir) {}
+				    size_t size, enum dma_data_direction dir)
+{
+}
 static inline void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
-				       enum dma_data_direction dir) {}
-static inline void kmsan_handle_urb(const struct urb *urb, bool is_out) {}
-static inline void kmsan_unpoison_pt_regs(struct pt_regs *regs) {}
+				       enum dma_data_direction dir)
+{
+}
+static inline void kmsan_handle_urb(const struct urb *urb, bool is_out)
+{
+}
+static inline void kmsan_unpoison_pt_regs(struct pt_regs *regs)
+{
+}
 
 #endif
 
-#endif /* LINUX_KMSAN_H */
+#endif /* _LINUX_KMSAN_H */
