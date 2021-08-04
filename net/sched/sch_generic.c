@@ -11,7 +11,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/kmsan-checks.h>
 #include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/errno.h>
@@ -700,7 +699,6 @@ retry:
 	} else {
 		WRITE_ONCE(qdisc->empty, true);
 	}
-	kmsan_check_skb(skb);
 
 	return skb;
 }
