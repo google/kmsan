@@ -4,7 +4,7 @@
  *
  * These functions handle creation of KMSAN metadata for memory allocations.
  *
- * Copyright (C) 2018-2020 Google LLC
+ * Copyright (C) 2018-2021 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
  */
@@ -124,8 +124,8 @@ EXPORT_SYMBOL(kmsan_kmalloc_large);
 /* Called from mm/slub.c */
 void kmsan_kfree_large(const void *ptr)
 {
-	struct page *page;
 	unsigned long irq_flags;
+	struct page *page;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
@@ -172,11 +172,11 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 			      phys_addr_t phys_addr, pgprot_t prot,
 			      unsigned int page_shift)
 {
-	unsigned long irq_flags;
-	struct page *shadow, *origin;
-	int i, nr;
-	unsigned long off = 0;
 	gfp_t gfp_mask = GFP_KERNEL | __GFP_ZERO;
+	struct page *shadow, *origin;
+	unsigned long irq_flags;
+	unsigned long off = 0;
+	int i, nr;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
@@ -203,10 +203,10 @@ EXPORT_SYMBOL(kmsan_ioremap_page_range);
 
 void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 {
-	int i, nr;
-	struct page *shadow, *origin;
 	unsigned long v_shadow, v_origin;
+	struct page *shadow, *origin;
 	unsigned long irq_flags;
+	int i, nr;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
@@ -370,8 +370,8 @@ EXPORT_SYMBOL(kmsan_unpoison_memory);
 
 void kmsan_gup_pgd_range(struct page **pages, int nr)
 {
-	int i;
 	void *page_addr;
+	int i;
 
 	/*
 	 * gup_pgd_range() has just created a number of new pages that KMSAN
