@@ -19,7 +19,6 @@ struct page;
 struct kmem_cache;
 struct task_struct;
 struct scatterlist;
-struct sk_buff;
 struct urb;
 
 #ifdef CONFIG_KMSAN
@@ -208,14 +207,6 @@ void kmsan_ioremap_page_range(unsigned long addr, unsigned long end,
 void kmsan_iounmap_page_range(unsigned long start, unsigned long end);
 
 /**
- * kmsan_check_skb() - Check an sk_buff for being initialized.
- *
- * KMSAN checks the memory belonging to a socket buffer and reports an error if
- * contains uninitialized values.
- */
-void kmsan_check_skb(const struct sk_buff *skb);
-
-/**
  * kmsan_handle_dma() - Handle a DMA data transfer.
  * @page:   first page of the buffer.
  * @offset: offset of the buffer within the first page.
@@ -298,7 +289,6 @@ static inline void kmsan_ioremap_page_range(unsigned long start,
 static inline void kmsan_iounmap_page_range(unsigned long start,
 					    unsigned long end) {}
 
-static inline void kmsan_check_skb(const struct sk_buff *skb) {}
 static inline void kmsan_handle_dma(struct page *page, size_t offset,
 				    size_t size, enum dma_data_direction dir) {}
 static inline void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
