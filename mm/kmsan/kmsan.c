@@ -60,8 +60,8 @@ void kmsan_internal_task_create(struct task_struct *task)
 
 void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
 {
-	void *shadow_start;
 	u64 page_offset, address = (u64)addr;
+	void *shadow_start;
 	size_t to_fill;
 
 	BUG_ON(!kmsan_metadata_is_contiguous(addr, size, KMSAN_META_SHADOW));
@@ -86,10 +86,10 @@ void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
 void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags)
 {
-	bool checked = poison_flags & KMSAN_POISON_CHECK;
-	depot_stack_handle_t handle;
 	u32 extra_bits =
 		kmsan_extra_bits(/*depth*/ 0, poison_flags & KMSAN_POISON_FREE);
+	bool checked = poison_flags & KMSAN_POISON_CHECK;
+	depot_stack_handle_t handle;
 
 	kmsan_internal_memset_shadow(address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags, extra_bits);
@@ -136,10 +136,10 @@ depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
 static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 					  bool is_memmove)
 {
-	void *shadow_src, *shadow_dst;
-	depot_stack_handle_t *origin_src, *origin_dst;
-	int src_slots, dst_slots, i, iter, step, skip_bits;
 	depot_stack_handle_t old_origin = 0, chain_origin, new_origin = 0;
+	int src_slots, dst_slots, i, iter, step, skip_bits;
+	depot_stack_handle_t *origin_src, *origin_dst;
+	void *shadow_src, *shadow_dst;
 	u32 *align_shadow_src, shadow;
 	bool backwards;
 
@@ -243,11 +243,11 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 {
-	unsigned long entries[3];
 	u64 magic = KMSAN_CHAIN_MAGIC_ORIGIN_FULL;
-	int depth = 0;
+	unsigned long entries[3];
 	static int skipped;
 	u32 extra_bits;
+	int depth = 0;
 	bool uaf;
 
 	if (!id)
@@ -294,9 +294,9 @@ void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
 
 void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 {
-	void *origin_start;
 	u64 address = (u64)addr, page_offset;
 	size_t to_fill, pad = 0;
+	void *origin_start;
 
 	if (!IS_ALIGNED(address, KMSAN_ORIGIN_SIZE)) {
 		pad = address % KMSAN_ORIGIN_SIZE;
@@ -347,11 +347,11 @@ struct page *kmsan_vmalloc_to_page_or_null(void *vaddr)
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 int reason)
 {
-	unsigned long irq_flags;
-	unsigned long addr64 = (unsigned long)addr;
-	unsigned char *shadow = NULL;
-	depot_stack_handle_t *origin = NULL;
 	depot_stack_handle_t cur_origin = 0, new_origin = 0;
+	unsigned long addr64 = (unsigned long)addr;
+	depot_stack_handle_t *origin = NULL;
+	unsigned char *shadow = NULL;
+	unsigned long irq_flags;
 	int cur_off_start = -1;
 	int i, chunk_size;
 	size_t pos = 0;
@@ -431,11 +431,11 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 
 bool kmsan_metadata_is_contiguous(void *addr, size_t size, bool is_origin)
 {
-	u64 cur_addr = (u64)addr, next_addr;
+	const char *fname = is_origin ? "origin" : "shadow";
 	char *cur_meta = NULL, *next_meta = NULL;
+	u64 cur_addr = (u64)addr, next_addr;
 	depot_stack_handle_t *origin_p;
 	bool all_untracked = false;
-	const char *fname = is_origin ? "origin" : "shadow";
 
 	if (!size)
 		return true;

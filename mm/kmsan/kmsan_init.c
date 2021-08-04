@@ -28,9 +28,9 @@ static int future_index __initdata;
  */
 static void __init kmsan_record_future_shadow_range(void *start, void *end)
 {
-	int i;
 	u64 nstart = (u64)start, nend = (u64)end, cstart, cend;
 	bool merged = false;
+	int i;
 
 	BUG_ON(future_index == NUM_FUTURE_RANGES);
 	BUG_ON((nstart >= nend) || !nstart || !nend);
@@ -72,10 +72,10 @@ static void __init kmsan_record_future_shadow_range(void *start, void *end)
  */
 void __init kmsan_initialize_shadow(void)
 {
-	int nid;
-	u64 i;
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
 	phys_addr_t p_start, p_end;
+	int nid;
+	u64 i;
 
 	for_each_reserved_mem_range (i, &p_start, &p_end)
 		kmsan_record_future_shadow_range(phys_to_virt(p_start),
@@ -182,11 +182,11 @@ static void do_collection(void)
 
 static void collect_split(void)
 {
-	struct page *page;
 	struct smallstack tmp = {
 		.order = collect.order - 1,
 		.index = 0,
 	};
+	struct page *page;
 
 	if (!collect.order)
 		return;

@@ -22,9 +22,9 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 {
 	unsigned long *entries = NULL, *chained_entries = NULL;
 	unsigned long nr_entries, chained_nr_entries, magic;
-	char *descr = NULL;
 	void *pc1 = NULL, *pc2 = NULL;
 	depot_stack_handle_t head;
+	char *descr = NULL;
 
 	if (!origin)
 		return;
@@ -88,9 +88,9 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
 		  enum kmsan_bug_reason reason)
 {
+	char *bug_type = NULL;
 	unsigned long flags;
 	bool is_uaf;
-	char *bug_type = NULL;
 
 	if (!kmsan_ready)
 		return;
