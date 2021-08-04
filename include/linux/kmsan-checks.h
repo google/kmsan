@@ -2,7 +2,7 @@
 /*
  * KMSAN checks to be used for one-off annotations in subsystems.
  *
- * Copyright (C) 2017-2020 Google LLC
+ * Copyright (C) 2017-2021 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
  */
