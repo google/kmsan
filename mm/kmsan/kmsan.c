@@ -73,11 +73,12 @@ void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
 	u64 page_offset, address = (u64)addr;
 	size_t to_fill;
 
-	BUG_ON(!metadata_is_contiguous(addr, size, META_SHADOW));
+	BUG_ON(!kmsan_metadata_is_contiguous(addr, size, KMSAN_META_SHADOW));
 	while (size) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
-		shadow_start = kmsan_get_metadata((void *)address, META_SHADOW);
+		shadow_start =
+			kmsan_get_metadata((void *)address, KMSAN_META_SHADOW);
 		if (!shadow_start) {
 			if (checked)
 				panic("%s: not memsetting %d bytes starting at %px, because the shadow is NULL\n",
@@ -113,7 +114,6 @@ void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked)
 depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
 						 unsigned int reserved)
 {
-	depot_stack_handle_t handle;
 	unsigned long entries[KMSAN_STACK_DEPTH];
 	unsigned int nr_entries;
 
@@ -152,12 +152,12 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	u32 *align_shadow_src, shadow;
 	bool backwards;
 
-	shadow_dst = kmsan_get_metadata(dst, META_SHADOW);
+	shadow_dst = kmsan_get_metadata(dst, KMSAN_META_SHADOW);
 	if (!shadow_dst)
 		return;
-	BUG_ON(!metadata_is_contiguous(dst, n, META_SHADOW));
+	BUG_ON(!kmsan_metadata_is_contiguous(dst, n, KMSAN_META_SHADOW));
 
-	shadow_src = kmsan_get_metadata(src, META_SHADOW);
+	shadow_src = kmsan_get_metadata(src, KMSAN_META_SHADOW);
 	if (!shadow_src) {
 		/*
 		 * |src| is untracked: zero out destination shadow, ignore the
@@ -166,24 +166,24 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 		__memset(shadow_dst, 0, n);
 		return;
 	}
-	BUG_ON(!metadata_is_contiguous(src, n, META_SHADOW));
+	BUG_ON(!kmsan_metadata_is_contiguous(src, n, KMSAN_META_SHADOW));
 
 	if (is_memmove)
 		__memmove(shadow_dst, shadow_src, n);
 	else
 		__memcpy(shadow_dst, shadow_src, n);
 
-	origin_dst = kmsan_get_metadata(dst, META_ORIGIN);
-	origin_src = kmsan_get_metadata(src, META_ORIGIN);
+	origin_dst = kmsan_get_metadata(dst, KMSAN_META_ORIGIN);
+	origin_src = kmsan_get_metadata(src, KMSAN_META_ORIGIN);
 	BUG_ON(!origin_dst || !origin_src);
-	BUG_ON(!metadata_is_contiguous(dst, n, META_ORIGIN));
-	BUG_ON(!metadata_is_contiguous(src, n, META_ORIGIN));
-	src_slots = (ALIGN((u64)src + n, ORIGIN_SIZE) -
-		     ALIGN_DOWN((u64)src, ORIGIN_SIZE)) /
-		    ORIGIN_SIZE;
-	dst_slots = (ALIGN((u64)dst + n, ORIGIN_SIZE) -
-		     ALIGN_DOWN((u64)dst, ORIGIN_SIZE)) /
-		    ORIGIN_SIZE;
+	BUG_ON(!kmsan_metadata_is_contiguous(dst, n, KMSAN_META_ORIGIN));
+	BUG_ON(!kmsan_metadata_is_contiguous(src, n, KMSAN_META_ORIGIN));
+	src_slots = (ALIGN((u64)src + n, KMSAN_ORIGIN_SIZE) -
+		     ALIGN_DOWN((u64)src, KMSAN_ORIGIN_SIZE)) /
+		    KMSAN_ORIGIN_SIZE;
+	dst_slots = (ALIGN((u64)dst + n, KMSAN_ORIGIN_SIZE) -
+		     ALIGN_DOWN((u64)dst, KMSAN_ORIGIN_SIZE)) /
+		    KMSAN_ORIGIN_SIZE;
 	BUG_ON(!src_slots || !dst_slots);
 	BUG_ON((src_slots < 1) || (dst_slots < 1));
 	BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
@@ -192,27 +192,28 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	i = backwards ? min(src_slots, dst_slots) - 1 : 0;
 	iter = backwards ? -1 : 1;
 
-	align_shadow_src = (u32 *)ALIGN_DOWN((u64)shadow_src, ORIGIN_SIZE);
+	align_shadow_src =
+		(u32 *)ALIGN_DOWN((u64)shadow_src, KMSAN_ORIGIN_SIZE);
 	for (step = 0; step < min(src_slots, dst_slots); step++, i += iter) {
 		BUG_ON(i < 0);
 		shadow = align_shadow_src[i];
 		if (i == 0) {
 			/*
-			 * If |src| isn't aligned on ORIGIN_SIZE, don't
-			 * look at the first |src % ORIGIN_SIZE| bytes
+			 * If |src| isn't aligned on KMSAN_ORIGIN_SIZE, don't
+			 * look at the first |src % KMSAN_ORIGIN_SIZE| bytes
 			 * of the first shadow slot.
 			 */
-			skip_bits = ((u64)src % ORIGIN_SIZE) * 8;
+			skip_bits = ((u64)src % KMSAN_ORIGIN_SIZE) * 8;
 			shadow = (shadow << skip_bits) >> skip_bits;
 		}
 		if (i == src_slots - 1) {
 			/*
 			 * If |src + n| isn't aligned on
-			 * ORIGIN_SIZE, don't look at the last
-			 * |(src + n) % ORIGIN_SIZE| bytes of the
+			 * KMSAN_ORIGIN_SIZE, don't look at the last
+			 * |(src + n) % KMSAN_ORIGIN_SIZE| bytes of the
 			 * last shadow slot.
 			 */
-			skip_bits = (((u64)src + n) % ORIGIN_SIZE) * 8;
+			skip_bits = (((u64)src + n) % KMSAN_ORIGIN_SIZE) * 8;
 			shadow = (shadow >> skip_bits) << skip_bits;
 		}
 		/*
@@ -251,7 +252,6 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 {
-	depot_stack_handle_t handle;
 	unsigned long entries[3];
 	u64 magic = KMSAN_CHAIN_MAGIC_ORIGIN_FULL;
 	int depth = 0;
@@ -286,7 +286,8 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	entries[0] = magic + depth;
 	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, extra_bits);
 	entries[2] = id;
-	return stack_depot_save_extra(entries, ARRAY_SIZE(entries), extra_bits, GFP_ATOMIC);
+	return stack_depot_save_extra(entries, ARRAY_SIZE(entries), extra_bits,
+				      GFP_ATOMIC);
 }
 
 void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
@@ -294,9 +295,9 @@ void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
 	u32 *var_cast = (u32 *)var;
 	int i;
 
-	BUG_ON((u64)var_cast % ORIGIN_SIZE);
-	BUG_ON(size % ORIGIN_SIZE);
-	for (i = 0; i < size / ORIGIN_SIZE; i++)
+	BUG_ON((u64)var_cast % KMSAN_ORIGIN_SIZE);
+	BUG_ON(size % KMSAN_ORIGIN_SIZE);
+	for (i = 0; i < size / KMSAN_ORIGIN_SIZE; i++)
 		var_cast[i] = origin;
 }
 
@@ -306,8 +307,8 @@ void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 	u64 address = (u64)addr, page_offset;
 	size_t to_fill, pad = 0;
 
-	if (!IS_ALIGNED(address, ORIGIN_SIZE)) {
-		pad = address % ORIGIN_SIZE;
+	if (!IS_ALIGNED(address, KMSAN_ORIGIN_SIZE)) {
+		pad = address % KMSAN_ORIGIN_SIZE;
 		address -= pad;
 		size += pad;
 	}
@@ -315,10 +316,11 @@ void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 	while (size > 0) {
 		page_offset = address % PAGE_SIZE;
 		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
-		/* write at least ORIGIN_SIZE bytes */
-		to_fill = ALIGN(to_fill, ORIGIN_SIZE);
+		/* write at least KMSAN_ORIGIN_SIZE bytes */
+		to_fill = ALIGN(to_fill, KMSAN_ORIGIN_SIZE);
 		BUG_ON(!to_fill);
-		origin_start = kmsan_get_metadata((void *)address, META_ORIGIN);
+		origin_start =
+			kmsan_get_metadata((void *)address, KMSAN_META_ORIGIN);
 		address += to_fill;
 		size -= to_fill;
 		if (!origin_start)
@@ -330,13 +332,14 @@ void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 
 void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked)
 {
-	if (checked && !metadata_is_contiguous(addr, size, META_ORIGIN))
+	if (checked &&
+	    !kmsan_metadata_is_contiguous(addr, size, KMSAN_META_ORIGIN))
 		panic("%s: WARNING: not setting origin for %d bytes starting at %px, because the metadata is incontiguous\n",
 		      __func__, size, addr);
 	kmsan_internal_set_origin(addr, size, origin);
 }
 
-struct page *vmalloc_to_page_or_null(void *vaddr)
+struct page *kmsan_vmalloc_to_page_or_null(void *vaddr)
 {
 	struct page *page;
 
@@ -362,14 +365,14 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	int i, chunk_size;
 	size_t pos = 0;
 
-	BUG_ON(!metadata_is_contiguous(addr, size, META_SHADOW));
+	BUG_ON(!kmsan_metadata_is_contiguous(addr, size, KMSAN_META_SHADOW));
 	if (size <= 0)
 		return;
 	while (pos < size) {
 		chunk_size = min(size - pos,
 				 PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
-		shadow =
-			kmsan_get_metadata((void *)(addr64 + pos), META_SHADOW);
+		shadow = kmsan_get_metadata((void *)(addr64 + pos),
+					    KMSAN_META_SHADOW);
 		if (!shadow) {
 			/*
 			 * This page is untracked. If there were uninitialized
@@ -405,7 +408,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				continue;
 			}
 			origin = kmsan_get_metadata((void *)(addr64 + pos + i),
-						    META_ORIGIN);
+						    KMSAN_META_ORIGIN);
 			BUG_ON(!origin);
 			new_origin = *origin;
 			/*
@@ -435,7 +438,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	}
 }
 
-bool metadata_is_contiguous(void *addr, size_t size, bool is_origin)
+bool kmsan_metadata_is_contiguous(void *addr, size_t size, bool is_origin)
 {
 	u64 cur_addr = (u64)addr, next_addr;
 	char *cur_meta = NULL, *next_meta = NULL;
@@ -477,7 +480,7 @@ report:
 	       cur_addr, next_addr);
 	pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta, fname,
 	       next_meta);
-	origin_p = kmsan_get_metadata(addr, META_ORIGIN);
+	origin_p = kmsan_get_metadata(addr, KMSAN_META_ORIGIN);
 	if (origin_p) {
 		pr_err("Origin: %08x\n", *origin_p);
 		kmsan_print_origin(*origin_p);

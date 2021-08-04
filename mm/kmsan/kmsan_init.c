@@ -77,7 +77,7 @@ void __init kmsan_initialize_shadow(void)
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
 	phys_addr_t p_start, p_end;
 
-	for_each_reserved_mem_range(i, &p_start, &p_end)
+	for_each_reserved_mem_range (i, &p_start, &p_end)
 		kmsan_record_future_shadow_range(phys_to_virt(p_start),
 						 phys_to_virt(p_end));
 	/* Allocate shadow for .data */
@@ -88,8 +88,9 @@ void __init kmsan_initialize_shadow(void)
 			NODE_DATA(nid), (char *)NODE_DATA(nid) + nd_size);
 
 	for (i = 0; i < future_index; i++)
-		kmsan_init_alloc_meta_for_range((void *)start_end_pairs[i].start,
-						(void *)start_end_pairs[i].end);
+		kmsan_init_alloc_meta_for_range(
+			(void *)start_end_pairs[i].start,
+			(void *)start_end_pairs[i].end);
 }
 EXPORT_SYMBOL(kmsan_initialize_shadow);
 
@@ -141,6 +142,7 @@ struct smallstack {
 	int index;
 	int order;
 };
+
 struct smallstack collect = {
 	.index = 0,
 	.order = MAX_ORDER,
@@ -152,8 +154,9 @@ void smallstack_push(struct smallstack *stack, struct page *pages)
 	stack->items[stack->index] = pages;
 	stack->index++;
 }
+#undef MAX_BLOCKS
 
-struct page *smallstack_pop(struct smallstack *stack)
+static struct page *smallstack_pop(struct smallstack *stack)
 {
 	struct page *ret;
 
@@ -164,9 +167,10 @@ struct page *smallstack_pop(struct smallstack *stack)
 	return ret;
 }
 
-void do_collection(void)
+static void do_collection(void)
 {
 	struct page *page, *shadow, *origin;
+
 	while (collect.index >= 3) {
 		page = smallstack_pop(&collect);
 		shadow = smallstack_pop(&collect);
@@ -175,7 +179,8 @@ void do_collection(void)
 		__free_pages_core(page, collect.order);
 	}
 }
-void collect_split(void)
+
+static void collect_split(void)
 {
 	struct page *page;
 	struct smallstack tmp = {
@@ -192,6 +197,7 @@ void collect_split(void)
 	}
 	__memcpy(&collect, &tmp, sizeof(struct smallstack));
 }
+
 /*
  * Memblock is about to go away. Split the page blocks left over in held_back[]
  * and return 1/3 of that memory to the system.

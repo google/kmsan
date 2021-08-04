@@ -2,7 +2,7 @@
 /*
  * KMSAN internal declarations.
  *
- * Copyright (C) 2017-2020 Google LLC
+ * Copyright (C) 2017-2021 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
  */
@@ -29,26 +29,23 @@
 #define KMSAN_POISON_CHECK 0x1
 #define KMSAN_POISON_FREE 0x2
 
-#define ORIGIN_SIZE 4
+#define KMSAN_ORIGIN_SIZE 4
 
-#define META_SHADOW (false)
-#define META_ORIGIN (true)
+#define KMSAN_META_SHADOW (false)
+#define KMSAN_META_ORIGIN (true)
 
-DECLARE_PER_CPU(struct kmsan_task_state, kmsan_percpu_tstate);
-
-extern spinlock_t report_lock;
 extern bool kmsan_ready;
-
-void kmsan_print_origin(depot_stack_handle_t origin);
-void kmsan_report(depot_stack_handle_t origin, void *address, int size,
-		  int off_first, int off_last, const void *user_addr,
-		  int reason);
 
 enum kmsan_bug_reason {
 	REASON_ANY,
 	REASON_COPY_TO_USER,
 	REASON_SUBMIT_URB,
 };
+
+void kmsan_print_origin(depot_stack_handle_t origin);
+void kmsan_report(depot_stack_handle_t origin, void *address, int size,
+		  int off_first, int off_last, const void *user_addr,
+		  enum kmsan_bug_reason reason);
 
 /*
  * When a compiler hook is invoked, it may make a call to instrumented code
@@ -132,11 +129,11 @@ void kmsan_internal_task_create(struct task_struct *task);
 void kmsan_internal_set_origin(void *addr, int size, u32 origin);
 void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked);
 
-bool metadata_is_contiguous(void *addr, size_t size, bool is_origin);
+bool kmsan_metadata_is_contiguous(void *addr, size_t size, bool is_origin);
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 int reason);
 
-struct page *vmalloc_to_page_or_null(void *vaddr);
+struct page *kmsan_vmalloc_to_page_or_null(void *vaddr);
 void kmsan_setup_meta(struct page *page, struct page *shadow,
 		      struct page *origin, int order);
 
