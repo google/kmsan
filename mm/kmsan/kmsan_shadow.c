@@ -33,7 +33,7 @@ static void *shadow_ptr_for(struct page *page)
 
 static void *origin_ptr_for(struct page *page)
 {
-	return page_address(shadow_page_for(page));
+	return page_address(origin_page_for(page));
 }
 
 bool page_has_metadata(struct page *page)
@@ -115,8 +115,8 @@ static unsigned long vmalloc_meta(void *addr, bool is_origin)
 static void *get_cea_meta_or_null(void *addr, bool is_origin)
 {
 	int cpu = smp_processor_id();
-	int off;
 	char *metadata_array;
+	int off;
 
 	if (((u64)addr < CPU_ENTRY_AREA_BASE) ||
 	    ((u64)addr >= (CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE)))
@@ -178,9 +178,9 @@ return_dummy:
  */
 void *kmsan_get_metadata(void *address, bool is_origin)
 {
+	u64 addr = (u64)address, pad, off;
 	struct page *page;
 	void *ret;
-	u64 addr = (u64)address, pad, off;
 
 	if (is_origin && !IS_ALIGNED(addr, KMSAN_ORIGIN_SIZE)) {
 		pad = addr % KMSAN_ORIGIN_SIZE;
@@ -209,10 +209,10 @@ void *kmsan_get_metadata(void *address, bool is_origin)
 /* Allocate metadata for pages allocated at boot time. */
 void __init kmsan_init_alloc_meta_for_range(void *start, void *end)
 {
-	u64 addr, size;
-	struct page *page;
-	void *shadow, *origin;
 	struct page *shadow_p, *origin_p;
+	void *shadow, *origin;
+	struct page *page;
+	u64 addr, size;
 
 	start = (void *)ALIGN_DOWN((u64)start, PAGE_SIZE);
 	size = ALIGN((u64)end - (u64)start, PAGE_SIZE);
@@ -253,12 +253,12 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 /* Called from mm/page_alloc.c */
 void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 {
-	unsigned long irq_flags;
+	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
 	struct page *shadow, *origin;
+	depot_stack_handle_t handle;
+	unsigned long irq_flags;
 	int pages = 1 << order;
 	int i;
-	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
-	depot_stack_handle_t handle;
 
 	if (!page)
 		return;
@@ -299,10 +299,10 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 				    pgprot_t prot, struct page **pages,
 				    unsigned int page_shift)
 {
-	int nr, i, mapped;
-	struct page **s_pages, **o_pages;
 	unsigned long shadow_start, origin_start, shadow_end, origin_end;
+	struct page **s_pages, **o_pages;
 	unsigned long irq_flags;
+	int nr, i, mapped;
 
 	if (!kmsan_ready)
 		return;
