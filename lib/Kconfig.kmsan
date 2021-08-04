@@ -6,7 +6,7 @@ if HAVE_ARCH_KMSAN
 config KMSAN
 	bool "KMSAN: detector of uninitialized values use"
 	depends on SLUB && !KASAN
-	depends on CC_IS_CLANG && CLANG_VERSION >= 130000
+	depends on CC_IS_CLANG && CLANG_VERSION >= 110000
 	select STACKDEPOT
 	help
 	  KernelMemorySanitizer (KMSAN) is a dynamic detector of uses of
