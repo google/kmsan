@@ -2,7 +2,7 @@
 /*
  * KMSAN error reporting routines.
  *
- * Copyright (C) 2019-2020 Google LLC
+ * Copyright (C) 2019-2021 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
  */
@@ -14,7 +14,7 @@
 
 #include "kmsan.h"
 
-DEFINE_SPINLOCK(report_lock);
+DEFINE_SPINLOCK(kmsan_report_lock);
 int panic_on_kmsan __read_mostly;
 core_param(panic_on_kmsan, panic_on_kmsan, int, 0644);
 
@@ -86,7 +86,7 @@ void kmsan_print_origin(depot_stack_handle_t origin)
  */
 void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
-		  int reason)
+		  enum kmsan_bug_reason reason)
 {
 	unsigned long flags;
 	bool is_uaf;
@@ -100,7 +100,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		return;
 
 	current->kmsan.allow_reporting = false;
-	spin_lock_irqsave(&report_lock, flags);
+	spin_lock_irqsave(&kmsan_report_lock, flags);
 	pr_err("=====================================================\n");
 	is_uaf = kmsan_uaf_from_eb(stack_depot_get_extra_bits(origin));
 	switch (reason) {
@@ -139,7 +139,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		pr_err("Data copied to user address %px\n", user_addr);
 	pr_err("=====================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
-	spin_unlock_irqrestore(&report_lock, flags);
+	spin_unlock_irqrestore(&kmsan_report_lock, flags);
 	if (panic_on_kmsan)
 		panic("panic_on_kmsan set ...\n");
 	current->kmsan.allow_reporting = true;
