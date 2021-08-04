@@ -77,7 +77,7 @@ unsigned long __read_once_word_nocheck(const void *addr)
 ({									\
 	compiletime_assert(sizeof(x) == sizeof(unsigned long),		\
 		"Unsupported access size for READ_ONCE_NOCHECK().");	\
-	KMSAN_INIT_VALUE((typeof(x))__read_once_word_nocheck(&(x)));			\
+	kmsan_init((typeof(x))__read_once_word_nocheck(&(x)));		\
 })
 
 static __no_kasan_or_inline
