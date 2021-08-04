@@ -113,7 +113,7 @@ void unwind_module_init(struct module *mod, void *orc_ip, size_t orc_ip_size,
 		val = READ_ONCE(x);			\
 	else						\
 		val = READ_ONCE_NOCHECK(x);		\
-	KMSAN_INIT_VALUE(val);				\
+	kmsan_init(val);				\
 })
 
 static inline bool task_on_another_cpu(struct task_struct *task)
