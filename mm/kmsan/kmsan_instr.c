@@ -115,8 +115,8 @@ EXPORT_SYMBOL(__msan_memcpy);
 
 void *__msan_memset(void *dst, int c, size_t n)
 {
-	void *result;
 	unsigned long irq_flags;
+	void *result;
 
 	result = __memset(dst, c, n);
 	if (!kmsan_ready || kmsan_in_runtime())
