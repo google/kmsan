@@ -56,11 +56,10 @@ char dummy_store_page[PAGE_SIZE] __aligned(PAGE_SIZE);
  */
 static int kmsan_phys_addr_valid(unsigned long addr)
 {
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-	return !(addr >> boot_cpu_data.x86_phys_bits);
-#else
-	return 1;
-#endif
+	if (IS_ENABLED(CONFIG_PHYS_ADDR_T_64BIT))
+		return !(addr >> boot_cpu_data.x86_phys_bits);
+	else
+		return 1;
 }
 
 /*
@@ -92,11 +91,11 @@ static unsigned long vmalloc_meta(void *addr, bool is_origin)
 {
 	unsigned long addr64 = (unsigned long)addr, off;
 
-	BUG_ON(is_origin && !IS_ALIGNED(addr64, ORIGIN_SIZE));
+	BUG_ON(is_origin && !IS_ALIGNED(addr64, KMSAN_ORIGIN_SIZE));
 	if (kmsan_internal_is_vmalloc_addr(addr)) {
 		off = addr64 - VMALLOC_START;
 		return off + (is_origin ? KMSAN_VMALLOC_ORIGIN_START :
-						   KMSAN_VMALLOC_SHADOW_START);
+						KMSAN_VMALLOC_SHADOW_START);
 	}
 	if (kmsan_internal_is_module_addr(addr)) {
 		off = addr64 - MODULES_VADDR;
@@ -144,13 +143,13 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 	if (!kmsan_ready || kmsan_in_runtime())
 		goto return_dummy;
 
-	BUG_ON(!metadata_is_contiguous(address, size, META_SHADOW));
-	shadow = kmsan_get_metadata(address, META_SHADOW);
+	BUG_ON(!kmsan_metadata_is_contiguous(address, size, KMSAN_META_SHADOW));
+	shadow = kmsan_get_metadata(address, KMSAN_META_SHADOW);
 	if (!shadow)
 		goto return_dummy;
 
 	ret.s = shadow;
-	ret.o = kmsan_get_metadata(address, META_ORIGIN);
+	ret.o = kmsan_get_metadata(address, KMSAN_META_ORIGIN);
 	return ret;
 
 return_dummy:
@@ -176,8 +175,8 @@ void *kmsan_get_metadata(void *address, bool is_origin)
 	void *ret;
 	u64 addr = (u64)address, pad, off;
 
-	if (is_origin && !IS_ALIGNED(addr, ORIGIN_SIZE)) {
-		pad = addr % ORIGIN_SIZE;
+	if (is_origin && !IS_ALIGNED(addr, KMSAN_ORIGIN_SIZE)) {
+		pad = addr % KMSAN_ORIGIN_SIZE;
 		addr -= pad;
 	}
 	address = (void *)addr;
@@ -299,16 +298,11 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 	unsigned long shadow_start, origin_start, shadow_end, origin_end;
 	unsigned long irq_flags;
 
-#if 0
-	if (!kmsan_ready || kmsan_in_runtime())
-		return;
-#else
 	if (!kmsan_ready)
 		return;
-#endif
 
-	shadow_start = vmalloc_meta((void *)start, META_SHADOW);
-	shadow_end = vmalloc_meta((void *)end, META_SHADOW);
+	shadow_start = vmalloc_meta((void *)start, KMSAN_META_SHADOW);
+	shadow_end = vmalloc_meta((void *)end, KMSAN_META_SHADOW);
 	if (!shadow_start)
 		return;
 
@@ -324,8 +318,8 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 	prot = __pgprot(pgprot_val(prot) | _PAGE_NX);
 	prot = PAGE_KERNEL;
 
-	origin_start = vmalloc_meta((void *)start, META_ORIGIN);
-	origin_end = vmalloc_meta((void *)end, META_ORIGIN);
+	origin_start = vmalloc_meta((void *)start, KMSAN_META_ORIGIN);
+	origin_end = vmalloc_meta((void *)end, KMSAN_META_ORIGIN);
 	irq_flags = kmsan_enter_runtime();
 	mapped = __vmap_pages_range_noflush(shadow_start, shadow_end, prot,
 					    s_pages, page_shift);
