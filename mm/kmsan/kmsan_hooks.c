@@ -142,12 +142,14 @@ EXPORT_SYMBOL(kmsan_kfree_large);
 
 static unsigned long vmalloc_shadow(unsigned long addr)
 {
-	return (unsigned long)kmsan_get_metadata((void *)addr, META_SHADOW);
+	return (unsigned long)kmsan_get_metadata((void *)addr,
+						 KMSAN_META_SHADOW);
 }
 
 static unsigned long vmalloc_origin(unsigned long addr)
 {
-	return (unsigned long)kmsan_get_metadata((void *)addr, META_ORIGIN);
+	return (unsigned long)kmsan_get_metadata((void *)addr,
+						 KMSAN_META_ORIGIN);
 }
 
 /* Called from mm/vmalloc.c */
@@ -214,8 +216,8 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	v_shadow = (unsigned long)vmalloc_shadow(start);
 	v_origin = (unsigned long)vmalloc_origin(start);
 	for (i = 0; i < nr; i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
-		shadow = vmalloc_to_page_or_null((void *)v_shadow);
-		origin = vmalloc_to_page_or_null((void *)v_origin);
+		shadow = kmsan_vmalloc_to_page_or_null((void *)v_shadow);
+		origin = kmsan_vmalloc_to_page_or_null((void *)v_origin);
 		__vunmap_range_noflush(v_shadow, vmalloc_shadow(end));
 		__vunmap_range_noflush(v_origin, vmalloc_origin(end));
 		if (shadow)
