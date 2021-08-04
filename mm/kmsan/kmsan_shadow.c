@@ -26,19 +26,26 @@
 
 #define origin_page_for(page) ((page)->kmsan_origin)
 
-#define shadow_ptr_for(page) (page_address((page)->kmsan_shadow))
+static void *shadow_ptr_for(struct page *page)
+{
+	return page_address(shadow_page_for(page));
+}
 
-#define origin_ptr_for(page) (page_address((page)->kmsan_origin))
+static void *origin_ptr_for(struct page *page)
+{
+	return page_address(shadow_page_for(page));
+}
 
-#define has_shadow_page(page) (!!((page)->kmsan_shadow))
+bool page_has_metadata(struct page *page)
+{
+	return shadow_page_for(page) && origin_page_for(page);
+}
 
-#define has_origin_page(page) (!!((page)->kmsan_origin))
-
-#define set_no_shadow_origin_page(page)                                        \
-	do {                                                                   \
-		(page)->kmsan_shadow = NULL;                                   \
-		(page)->kmsan_origin = NULL;                                   \
-	} while (0) /**/
+void set_no_shadow_origin_page(struct page *page)
+{
+	shadow_page_for(page) = NULL;
+	origin_page_for(page) = NULL;
+}
 
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
 DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
@@ -191,7 +198,7 @@ void *kmsan_get_metadata(void *address, bool is_origin)
 	page = virt_to_page_or_null(address);
 	if (!page)
 		return NULL;
-	if (!has_shadow_page(page) || !has_origin_page(page))
+	if (!page_has_metadata(page))
 		return NULL;
 	off = addr % PAGE_SIZE;
 
@@ -229,9 +236,9 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
-	if (!dst || !has_shadow_page(dst))
+	if (!dst || !page_has_metadata(dst))
 		return;
-	if (!src || !has_shadow_page(src)) {
+	if (!src || !page_has_metadata(src)) {
 		kmsan_internal_unpoison_memory(page_address(dst), PAGE_SIZE,
 					       /*checked*/ false);
 		return;
@@ -239,7 +246,6 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 
 	irq_flags = kmsan_enter_runtime();
 	__memcpy(shadow_ptr_for(dst), shadow_ptr_for(src), PAGE_SIZE);
-	BUG_ON(!has_origin_page(src) || !has_origin_page(dst));
 	__memcpy(origin_ptr_for(dst), origin_ptr_for(src), PAGE_SIZE);
 	kmsan_leave_runtime(irq_flags);
 }
