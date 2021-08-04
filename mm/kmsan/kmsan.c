@@ -2,7 +2,7 @@
 /*
  * KMSAN runtime library.
  *
- * Copyright (C) 2017-2020 Google LLC
+ * Copyright (C) 2017-2021 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
  */
@@ -31,15 +31,6 @@
 
 #define KMSAN_STACK_DEPTH 64
 #define MAX_CHAIN_DEPTH 7
-
-/*
- * Some kernel asm() calls mention the non-existing |__force_order| variable
- * in the asm constraints to preserve the order of accesses to control
- * registers. KMSAN turns those mentions into actual memory accesses, therefore
- * the variable is now required to link the kernel.
- */
-unsigned long __force_order;
-EXPORT_SYMBOL(__force_order);
 
 bool kmsan_ready;
 /*
