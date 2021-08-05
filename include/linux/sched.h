@@ -1265,7 +1265,7 @@ struct task_struct {
 #endif
 
 #ifdef CONFIG_KMSAN
-	struct kmsan_task_state		kmsan;
+	struct kmsan_context		kmsan;
 #endif
 
 #if IS_ENABLED(CONFIG_KUNIT)
