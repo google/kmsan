@@ -226,11 +226,6 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	}
 }
 
-void kmsan_memcpy_metadata(void *dst, void *src, size_t n)
-{
-	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/ false);
-}
-
 void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 {
 	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/ true);

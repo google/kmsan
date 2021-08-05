@@ -259,7 +259,7 @@ void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
 	 * syscall.
 	 * Don't check anything, just copy the shadow of the copied bytes.
 	 */
-	kmsan_memcpy_metadata((void *)to, (void *)from, to_copy - left);
+	kmsan_memmove_metadata((void *)to, (void *)from, to_copy - left);
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
 

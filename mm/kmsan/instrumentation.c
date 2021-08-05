@@ -107,7 +107,8 @@ void *__msan_memcpy(void *dst, const void *src, size_t n)
 	if (!kmsan_ready || kmsan_in_runtime())
 		return result;
 
-	kmsan_memcpy_metadata(dst, (void *)src, n);
+	/* Using memmove instead of memcpy doesn't affect correctness. */
+	kmsan_memmove_metadata(dst, (void *)src, n);
 
 	return result;
 }

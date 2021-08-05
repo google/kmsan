@@ -93,7 +93,6 @@ static __always_inline void kmsan_leave_runtime(unsigned long irq_flags)
 	local_irq_restore(irq_flags);
 }
 
-void kmsan_memcpy_metadata(void *dst, void *src, size_t n);
 void kmsan_memmove_metadata(void *dst, void *src, size_t n);
 
 depot_stack_handle_t kmsan_save_stack(void);
