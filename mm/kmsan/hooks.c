@@ -40,12 +40,12 @@ EXPORT_SYMBOL(kmsan_task_create);
 /* Called from kernel/exit.c */
 void kmsan_task_exit(struct task_struct *task)
 {
-	struct kmsan_task_state *state = &task->kmsan;
+	struct kmsan_context *ctx = &task->kmsan;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
-	state->allow_reporting = false;
+	ctx->allow_reporting = false;
 }
 EXPORT_SYMBOL(kmsan_task_exit);
 

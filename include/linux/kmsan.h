@@ -40,7 +40,7 @@ struct kmsan_context_state {
 #undef KMSAN_PARAM_SIZE
 #undef KMSAN_RETVAL_SIZE
 
-struct kmsan_task_state {
+struct kmsan_context {
 	struct kmsan_context_state cstate;
 	int kmsan_in_runtime;
 	bool allow_reporting;

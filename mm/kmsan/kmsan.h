@@ -47,11 +47,11 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
 		  enum kmsan_bug_reason reason);
 
-DECLARE_PER_CPU(struct kmsan_task_state, kmsan_percpu_tstate);
+DECLARE_PER_CPU(struct kmsan_context, kmsan_percpu_ctx);
 
-static __always_inline struct kmsan_task_state *kmsan_get_task_state(void)
+static __always_inline struct kmsan_context *kmsan_get_context(void)
 {
-	return in_task() ? &current->kmsan : raw_cpu_ptr(&kmsan_percpu_tstate);
+	return in_task() ? &current->kmsan : raw_cpu_ptr(&kmsan_percpu_ctx);
 }
 
 /*
@@ -65,24 +65,24 @@ static __always_inline struct kmsan_task_state *kmsan_get_task_state(void)
 
 static __always_inline bool kmsan_in_runtime(void)
 {
-	return kmsan_get_task_state()->kmsan_in_runtime;
+	return kmsan_get_context()->kmsan_in_runtime;
 }
 
 static __always_inline unsigned long kmsan_enter_runtime(void)
 {
 	unsigned long irq_flags;
-	struct kmsan_task_state *ctx;
+	struct kmsan_context *ctx;
 
 	local_irq_save(irq_flags);
 	stop_nmi();
-	ctx = kmsan_get_task_state();
+	ctx = kmsan_get_context();
 	BUG_ON(ctx->kmsan_in_runtime++);
 	return irq_flags;
 }
 
 static __always_inline void kmsan_leave_runtime(unsigned long irq_flags)
 {
-	struct kmsan_task_state *ctx = kmsan_get_task_state();
+	struct kmsan_context *ctx = kmsan_get_context();
 
 	BUG_ON(--ctx->kmsan_in_runtime);
 	restart_nmi();

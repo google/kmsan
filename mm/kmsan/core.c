@@ -43,14 +43,14 @@ bool kmsan_ready;
  * Because interrupts may nest, trying to use a new context for every new
  * interrupt.
  */
-DEFINE_PER_CPU(struct kmsan_task_state, kmsan_percpu_tstate);
+DEFINE_PER_CPU(struct kmsan_context, kmsan_percpu_ctx);
 
 void kmsan_internal_task_create(struct task_struct *task)
 {
-	struct kmsan_task_state *state = &task->kmsan;
+	struct kmsan_context *ctx = &task->kmsan;
 
-	__memset(state, 0, sizeof(struct kmsan_task_state));
-	state->allow_reporting = true;
+	__memset(ctx, 0, sizeof(struct kmsan_context));
+	ctx->allow_reporting = true;
 }
 
 void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
