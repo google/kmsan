@@ -251,14 +251,14 @@ void kmsan_unpoison_pt_regs(struct pt_regs *regs);
 
 #else
 
-static inline void __init kmsan_initialize_shadow(void)
+static inline void kmsan_initialize_shadow(void)
 {
 }
-static inline void __init kmsan_initialize(void)
+static inline void kmsan_initialize(void)
 {
 }
-static inline bool __init kmsan_memblock_free_pages(struct page *page,
-						    unsigned int order)
+static inline bool kmsan_memblock_free_pages(struct page *page,
+					     unsigned int order)
 {
 	return true;
 }
