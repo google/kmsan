@@ -112,24 +112,8 @@ depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
 	return stack_depot_save_extra(entries, nr_entries, reserved, flags);
 }
 
-/*
- * Depending on the value of is_memmove, this serves as both a memcpy and a
- * memmove implementation.
- *
- * As with the regular memmove, do the following:
- * - if src and dst don't overlap, use memcpy();
- * - if src and dst overlap:
- *   - if src > dst, use memcpy();
- *   - if src < dst, use reverse-memcpy.
- * Why this is correct:
- * - problems may arise if for some part of the overlapping region we
- *   overwrite its shadow with a new value before copying it somewhere.
- *   But there's a 1:1 mapping between the kernel memory and its shadow,
- *   therefore if this doesn't happen with the kernel memory it can't happen
- *   with the shadow.
- */
-static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
-					  bool is_memmove)
+/* Copy the metadata following the memmove() behavior. */
+void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 {
 	depot_stack_handle_t old_origin = 0, chain_origin, new_origin = 0;
 	int src_slots, dst_slots, i, iter, step, skip_bits;
@@ -154,10 +138,7 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	}
 	BUG_ON(!kmsan_metadata_is_contiguous(src, n, KMSAN_META_SHADOW));
 
-	if (is_memmove)
-		__memmove(shadow_dst, shadow_src, n);
-	else
-		__memcpy(shadow_dst, shadow_src, n);
+	__memmove(shadow_dst, shadow_src, n);
 
 	origin_dst = kmsan_get_metadata(dst, KMSAN_META_ORIGIN);
 	origin_src = kmsan_get_metadata(src, KMSAN_META_ORIGIN);
@@ -174,7 +155,7 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 	BUG_ON((src_slots < 1) || (dst_slots < 1));
 	BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
 
-	backwards = is_memmove && (dst > src);
+	backwards = dst > src;
 	i = backwards ? min(src_slots, dst_slots) - 1 : 0;
 	iter = backwards ? -1 : 1;
 
@@ -224,11 +205,6 @@ static void kmsan_memcpy_memmove_metadata(void *dst, void *src, size_t n,
 		else
 			origin_dst[i] = 0;
 	}
-}
-
-void kmsan_memmove_metadata(void *dst, void *src, size_t n)
-{
-	kmsan_memcpy_memmove_metadata(dst, src, n, /*is_memmove*/ true);
 }
 
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
