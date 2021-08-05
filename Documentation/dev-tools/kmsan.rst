@@ -314,7 +314,7 @@ Per-task KMSAN state
 Every task_struct has an associated KMSAN task state that holds the KMSAN
 context (see above) and a per-task flag disallowing KMSAN reports::
 
-  struct kmsan_task_state {
+  struct kmsan_context {
     ...
     bool allow_reporting;
     struct kmsan_context_state cstate;
@@ -323,7 +323,7 @@ context (see above) and a per-task flag disallowing KMSAN reports::
 
   struct task_struct {
     ...
-    struct kmsan_task_state kmsan;
+    struct kmsan_context kmsan;
     ...
   }
 
@@ -338,7 +338,7 @@ But in the case the kernel is running in the interrupt, softirq or NMI context,
 where ``current`` is unavailable, KMSAN switches to per-cpu interrupt state::
 
   DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
-                 kmsan_percpu_cstate);
+                 kmsan_percpu_ctx);
 
 Metadata allocation
 ~~~~~~~~~~~~~~~~~~~
