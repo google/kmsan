@@ -1,4 +1,4 @@
-obj-y := kmsan.o kmsan_instr.o kmsan_init.o hooks.o kmsan_report.o kmsan_shadow.o kmsan_annotations.o
+obj-y := core.o instrumentation.o init.o hooks.o report.o shadow.o annotations.o
 
 KMSAN_SANITIZE := n
 KCOV_INSTRUMENT := n

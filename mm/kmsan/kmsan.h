@@ -19,7 +19,7 @@
 #include <linux/mm.h>
 #include <linux/printk.h>
 
-#include "kmsan_shadow.h"
+#include "shadow.h"
 
 #define KMSAN_MAGIC_MASK 0xffffffffff00
 #define KMSAN_ALLOCA_MAGIC_ORIGIN 0x4110c4071900
