@@ -109,11 +109,8 @@ static struct page_pair held_back[MAX_ORDER] __initdata;
  * shadow and origin ranges from the previously saved shadow and origin blocks,
  * after which held_back[order] can be used again.
  *
- * At the very end there may be leftover blocks in held_back[]. Right now they
- * are just leaked, although we can split them into smaller blocks and similarly
- * use 2/3 of them as metadata.
- * The maximum number of leaked pages is 2*(2^MAX_ORDER), which is 4096 if
- * MAX_ORDER is 11.
+ * At the very end there may be leftover blocks in held_back[]. They are
+ * collected later by kmsan_memblock_discard().
  */
 bool kmsan_memblock_free_pages(struct page *page, unsigned int order)
 {
@@ -206,11 +203,15 @@ static void kmsan_memblock_discard(void)
 {
 	int i;
 
-	/* For [order=10]: split shadow and origin into 4 parts of order=9, push them to collect.
-	 * then do garbage collection, there will be at most 2 parts left over.
-	 * For order=9, push to collect
-	 * do garbage collection
-	 * split the remaining parts and push them to collect
+	/* For each order=N:
+	 *  - push held_back[N].shadow and .origin to |collect|;
+	 *  - while there are >= 3 elements in |collect|, do garbage collection:
+	 *    - pop 3 ranges from |collect|;
+	 *    - use two of them as shadow and origin for the third one;
+	 *    - repeat;
+	 *  - split each remaining element from |collect| into 2 ranges of
+	 *    order=N-1,
+	 *  - repeat.
 	 */
 	collect.order = MAX_ORDER - 1;
 	for (i = MAX_ORDER - 1; i >= 0; i--) {
