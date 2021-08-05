@@ -145,7 +145,7 @@ struct smallstack collect = {
 	.order = MAX_ORDER,
 };
 
-void smallstack_push(struct smallstack *stack, struct page *pages)
+static void smallstack_push(struct smallstack *stack, struct page *pages)
 {
 	BUG_ON(stack->index == MAX_BLOCKS);
 	stack->items[stack->index] = pages;
