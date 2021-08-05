@@ -14,8 +14,11 @@
 
 #include <asm/cpu_entry_area.h> /* for CPU_ENTRY_AREA_MAP_SIZE */
 
+/*
+ * A pair of metadata pointers to be returned by the instrumentation functions.
+ */
 struct shadow_origin_ptr {
-	void *s, *o;
+	void *shadow, *origin;
 };
 
 struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *addr, u64 size,

@@ -155,17 +155,19 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 	if (!shadow)
 		goto return_dummy;
 
-	ret.s = shadow;
-	ret.o = kmsan_get_metadata(address, KMSAN_META_ORIGIN);
+	ret.shadow = shadow;
+	ret.origin = kmsan_get_metadata(address, KMSAN_META_ORIGIN);
 	return ret;
 
 return_dummy:
 	if (store) {
-		ret.s = dummy_store_page;
-		ret.o = dummy_store_page;
+		/* Ignore this store. */
+		ret.shadow = dummy_store_page;
+		ret.origin = dummy_store_page;
 	} else {
-		ret.s = dummy_load_page;
-		ret.o = dummy_load_page;
+		/* This load will return zero. */
+		ret.shadow = dummy_load_page;
+		ret.origin = dummy_load_page;
 	}
 	return ret;
 }
