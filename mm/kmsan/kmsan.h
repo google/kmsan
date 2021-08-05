@@ -70,25 +70,21 @@ static __always_inline bool kmsan_in_runtime(void)
 
 static __always_inline unsigned long kmsan_enter_runtime(void)
 {
-	int level;
 	unsigned long irq_flags;
 	struct kmsan_task_state *ctx;
 
 	local_irq_save(irq_flags);
 	stop_nmi();
 	ctx = kmsan_get_task_state();
-	level = ++ctx->kmsan_in_runtime;
-	BUG_ON(level != 1);
+	BUG_ON(ctx->kmsan_in_runtime++);
 	return irq_flags;
 }
 
 static __always_inline void kmsan_leave_runtime(unsigned long irq_flags)
 {
 	struct kmsan_task_state *ctx = kmsan_get_task_state();
-	int level = --ctx->kmsan_in_runtime;
 
-	if (level)
-		panic("kmsan_in_runtime: %d\n", level);
+	BUG_ON(--ctx->kmsan_in_runtime);
 	restart_nmi();
 	local_irq_restore(irq_flags);
 }
