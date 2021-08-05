@@ -47,6 +47,13 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
 		  enum kmsan_bug_reason reason);
 
+DECLARE_PER_CPU(struct kmsan_task_state, kmsan_percpu_tstate);
+
+static __always_inline struct kmsan_task_state *kmsan_get_task_state(void)
+{
+	return in_task() ? &current->kmsan : raw_cpu_ptr(&kmsan_percpu_tstate);
+}
+
 /*
  * When a compiler hook is invoked, it may make a call to instrumented code
  * and eventually call itself recursively. To avoid that, we protect the
@@ -55,7 +62,6 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
  * inside the runtime, the hooks won’t run either, which may lead to errors.
  * Therefore we have to disable interrupts inside the runtime.
  */
-struct kmsan_task_state *kmsan_get_task_state(void);
 
 static __always_inline bool kmsan_in_runtime(void)
 {

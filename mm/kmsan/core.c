@@ -45,11 +45,6 @@ bool kmsan_ready;
  */
 DEFINE_PER_CPU(struct kmsan_task_state, kmsan_percpu_tstate);
 
-struct kmsan_task_state *kmsan_get_task_state(void)
-{
-	return in_task() ? &current->kmsan : raw_cpu_ptr(&kmsan_percpu_tstate);
-}
-
 void kmsan_internal_task_create(struct task_struct *task)
 {
 	struct kmsan_task_state *state = &task->kmsan;
