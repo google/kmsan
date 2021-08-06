@@ -143,9 +143,11 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 	struct shadow_origin_ptr ret;
 	void *shadow;
 
-	if (size > PAGE_SIZE)
-		panic("size too big in %s(%px, %d, %d)\n", __func__, address,
-		      size, store);
+	/*
+	 * Even if we redirect this memory access to the dummy page, it will
+	 * go out of bounds.
+	 */
+	BUG_ON(size > PAGE_SIZE);
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		goto return_dummy;
