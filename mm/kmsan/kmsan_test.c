@@ -272,7 +272,7 @@ noinline void do_uninit_local_array(char *array, int start, int stop)
 static void test_uninit_kmsan_check_memory(struct kunit *test)
 {
 	volatile char local_array[8];
-	EXPECTATION_UNINIT_VALUE_FN(expect, "kmsan_check_memory");
+	EXPECTATION_UNINIT_VALUE_FN(expect, "test_uninit_kmsan_check_memory");
 
 	pr_info("-----------------------------\n");
 	pr_info("kmsan_check_memory() called on uninit local (UMR report)\n");
