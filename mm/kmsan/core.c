@@ -179,11 +179,10 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 {
-	u64 magic = KMSAN_CHAIN_MAGIC_ORIGIN_FULL;
 	unsigned long entries[3];
 	static int skipped;
 	u32 extra_bits;
-	int depth = 0;
+	int depth;
 	bool uaf;
 
 	if (!id)
@@ -210,7 +209,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	depth++;
 	extra_bits = kmsan_extra_bits(depth, uaf);
 
-	entries[0] = magic + depth;
+	entries[0] = KMSAN_CHAIN_MAGIC_ORIGIN;
 	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, extra_bits);
 	entries[2] = id;
 	return stack_depot_save_extra(entries, ARRAY_SIZE(entries), extra_bits,

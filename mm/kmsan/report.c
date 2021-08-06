@@ -31,7 +31,7 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 
 	while (true) {
 		nr_entries = stack_depot_fetch(origin, &entries);
-		magic = nr_entries ? (entries[0] & KMSAN_MAGIC_MASK) : 0;
+		magic = nr_entries ? entries[0] : 0;
 		if ((nr_entries == 4) && (magic == KMSAN_ALLOCA_MAGIC_ORIGIN)) {
 			descr = (char *)entries[1];
 			pc1 = (void *)entries[2];
@@ -42,7 +42,7 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 			break;
 		}
 		if ((nr_entries == 3) &&
-		    (magic == KMSAN_CHAIN_MAGIC_ORIGIN_FULL)) {
+		    (magic == KMSAN_CHAIN_MAGIC_ORIGIN)) {
 			head = entries[1];
 			origin = entries[2];
 			pr_err("Uninit was stored to memory at:\n");
@@ -73,7 +73,6 @@ static int get_stack_skipnr(const unsigned long stack_entries[],
 			    int num_entries)
 {
 	char buf[64];
-	char *cur;
 	int len, skip;
 
 	for (skip = 0; skip < num_entries; ++skip) {
