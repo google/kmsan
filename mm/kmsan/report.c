@@ -37,8 +37,8 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 			pc1 = (void *)entries[2];
 			pc2 = (void *)entries[3];
 			pr_err("Local variable %s created at:\n", descr);
-			pr_err(" %pS\n", pc1);
-			pr_err(" %pS\n", pc2);
+			if (pc1) pr_err(" %pS\n", pc1);
+			if (pc2) pr_err(" %pS\n", pc2);
 			break;
 		}
 		if ((nr_entries == 3) &&

@@ -446,29 +446,6 @@ report:
 	return false;
 }
 
-/*
- * Dummy replacement for __builtin_return_address() which may crash without
- * frame pointers.
- */
-void *kmsan_internal_return_address(int arg)
-{
-#ifdef CONFIG_UNWINDER_FRAME_POINTER
-	switch (arg) {
-	case 1:
-		return __builtin_return_address(1);
-	case 2:
-		return __builtin_return_address(2);
-	default:
-		BUG();
-	}
-#else
-	unsigned long entries[1];
-
-	stack_trace_save(entries, 1, arg);
-	return (void *)entries[0];
-#endif
-}
-
 bool kmsan_internal_is_module_addr(void *vaddr)
 {
 	return ((u64)vaddr >= MODULES_VADDR) && ((u64)vaddr < MODULES_END);

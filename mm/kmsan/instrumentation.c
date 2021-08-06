@@ -165,13 +165,18 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	entries[0] = KMSAN_ALLOCA_MAGIC_ORIGIN;
 	entries[1] = (u64)descr;
 	entries[2] = (u64)__builtin_return_address(0);
-
 	/*
-	 * stack_depot_save() may allocate memory.
-	 * kmsan_internal_return_address() may go into recursion.
+	 * With frame pointers enabled, it is possible to quickly fetch the
+	 * second frame of the caller stack without calling the unwinder.
+	 * Without them, simply do not bother.
 	 */
+	if (IS_ENABLED(CONFIG_UNWINDER_FRAME_POINTER))
+		entries[3] = (u64)__builtin_return_address(1);
+	else
+		entries[3] = 0;
+
+	/* stack_depot_save() may allocate memory. */
 	irq_flags = kmsan_enter_runtime();
-	entries[3] = (u64)kmsan_internal_return_address(1);
 	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
 	kmsan_leave_runtime(irq_flags);
 	kmsan_internal_set_origin(address, size, handle);
