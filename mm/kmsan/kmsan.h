@@ -31,6 +31,8 @@
 
 #define KMSAN_ORIGIN_SIZE 4
 
+#define KMSAN_STACK_DEPTH 64
+
 #define KMSAN_META_SHADOW (false)
 #define KMSAN_META_ORIGIN (true)
 

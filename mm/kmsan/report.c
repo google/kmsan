@@ -66,6 +66,35 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 	}
 }
 
+/*
+ * Skip internal KMSAN frames.
+ */
+static int get_stack_skipnr(const unsigned long stack_entries[],
+			    int num_entries)
+{
+	char buf[64];
+	char *cur;
+	int len, skip;
+
+	for (skip = 0; skip < num_entries; ++skip) {
+		len = scnprintf(buf, sizeof(buf), "%ps",
+				(void *)stack_entries[skip]);
+
+		/* Never show __msan_* or kmsan_* functions. */
+		if ((strnstr(buf, "__msan_", len) == buf) ||
+		    (strnstr(buf, "kmsan_", len) == buf))
+			continue;
+
+		/*
+		 * No match for runtime functions -- @skip entries to skip to
+		 * get to first frame of interest.
+		 */
+		break;
+	}
+
+	return skip;
+}
+
 /**
  * kmsan_report() - Report a use of uninitialized value.
  * @origin:    Stack ID of the uninitialized value.
@@ -88,6 +117,8 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
 		  enum kmsan_bug_reason reason)
 {
+	unsigned long stack_entries[KMSAN_STACK_DEPTH] = { 0 };
+	int num_stack_entries, skipnr;
 	char *bug_type = NULL;
 	unsigned long flags;
 	bool is_uaf;
@@ -116,9 +147,14 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 					  "kernel-usb-infoleak";
 		break;
 	}
-	pr_err("BUG: KMSAN: %s in %pS\n", bug_type,
-	       kmsan_internal_return_address(2));
-	dump_stack();
+
+	num_stack_entries =
+		stack_trace_save(stack_entries, KMSAN_STACK_DEPTH, 1);
+	skipnr = get_stack_skipnr(stack_entries, num_stack_entries);
+
+	pr_err("BUG: KMSAN: %s in %pS\n", bug_type, stack_entries[skipnr]);
+	stack_trace_print(stack_entries + skipnr, num_stack_entries - skipnr,
+			  0);
 	pr_err("\n");
 
 	kmsan_print_origin(origin);

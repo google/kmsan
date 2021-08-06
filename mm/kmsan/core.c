@@ -29,7 +29,6 @@
 #include "../slab.h"
 #include "kmsan.h"
 
-#define KMSAN_STACK_DEPTH 64
 #define MAX_CHAIN_DEPTH 7
 
 bool kmsan_ready;
