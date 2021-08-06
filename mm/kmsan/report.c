@@ -72,8 +72,8 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 static int get_stack_skipnr(const unsigned long stack_entries[],
 			    int num_entries)
 {
-	char buf[64];
 	int len, skip;
+	char buf[64];
 
 	for (skip = 0; skip < num_entries; ++skip) {
 		len = scnprintf(buf, sizeof(buf), "%ps",
