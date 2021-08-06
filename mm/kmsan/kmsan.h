@@ -123,13 +123,11 @@ static __always_inline unsigned int kmsan_depth_from_eb(unsigned int extra_bits)
 void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags);
 void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked);
-void kmsan_internal_memset_shadow(void *address, int b, size_t size,
+void kmsan_internal_set_shadow_origin(void *address, size_t size, int b, u32 origin,
 				  bool checked);
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
-void kmsan_write_aligned_origin(void *var, size_t size, u32 origin);
 
 void kmsan_internal_task_create(struct task_struct *task);
-void kmsan_internal_set_origin(void *addr, int size, u32 origin);
 
 bool kmsan_metadata_is_contiguous(void *addr, size_t size);
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,

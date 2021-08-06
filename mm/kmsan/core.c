@@ -52,26 +52,6 @@ void kmsan_internal_task_create(struct task_struct *task)
 	ctx->allow_reporting = true;
 }
 
-void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
-{
-	void *shadow_start;
-
-	BUG_ON(!kmsan_metadata_is_contiguous(addr, size));
-	shadow_start = kmsan_get_metadata(addr, KMSAN_META_SHADOW);
-	if (!shadow_start) {
-		/*
-		 * kmsan_metadata_is_contiguous() returned true, so either all
-		 * shadow pages are NULL, or all are non-NULL.
-		 */
-		if (checked) {
-			pr_err("%s: not memsetting %d bytes starting at %px, because the shadow is NULL\n",
-			       __func__, size, addr);
-			BUG();
-		}
-	} else {
-		__memset(shadow_start, b, size);
-	}
-}
 
 void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags)
@@ -81,15 +61,13 @@ void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 	bool checked = poison_flags & KMSAN_POISON_CHECK;
 	depot_stack_handle_t handle;
 
-	kmsan_internal_memset_shadow(address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags, extra_bits);
-	kmsan_internal_set_origin(address, size, handle);
+	kmsan_internal_set_shadow_origin(address, size, -1, handle, checked);
 }
 
 void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked)
 {
-	kmsan_internal_memset_shadow(address, 0, size, checked);
-	kmsan_internal_set_origin(address, size, 0);
+	kmsan_internal_set_shadow_origin(address, size, 0, 0, checked);
 }
 
 depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
@@ -240,46 +218,44 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 				      GFP_ATOMIC);
 }
 
-void kmsan_write_aligned_origin(void *var, size_t size, u32 origin)
+void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b, u32 origin, bool checked)
 {
-	u32 *var_cast = (u32 *)var;
+	u64 address = (u64)addr;
+	void *shadow_start;
+	u32 *origin_start;
+	size_t pad = 0;
 	int i;
 
-	BUG_ON((u64)var_cast % KMSAN_ORIGIN_SIZE);
-	BUG_ON(size % KMSAN_ORIGIN_SIZE);
-	for (i = 0; i < size / KMSAN_ORIGIN_SIZE; i++)
-		var_cast[i] = origin;
-}
-
-void kmsan_internal_set_origin(void *addr, int size, u32 origin)
-{
-	u64 address = (u64)addr, page_offset;
-	size_t to_fill, pad = 0;
-	void *origin_start;
+	BUG_ON(!kmsan_metadata_is_contiguous(addr, size));
+	shadow_start = kmsan_get_metadata(addr, KMSAN_META_SHADOW);
+	if (!shadow_start) {
+		/*
+		 * kmsan_metadata_is_contiguous() is true, so either all shadow
+		 * and origin pages are NULL, or all are non-NULL.
+		 */
+		if (checked) {
+			pr_err("%s: not memsetting %d bytes starting at %px, because the shadow is NULL\n",
+			       __func__, size, addr);
+			BUG();
+		}
+		return;
+	} else {
+		__memset(shadow_start, b, size);
+	}
 
 	if (!IS_ALIGNED(address, KMSAN_ORIGIN_SIZE)) {
 		pad = address % KMSAN_ORIGIN_SIZE;
 		address -= pad;
 		size += pad;
 	}
+	size = ALIGN(size, KMSAN_ORIGIN_SIZE);
+	origin_start = (u32 *)kmsan_get_metadata((void *)address, KMSAN_META_ORIGIN);
 
-	while (size > 0) {
-		page_offset = address % PAGE_SIZE;
-		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
-		/* write at least KMSAN_ORIGIN_SIZE bytes */
-		to_fill = ALIGN(to_fill, KMSAN_ORIGIN_SIZE);
-		BUG_ON(!to_fill);
-		origin_start =
-			kmsan_get_metadata((void *)address, KMSAN_META_ORIGIN);
-		address += to_fill;
-		size -= to_fill;
-		if (!origin_start)
-			/* Can happen e.g. if the memory is untracked. */
-			continue;
-		kmsan_write_aligned_origin(origin_start, to_fill, origin);
-	}
+	/* Shadow is non-NULL here, so origin must also be valid. */
+	BUG_ON(!origin_start);
+	for (i = 0; i < size / KMSAN_ORIGIN_SIZE; i++)
+		origin_start[i] = origin;
 }
-
 
 struct page *kmsan_vmalloc_to_page_or_null(void *vaddr)
 {
