@@ -52,7 +52,6 @@ void kmsan_internal_task_create(struct task_struct *task)
 	ctx->allow_reporting = true;
 }
 
-
 void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags)
 {
@@ -218,7 +217,8 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 				      GFP_ATOMIC);
 }
 
-void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b, u32 origin, bool checked)
+void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b,
+				      u32 origin, bool checked)
 {
 	u64 address = (u64)addr;
 	void *shadow_start;
@@ -249,7 +249,8 @@ void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b, u32 origin
 		size += pad;
 	}
 	size = ALIGN(size, KMSAN_ORIGIN_SIZE);
-	origin_start = (u32 *)kmsan_get_metadata((void *)address, KMSAN_META_ORIGIN);
+	origin_start =
+		(u32 *)kmsan_get_metadata((void *)address, KMSAN_META_ORIGIN);
 
 	/* Shadow is non-NULL here, so origin must also be valid. */
 	BUG_ON(!origin_start);
@@ -358,7 +359,8 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 
 bool kmsan_metadata_is_contiguous(void *addr, size_t size)
 {
-	char *cur_shadow = NULL, *next_shadow = NULL, *cur_origin = NULL, *next_origin = NULL;
+	char *cur_shadow = NULL, *next_shadow = NULL, *cur_origin = NULL,
+	     *next_origin = NULL;
 	u64 cur_addr = (u64)addr, next_addr = cur_addr + PAGE_SIZE;
 	depot_stack_handle_t *origin_p;
 	bool all_untracked = false;
@@ -371,16 +373,16 @@ bool kmsan_metadata_is_contiguous(void *addr, size_t size)
 	    ALIGN_DOWN(cur_addr, PAGE_SIZE))
 		return true;
 
-	cur_shadow = kmsan_get_metadata((void *)cur_addr, /*is_origin*/false);
+	cur_shadow = kmsan_get_metadata((void *)cur_addr, /*is_origin*/ false);
 	if (!cur_shadow)
 		all_untracked = true;
-	cur_origin = kmsan_get_metadata((void *)cur_addr, /*is_origin*/true);
+	cur_origin = kmsan_get_metadata((void *)cur_addr, /*is_origin*/ true);
 	if (all_untracked && cur_origin)
 		goto report;
 
 	for (; next_addr < (u64)addr + size;
-	     cur_addr = next_addr, cur_shadow = next_shadow, cur_origin = next_origin,
-	    next_addr += PAGE_SIZE) {
+	     cur_addr = next_addr, cur_shadow = next_shadow,
+	     cur_origin = next_origin, next_addr += PAGE_SIZE) {
 		next_shadow = kmsan_get_metadata((void *)next_addr, false);
 		next_origin = kmsan_get_metadata((void *)next_addr, true);
 		if (all_untracked) {
@@ -401,8 +403,10 @@ report:
 	pr_err("Access of size %d at %px.\n", size, addr);
 	pr_err("Addresses belonging to different ranges: %px and %px\n",
 	       cur_addr, next_addr);
-	pr_err("page[0].shadow: %px, page[1].shadow: %px\n", cur_shadow, next_shadow);
-	pr_err("page[0].origin: %px, page[1].origin: %px\n", cur_origin, next_origin);
+	pr_err("page[0].shadow: %px, page[1].shadow: %px\n", cur_shadow,
+	       next_shadow);
+	pr_err("page[0].origin: %px, page[1].origin: %px\n", cur_origin,
+	       next_origin);
 	origin_p = kmsan_get_metadata(addr, KMSAN_META_ORIGIN);
 	if (origin_p) {
 		pr_err("Origin: %08x\n", *origin_p);
@@ -412,7 +416,6 @@ report:
 	}
 	return false;
 }
-
 
 bool kmsan_internal_is_module_addr(void *vaddr)
 {
