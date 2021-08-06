@@ -54,26 +54,22 @@ void kmsan_internal_task_create(struct task_struct *task)
 
 void kmsan_internal_memset_shadow(void *addr, int b, size_t size, bool checked)
 {
-	u64 page_offset, address = (u64)addr;
 	void *shadow_start;
-	size_t to_fill;
 
-	BUG_ON(!kmsan_metadata_is_contiguous(addr, size, KMSAN_META_SHADOW));
-	while (size) {
-		page_offset = address % PAGE_SIZE;
-		to_fill = min(PAGE_SIZE - page_offset, (u64)size);
-		shadow_start =
-			kmsan_get_metadata((void *)address, KMSAN_META_SHADOW);
-		if (!shadow_start) {
-			if (checked)
-				panic("%s: not memsetting %d bytes starting at %px, because the shadow is NULL\n",
-				      __func__, to_fill, address);
-			/* Otherwise just move on. */
-		} else {
-			__memset(shadow_start, b, to_fill);
+	BUG_ON(!kmsan_metadata_is_contiguous(addr, size));
+	shadow_start = kmsan_get_metadata(addr, KMSAN_META_SHADOW);
+	if (!shadow_start) {
+		/*
+		 * kmsan_metadata_is_contiguous() returned true, so either all
+		 * shadow pages are NULL, or all are non-NULL.
+		 */
+		if (checked) {
+			pr_err("%s: not memsetting %d bytes starting at %px, because the shadow is NULL\n",
+			       __func__, size, addr);
+			BUG();
 		}
-		address += to_fill;
-		size -= to_fill;
+	} else {
+		__memset(shadow_start, b, size);
 	}
 }
 
@@ -124,7 +120,7 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 	shadow_dst = kmsan_get_metadata(dst, KMSAN_META_SHADOW);
 	if (!shadow_dst)
 		return;
-	BUG_ON(!kmsan_metadata_is_contiguous(dst, n, KMSAN_META_SHADOW));
+	BUG_ON(!kmsan_metadata_is_contiguous(dst, n));
 
 	shadow_src = kmsan_get_metadata(src, KMSAN_META_SHADOW);
 	if (!shadow_src) {
@@ -135,15 +131,13 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 		__memset(shadow_dst, 0, n);
 		return;
 	}
-	BUG_ON(!kmsan_metadata_is_contiguous(src, n, KMSAN_META_SHADOW));
+	BUG_ON(!kmsan_metadata_is_contiguous(src, n));
 
 	__memmove(shadow_dst, shadow_src, n);
 
 	origin_dst = kmsan_get_metadata(dst, KMSAN_META_ORIGIN);
 	origin_src = kmsan_get_metadata(src, KMSAN_META_ORIGIN);
 	BUG_ON(!origin_dst || !origin_src);
-	BUG_ON(!kmsan_metadata_is_contiguous(dst, n, KMSAN_META_ORIGIN));
-	BUG_ON(!kmsan_metadata_is_contiguous(src, n, KMSAN_META_ORIGIN));
 	src_slots = (ALIGN((u64)src + n, KMSAN_ORIGIN_SIZE) -
 		     ALIGN_DOWN((u64)src, KMSAN_ORIGIN_SIZE)) /
 		    KMSAN_ORIGIN_SIZE;
@@ -313,7 +307,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	int i, chunk_size;
 	size_t pos = 0;
 
-	BUG_ON(!kmsan_metadata_is_contiguous(addr, size, KMSAN_META_SHADOW));
+	BUG_ON(!kmsan_metadata_is_contiguous(addr, size));
 	if (size <= 0)
 		return;
 	while (pos < size) {
@@ -386,11 +380,10 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	}
 }
 
-bool kmsan_metadata_is_contiguous(void *addr, size_t size, bool is_origin)
+bool kmsan_metadata_is_contiguous(void *addr, size_t size)
 {
-	const char *fname = is_origin ? "origin" : "shadow";
-	char *cur_meta = NULL, *next_meta = NULL;
-	u64 cur_addr = (u64)addr, next_addr;
+	char *cur_shadow = NULL, *next_shadow = NULL, *cur_origin = NULL, *next_origin = NULL;
+	u64 cur_addr = (u64)addr, next_addr = cur_addr + PAGE_SIZE;
 	depot_stack_handle_t *origin_p;
 	bool all_untracked = false;
 
@@ -401,33 +394,39 @@ bool kmsan_metadata_is_contiguous(void *addr, size_t size, bool is_origin)
 	if (ALIGN_DOWN(cur_addr + size - 1, PAGE_SIZE) ==
 	    ALIGN_DOWN(cur_addr, PAGE_SIZE))
 		return true;
-	cur_meta = kmsan_get_metadata((void *)cur_addr, is_origin);
-	if (!cur_meta)
+
+	cur_shadow = kmsan_get_metadata((void *)cur_addr, /*is_origin*/false);
+	if (!cur_shadow)
 		all_untracked = true;
-	for (next_addr = cur_addr + PAGE_SIZE; next_addr < (u64)addr + size;
-	     cur_addr = next_addr, cur_meta = next_meta,
+	cur_origin = kmsan_get_metadata((void *)cur_addr, /*is_origin*/true);
+	if (all_untracked && cur_origin)
+		goto report;
+
+	for (; next_addr < (u64)addr + size;
+	     cur_addr = next_addr, cur_shadow = next_shadow, cur_origin = next_origin,
 	    next_addr += PAGE_SIZE) {
-		next_meta = kmsan_get_metadata((void *)next_addr, is_origin);
-		if (!next_meta) {
-			if (!all_untracked)
+		next_shadow = kmsan_get_metadata((void *)next_addr, false);
+		next_origin = kmsan_get_metadata((void *)next_addr, true);
+		if (all_untracked) {
+			if (next_shadow || next_origin)
 				goto report;
-			continue;
+			if (!next_shadow && !next_origin)
+				continue;
 		}
-		if ((u64)cur_meta == ((u64)next_meta - PAGE_SIZE))
+		if (((u64)cur_shadow == ((u64)next_shadow - PAGE_SIZE)) &&
+		    ((u64)cur_origin == ((u64)next_origin - PAGE_SIZE)))
 			continue;
 		goto report;
 	}
 	return true;
 
 report:
-	pr_err("BUG: attempting to access two shadow page ranges.\n");
-	dump_stack();
-	pr_err("\n");
+	pr_err("%s: attempting to access two shadow page ranges.\n", __func__);
 	pr_err("Access of size %d at %px.\n", size, addr);
 	pr_err("Addresses belonging to different ranges: %px and %px\n",
 	       cur_addr, next_addr);
-	pr_err("page[0].%s: %px, page[1].%s: %px\n", fname, cur_meta, fname,
-	       next_meta);
+	pr_err("page[0].shadow: %px, page[1].shadow: %px\n", cur_shadow, next_shadow);
+	pr_err("page[0].origin: %px, page[1].origin: %px\n", cur_origin, next_origin);
 	origin_p = kmsan_get_metadata(addr, KMSAN_META_ORIGIN);
 	if (origin_p) {
 		pr_err("Origin: %08x\n", *origin_p);
@@ -437,6 +436,7 @@ report:
 	}
 	return false;
 }
+
 
 bool kmsan_internal_is_module_addr(void *vaddr)
 {

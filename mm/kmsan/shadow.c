@@ -152,7 +152,7 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 	if (!kmsan_ready || kmsan_in_runtime())
 		goto return_dummy;
 
-	BUG_ON(!kmsan_metadata_is_contiguous(address, size, KMSAN_META_SHADOW));
+	BUG_ON(!kmsan_metadata_is_contiguous(address, size));
 	shadow = kmsan_get_metadata(address, KMSAN_META_SHADOW);
 	if (!shadow)
 		goto return_dummy;
