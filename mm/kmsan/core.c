@@ -87,13 +87,13 @@ void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 
 	kmsan_internal_memset_shadow(address, -1, size, checked);
 	handle = kmsan_save_stack_with_flags(flags, extra_bits);
-	kmsan_set_origin_checked(address, size, handle, checked);
+	kmsan_internal_set_origin(address, size, handle);
 }
 
 void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked)
 {
 	kmsan_internal_memset_shadow(address, 0, size, checked);
-	kmsan_set_origin_checked(address, size, 0, checked);
+	kmsan_internal_set_origin(address, size, 0);
 }
 
 depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
@@ -286,14 +286,6 @@ void kmsan_internal_set_origin(void *addr, int size, u32 origin)
 	}
 }
 
-void kmsan_set_origin_checked(void *addr, int size, u32 origin, bool checked)
-{
-	if (checked &&
-	    !kmsan_metadata_is_contiguous(addr, size, KMSAN_META_ORIGIN))
-		panic("%s: WARNING: not setting origin for %d bytes starting at %px, because the metadata is incontiguous\n",
-		      __func__, size, addr);
-	kmsan_internal_set_origin(addr, size, origin);
-}
 
 struct page *kmsan_vmalloc_to_page_or_null(void *vaddr)
 {
