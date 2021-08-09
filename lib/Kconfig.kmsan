@@ -1,0 +1,18 @@
+config HAVE_ARCH_KMSAN
+	bool
+
+config HAVE_KMSAN_COMPILER
+	def_bool (CC_IS_CLANG && $(cc-option,-fsanitize=kernel-memory -mllvm -msan-disable-checks=1))
+
+config KMSAN
+	bool "KMSAN: detector of uninitialized values use"
+	depends on HAVE_ARCH_KMSAN && HAVE_KMSAN_COMPILER
+	depends on SLUB && !KASAN && !KCSAN
+	depends on CC_IS_CLANG && CLANG_VERSION >= 140000
+	select STACKDEPOT
+	help
+	  KernelMemorySanitizer (KMSAN) is a dynamic detector of uses of
+	  uninitialized values in the kernel. It is based on compiler
+	  instrumentation provided by Clang and thus requires Clang to build.
+
+	  See <file:Documentation/dev-tools/kmsan.rst> for more details.
