@@ -4,7 +4,6 @@
 
 #include <linux/sched.h>
 #include <linux/ftrace.h>
-#include <linux/kmsan-checks.h>
 #include <asm/ptrace.h>
 #include <asm/stacktrace.h>
 
@@ -106,14 +105,14 @@ void unwind_module_init(struct module *mod, void *orc_ip, size_t orc_ip_size,
  * poisoned the stack in the meantime. Frame pointers are uninitialized by
  * default, so for KMSAN we mark the return value initialized unconditionally.
  */
-#define READ_ONCE_TASK_STACK(task, x)			\
-({							\
-	unsigned long val;				\
-	if (task == current)				\
-		val = READ_ONCE(x);			\
-	else						\
-		val = READ_ONCE_NOCHECK(x);		\
-	kmsan_init(val);				\
+#define READ_ONCE_TASK_STACK(task, x)				\
+({								\
+	unsigned long val;					\
+	if (task == current && !IS_ENABLED(CONFIG_KMSAN))	\
+		val = READ_ONCE(x);				\
+	else							\
+		val = READ_ONCE_NOCHECK(x);			\
+	val;							\
 })
 
 static inline bool task_on_another_cpu(struct task_struct *task)
