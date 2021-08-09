@@ -446,7 +446,7 @@ static void kmsan_test_exit(void)
 	tracepoint_synchronize_unregister();
 }
 
-late_initcall(kmsan_test_init);
+late_initcall_sync(kmsan_test_init);
 module_exit(kmsan_test_exit);
 
 MODULE_LICENSE("GPL v2");
