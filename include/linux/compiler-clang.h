@@ -47,9 +47,16 @@
 
 #if __has_feature(memory_sanitizer)
 #define __SANITIZE_MEMORY__
-#define __no_sanitize_memory __attribute__((no_sanitize("kernel-memory")))
+/*
+ * Unlike other sanitizers, KMSAN still inserts code into functions marked with
+ * no_sanitize("kernel-memory"). Using disable_sanitizer_instrumentation
+ * provides the behavior consistent with other __no_sanitize_ attributes.
+ */
+#define __no_sanitize_memory __attribute__((disable_sanitizer_instrumentation))
+#define __no_kmsan_checks __attribute__((no_sanitize("kernel-memory")))
 #else
 #define __no_sanitize_memory
+#define __no_kmsan_checks
 #endif
 
 /*
