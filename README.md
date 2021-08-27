@@ -1,7 +1,7 @@
 # KMSAN (KernelMemorySanitizer)
 
-`KMSAN` is a detector of uninitialized memory use for the Linux kernel. It is
-currently in development.
+`KMSAN` is a detector of uses of uninitialized values in the Linux kernel.
+The tool is currently in development.
 
 Contact: @ramosian-glider
 
