@@ -246,7 +246,7 @@ void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
 	if (!to_copy)
 		return;
 	/* Or maybe copy_to_user() failed to copy anything. */
-	if (to_copy == left)
+	if (to_copy <= left)
 		return;
 	if ((u64)to < TASK_SIZE) {
 		/* This is a user memory access, check it. */

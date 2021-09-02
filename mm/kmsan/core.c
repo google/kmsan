@@ -283,9 +283,9 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	int i, chunk_size;
 	size_t pos = 0;
 
-	BUG_ON(!kmsan_metadata_is_contiguous(addr, size));
-	if (size <= 0)
+	if (!size)
 		return;
+	BUG_ON(!kmsan_metadata_is_contiguous(addr, size));
 	while (pos < size) {
 		chunk_size = min(size - pos,
 				 PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
