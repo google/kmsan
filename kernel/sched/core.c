@@ -577,11 +577,6 @@ void wake_q_add_safe(struct wake_q_head *head, struct task_struct *task)
 		put_task_struct(task);
 }
 
-/*
- * Context switch here may lead to KMSAN task state corruption. Disable KMSAN
- * instrumentation.
- */
-__no_sanitize_memory
 void wake_up_q(struct wake_q_head *head)
 {
 	struct wake_q_node *node = head->first;
@@ -4172,12 +4167,6 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
  * past. prev == current is still correct but we need to recalculate this_rq
  * because prev may have moved to another CPU.
  */
-
-/*
- * Context switch here may lead to KMSAN task state corruption. Disable KMSAN
- * instrumentation.
- */
-__no_sanitize_memory
 static struct rq *finish_task_switch(struct task_struct *prev)
 	__releases(rq->lock)
 {
@@ -5035,10 +5024,19 @@ restart:
  */
 
 /*
- * Context switch here may lead to KMSAN task state corruption. Disable KMSAN
- * instrumentation.
+ * Context switch here confuses KMSAN, which reads the per-task state only once
+ * at the beginning of the function. As a result, callees that follow the
+ * context switch may receive incorrect shadow values for their parameters,
+ * regardless of whether KMSAN instruments this function. This cannot be
+ * avoided, but is quite unlikely, given that the switch happens quite late in
+ * the code.
+ * Another problem is that the return values of called functions may also have
+ * incorrect shadow after the context switch. To avoid this, we disable KMSAN
+ * checks in __schedule() and force locals to be initialized.
+ * Disabling KMSAN instrumentation altogether with __no_sanitize_memory would've
+ * resulted in all callees of __schedule() receiving incorrect shadow values.
  */
-__no_sanitize_memory
+__no_kmsan_checks
 static void __sched notrace __schedule(bool preempt)
 {
 	struct task_struct *prev, *next;
@@ -8293,7 +8291,7 @@ static inline int preempt_count_equals(int preempt_offset)
 
 /*
  * This function might be called from code that is not instrumented with KMSAN.
- * Nevertheless, treat its arguments as initialized.
+ * Do not instrument it to avoid false positive reports.
  */
 __no_sanitize_memory
 void __might_sleep(const char *file, int line, int preempt_offset)
