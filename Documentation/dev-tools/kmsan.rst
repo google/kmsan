@@ -274,12 +274,21 @@ In such cases they are ignored at runtime.
 Disabling the instrumentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A function can be marked with ``__no_sanitize_memory``.
-Doing so does not remove KMSAN instrumentation from it, however it makes the
-compiler ignore the uninitialized values coming from the function's inputs,
-and initialize the function's outputs.
-The compiler will not inline functions marked with this attribute into functions
-not marked with it, and vice versa.
+A function can be marked with ``__no_sanitize_memory``. Doing so will result in
+KMSAN not instrumenting that function, which can be helpful if we do not want
+the compiler to mess up some low-level code (e.g. marked as ``noinstr``).
+
+This however comes at a cost: stack allocations from such functions will have
+incorrect shadow/origin values, likely leading to false positives. Functions
+called from non-instrumented code may also receive incorrect metadata for their
+parameters.
+
+As a rule of thumb, avoid using ``__no_sanitize_memory`` explicitly.
+
+Another function attribute supported by KMSAN is ``__no_kmsan_checks``.
+Applying it to a function does not remove KMSAN instrumentation from it, but
+rather makes the compiler ignore uninitialized values coming from the
+function's inputs and initialize its outputs.
 
 It is also possible to disable KMSAN for a single file (e.g. main.o)::
 
@@ -289,10 +298,9 @@ or for the whole directory::
 
   KMSAN_SANITIZE := n
 
-in the Makefile. This comes at a cost however: stack allocations from such files
-and parameters of instrumented functions called from them will have incorrect
-shadow/origin values, which will likely lead to false positives.
-As a rule of thumb, avoid using KMSAN_SANITIZE.
+in the Makefile. Think of this as applying ``__no_sanitize_memory`` to every
+function in the file or directory. Most users won't need KMSAN_SANITIZE, unless
+their code gets broken by KMSAN (e.g. runs at early boot time).
 
 Runtime library
 ---------------
