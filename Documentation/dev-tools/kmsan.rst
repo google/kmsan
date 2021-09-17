@@ -2,59 +2,53 @@
 KernelMemorySanitizer (KMSAN)
 =============================
 
-KMSAN is a dynamic memory error detector aimed at finding uses of uninitialized
-memory.
+KMSAN is a dynamic error detector aimed at finding uses of uninitialized
+values.
 It is based on compiler instrumentation, and is quite similar to the userspace
 `MemorySanitizer tool`_.
 
 Example report
 ==============
 
-Here is an example of a real KMSAN report in ``packet_bind_spkt()``::
+Here is an example of a KMSAN report::
 
-  ==================================================================
-  BUG: KMSAN: uninit-value in strlen
-  CPU: 0 PID: 1074 Comm: packet Not tainted 4.8.0-rc6+ #1891
-  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-   0000000000000000 ffff88006b6dfc08 ffffffff82559ae8 ffff88006b6dfb48
-   ffffffff818a7c91 ffffffff85b9c870 0000000000000092 ffffffff85b9c550
-   0000000000000000 0000000000000092 00000000ec400911 0000000000000002
-  Call Trace:
-   [<     inline     >] __dump_stack lib/dump_stack.c:15
-   [<ffffffff82559ae8>] dump_stack+0x238/0x290 lib/dump_stack.c:51
-   [<ffffffff818a6626>] kmsan_report+0x276/0x2e0 mm/kmsan/kmsan.c:1003
-   [<ffffffff818a783b>] __msan_warning+0x5b/0xb0 mm/kmsan/kmsan_instr.c:424
-   [<     inline     >] strlen lib/string.c:484
-   [<ffffffff8259b58d>] strlcpy+0x9d/0x200 lib/string.c:144
-   [<ffffffff84b2eca4>] packet_bind_spkt+0x144/0x230 net/packet/af_packet.c:3132
-   [<ffffffff84242e4d>] SYSC_bind+0x40d/0x5f0 net/socket.c:1370
-   [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
-   [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
-  chained origin:
-   [<ffffffff810bb787>] save_stack_trace+0x27/0x50 arch/x86/kernel/stacktrace.c:67
-   [<     inline     >] kmsan_save_stack_with_flags mm/kmsan/kmsan.c:322
-   [<     inline     >] kmsan_save_stack mm/kmsan/kmsan.c:334
-   [<ffffffff818a59f8>] kmsan_internal_chain_origin+0x118/0x1e0 mm/kmsan/kmsan.c:527
-   [<ffffffff818a7773>] __msan_set_alloca_origin4+0xc3/0x130 mm/kmsan/kmsan_instr.c:380
-   [<ffffffff84242b69>] SYSC_bind+0x129/0x5f0 net/socket.c:1356
-   [<ffffffff84242a22>] SyS_bind+0x82/0xa0 net/socket.c:1356
-   [<ffffffff8515991b>] entry_SYSCALL_64_fastpath+0x13/0x8f arch/x86/entry/entry_64.o:?
-  origin description: ----address@SYSC_bind (origin=00000000eb400911)
-  ==================================================================
+  =====================================================
+  BUG: KMSAN: uninit-value in test_uninit_kmsan_check_memory+0x115/0x2a0 [kmsan_test]
+   test_uninit_kmsan_check_memory+0x115/0x2a0 mm/kmsan/kmsan_test.c:281
+   kunit_run_case_internal lib/kunit/test.c:277
+   kunit_try_run_case+0x1af/0x680 lib/kunit/test.c:318
+   kunit_generic_run_threadfn_adapter+0x6d/0xc0 lib/kunit/try-catch.c:28
+   kthread+0x4f9/0x610 kernel/kthread.c:313
+   ret_from_fork+0x1f/0x30 arch/x86/entry/entry_64.S:294
+  
+  Uninit was stored to memory at:
+   kmsan_save_stack_with_flags mm/kmsan/core.c:78
+   kmsan_internal_chain_origin+0xa0/0x110 mm/kmsan/core.c:213
+   __msan_chain_origin+0xcb/0x140 mm/kmsan/instrumentation.c:148
+   do_uninit_local_array+0x1b8/0x450 [kmsan_test]
+   test_uninit_kmsan_check_memory+0xf9/0x2a0 mm/kmsan/kmsan_test.c:279
+   kunit_run_case_internal lib/kunit/test.c:277
+   kunit_try_run_case+0x1af/0x680 lib/kunit/test.c:318
+   kunit_generic_run_threadfn_adapter+0x6d/0xc0 lib/kunit/try-catch.c:28
+   kthread+0x4f9/0x610 kernel/kthread.c:313
+   ret_from_fork+0x1f/0x30 arch/x86/entry/entry_64.S:294
+  
+  Local variable ----uninit@do_uninit_local_array created at:
+   do_uninit_local_array+0x70/0x450 [kmsan_test]
+   test_uninit_kmsan_check_memory+0xf9/0x2a0 mm/kmsan/kmsan_test.c:279
+  
+  Bytes 4-7 of 8 are uninitialized
+  Memory access of size 8 starts at ffff88805324bd90
+  =====================================================
 
-The report tells that the local variable ``address`` was created uninitialized
-in ``SYSC_bind()`` (the ``bind`` system call implementation). The lower stack
-trace corresponds to the place where this variable was created.
+The report tells that the local variable ``uninit`` was created uninitialized
+in ``do_uninit_local_array()``. The lower stack trace corresponds to the place
+ where this variable was created.
 
-The upper stack shows where the uninit value was used - in ``strlen()``.
-It turned out that the contents of ``address`` were partially copied from the
-userspace, but the buffer was not zero-terminated and contained some trailing
-uninitialized bytes.
-
-``packet_bind_spkt()`` did not check the length of the buffer, but called
-``strlcpy()`` on it, which called ``strlen()``, which started reading the
-buffer byte by byte till it hit the uninitialized memory.
-
+The upper stack shows where the uninit value was used - in
+``test_uninit_kmsan_check_memory()``. The tool shows the bytes which were left
+uninitialized in the local variable, as well as the stack where the value was
+copied to another memory location before use.
 
 
 KMSAN and Clang
@@ -63,21 +57,16 @@ KMSAN and Clang
 In order for KMSAN to work the kernel must be
 built with Clang, which so far is the only compiler that has KMSAN support.
 The kernel instrumentation pass is based on the userspace
-`MemorySanitizer tool`_. Because of the instrumentation complexity it is
-unlikely that any other compiler will support KMSAN soon.
-
-Right now the instrumentation pass supports x86_64 only.
+`MemorySanitizer tool`_.
 
 How to build
 ============
 
-In order to build a kernel with KMSAN you will need a fresh Clang (10.0.0+,
-trunk version r365008 or greater). Please refer to `LLVM documentation`_
-for the instructions on how to build Clang::
+In order to build a kernel with KMSAN you will need a fresh Clang (14.0.0+).
+Please refer to `LLVM documentation`_ for the instructions on how to build Clang.
 
-  export KMSAN_CLANG_PATH=/path/to/clang
-  # Now configure and build the kernel with CONFIG_KMSAN enabled.
-  make CC=$KMSAN_CLANG_PATH
+Now configure and build the kernel with CONFIG_KMSAN enabled. Make sure to
+enable CONFIG_KMSAN_KUNIT_TEST if you need the test suite.
 
 How KMSAN works
 ===============
@@ -126,8 +115,9 @@ Origin tracking
 Every four bytes of kernel memory also have a so-called origin assigned to
 them.
 This origin describes the point in program execution at which the uninitialized
-value was created. Every origin is associated with a creation stack, which lets
-the user figure out what is going on.
+value was created. Every origin is associated with either the full allocation
+stack (for heap-allocated memory), or the function containing the uninitialized
+variable (for locals).
 
 When an uninitialized variable is allocated on stack or heap, a new origin
 value is created, and that variable's origin is filled with that value.
@@ -151,6 +141,8 @@ memory.
 Several variables may share the same origin address, if they are stored in the
 same four-byte chunk.
 In this case every write to either variable updates the origin for all of them.
+We have to sacrifice precision in this case, because storing origins for
+individual bits (and even bytes) would be too costly.
 
 Example 2::
 
@@ -175,9 +167,10 @@ argument is preserved.
 Origin chaining
 ~~~~~~~~~~~~~~~
 
-To ease debugging, KMSAN creates a new origin for every memory store.
+To ease debugging, KMSAN creates a new origin for every store of an
+uninitialized value to memory.
 The new origin references both its creation stack and the previous origin the
-memory location had.
+value had.
 This may cause increased memory consumption, so we limit the length of origin
 chains in the runtime.
 
@@ -194,18 +187,15 @@ For every memory access the compiler emits a call to a function that returns a
 pair of pointers to the shadow and origin addresses of the given memory::
 
   typedef struct {
-    void *s, *o;
+    void *shadow, *origin;
   } shadow_origin_ptr_t
 
   shadow_origin_ptr_t __msan_metadata_ptr_for_load_{1,2,4,8}(void *addr)
   shadow_origin_ptr_t __msan_metadata_ptr_for_store_{1,2,4,8}(void *addr)
-  shadow_origin_ptr_t __msan_metadata_ptr_for_load_n(void *addr, u64 size)
-  shadow_origin_ptr_t __msan_metadata_ptr_for_store_n(void *addr, u64 size)
+  shadow_origin_ptr_t __msan_metadata_ptr_for_load_n(void *addr, uintptr_t size)
+  shadow_origin_ptr_t __msan_metadata_ptr_for_store_n(void *addr, uintptr_t size)
 
 The function name depends on the memory access size.
-Each such function also checks if the shadow of the memory in the range
-[``addr``, ``addr + n``) is contiguous and reports an error otherwise (refer to
-`Metadata allocation`_ for details).
 
 The compiler makes sure that for every loaded value its shadow and origin
 values are read from memory.
@@ -218,7 +208,7 @@ Origin tracking
 A special function is used to create a new origin value for a local variable
 and set the origin of that variable to that value::
 
-  void __msan_poison_alloca(u64 address, u64 size, char *descr)
+  void __msan_poison_alloca(void *addr, uintptr_t size, char *descr)
 
 Access to per-task data
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -230,13 +220,13 @@ At the beginning of every instrumented function KMSAN inserts a call to
 
 ``kmsan_context_state`` is declared in ``include/linux/kmsan.h``::
 
-  struct kmsan_context_s {
+  struct kmsan_context_state {
     char param_tls[KMSAN_PARAM_SIZE];
-    char retval_tls[RETVAL_SIZE];
+    char retval_tls[KMSAN_RETVAL_SIZE];
     char va_arg_tls[KMSAN_PARAM_SIZE];
     char va_arg_origin_tls[KMSAN_PARAM_SIZE];
     u64 va_arg_overflow_size_tls;
-    depot_stack_handle_t param_origin_tls[PARAM_ARRAY_SIZE];
+    char param_origin_tls[KMSAN_PARAM_SIZE];
     depot_stack_handle_t retval_origin_tls;
   };
 
@@ -251,9 +241,9 @@ following functions. These functions are also called when data structures are
 initialized or copied, making sure shadow and origin values are copied alongside
 with the data::
 
-  void *__msan_memcpy(void *dst, void *src, u64 n)
-  void *__msan_memmove(void *dst, void *src, u64 n)
-  void *__msan_memset(void *dst, int c, size_t n)
+  void *__msan_memcpy(void *dst, void *src, uintptr_t n)
+  void *__msan_memmove(void *dst, void *src, uintptr_t n)
+  void *__msan_memset(void *dst, int c, uintptr_t n)
 
 Error reporting
 ~~~~~~~~~~~~~~~
@@ -271,7 +261,7 @@ Inline assembly instrumentation
 
 KMSAN instruments every inline assembly output with a call to::
 
-  void __msan_instrument_asm_store(u64 addr, u64 size)
+  void __msan_instrument_asm_store(void *addr, uintptr_t size)
 
 , which unpoisons the memory region.
 
@@ -301,7 +291,8 @@ or for the whole directory::
 
 in the Makefile. This comes at a cost however: stack allocations from such files
 and parameters of instrumented functions called from them will have incorrect
-shadow/origin values. As a rule of thumb, avoid using KMSAN_SANITIZE.
+shadow/origin values, which will likely lead to false positives.
+As a rule of thumb, avoid using KMSAN_SANITIZE.
 
 Runtime library
 ---------------
@@ -354,20 +345,25 @@ origin pages::
     ...
   };
 
-Every time a ``struct page`` is allocated, the runtime library allocates two
-additional pages to hold its shadow and origins. This is done by adding hooks
-to ``alloc_pages()``/``free_pages()`` in ``mm/page_alloc.c``.
-TODO: rewrite this passage
+At boot-time, the kernel allocates shadow and origin pages for every available
+kernel page. This is done quite late, when the kernel address space is already
+fragmented, so normal data pages may arbitrarily interleave with the metadata
+pages.
 
-There is a problem related to this allocation algorithm: when two contiguous
-memory blocks are allocated with two different ``alloc_pages()`` calls, their
-shadow pages may not be contiguous. So, if a memory access crosses the boundary
+This means that in general for two contiguous memory pages their shadow/origin
+pages may not be contiguous. So, if a memory access crosses the boundary
 of a memory block, accesses to shadow/origin memory may potentially corrupt
 other pages or read incorrect values from them.
 
-As a workaround, we check the access size in
-``__msan_metadata_ptr_for_XXX_YYY()`` and return a pointer to a fake shadow
-region in the case of an error::
+In practice, contiguous memory pages returned by the same ``alloc_pages()``
+call will have contiguous metadata, whereas if these pages belong to two
+different allocations their metadata pages can be fragmented.
+
+For the kernel data (``.data``, ``.bss`` etc.) and percpu memory regions
+there also are no guarantees on metadata contiguity.
+
+In the case ``__msan_metadata_ptr_for_XXX_YYY()`` hits the border between two
+pages with non-contiguous metadata, it returns pointers to fake shadow/origin regions::
 
   char dummy_load_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
   char dummy_store_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
@@ -375,22 +371,8 @@ region in the case of an error::
 ``dummy_load_page`` is zero-initialized, so reads from it always yield zeroes.
 All stores to ``dummy_store_page`` are ignored.
 
-Unfortunately at boot time we need to allocate shadow and origin pages for the
-kernel data (``.data``, ``.bss`` etc.) and percpu memory regions, the size of
-which is not a power of 2. As a result, we have to allocate the metadata page by
-page, so that it is also non-contiguous, although it may be perfectly valid to
-access the corresponding kernel memory across page boundaries.
-This can be probably fixed by allocating 1<<N pages at once, splitting them and
-deallocating the rest.
-
-LSB of the ``shadow`` pointer in a ``struct page`` may be set to 1. In this case
-shadow and origin pages are allocated, but KMSAN ignores accesses to them by
-falling back to dummy pages. Because this ``struct page`` could be used in a
-virtual mapping, we still allocate metadata for it. Accesses to such virtual
-mappings will be ignored by KMSAN as well.
-
 2. For vmalloc memory and modules, there is a direct mapping between the memory
-range, its shadow and origin. KMSAN lessens the vmalloc area by 3/4, making only
+range, its shadow and origin. KMSAN reduces the vmalloc area by 3/4, making only
 the first quarter available to ``vmalloc()``. The second quarter of the vmalloc
 area contains shadow memory for the first quarter, the third one holds the
 origins. A small part of the fourth quarter contains shadow and origins for the
@@ -406,17 +388,16 @@ metadata::
   DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
   DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
 
-When calculating shadow and origin addresses for a given memory address, the
-runtime checks whether the address belongs to the physical page range, the
-virtual page range or CPU entry area.
+When calculating shadow and origin addresses for a given memory address, KMSAN
+checks whether the address belongs to the physical page range, the virtual page
+range or CPU entry area.
 
 Handling ``pt_regs``
 ~~~~~~~~~~~~~~~~~~~~
 
 Many functions receive a ``struct pt_regs`` holding the register state at a
 certain point. Registers do not have (easily calculatable) shadow or origin
-associated with them.
-We can assume that the registers are always initialized.
+associated with them, so we assume they are always initialized.
 
 References
 ==========
