@@ -80,7 +80,7 @@ void __msan_instrument_asm_store(void *addr, uintptr_t size)
 }
 EXPORT_SYMBOL(__msan_instrument_asm_store);
 
-void *__msan_memmove(void *dst, const void *src, size_t n)
+void *__msan_memmove(void *dst, const void *src, uintptr_t n)
 {
 	void *result;
 
@@ -97,7 +97,7 @@ void *__msan_memmove(void *dst, const void *src, size_t n)
 }
 EXPORT_SYMBOL(__msan_memmove);
 
-void *__msan_memcpy(void *dst, const void *src, size_t n)
+void *__msan_memcpy(void *dst, const void *src, uintptr_t n)
 {
 	void *result;
 
@@ -116,7 +116,7 @@ void *__msan_memcpy(void *dst, const void *src, size_t n)
 }
 EXPORT_SYMBOL(__msan_memcpy);
 
-void *__msan_memset(void *dst, int c, size_t n)
+void *__msan_memset(void *dst, int c, uintptr_t n)
 {
 	unsigned long irq_flags;
 	void *result;
