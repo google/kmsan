@@ -11,7 +11,7 @@
 #include <linux/gfp.h>
 #include <linux/mm.h>
 
-static bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
+static bool is_bad_asm_addr(void *addr, uintptr_t size, bool is_store)
 {
 	if ((u64)addr < TASK_SIZE)
 		return true;
@@ -20,13 +20,15 @@ static bool is_bad_asm_addr(void *addr, u64 size, bool is_store)
 	return false;
 }
 
-struct shadow_origin_ptr __msan_metadata_ptr_for_load_n(void *addr, u64 size)
+struct shadow_origin_ptr __msan_metadata_ptr_for_load_n(void *addr,
+							uintptr_t size)
 {
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/ false);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_load_n);
 
-struct shadow_origin_ptr __msan_metadata_ptr_for_store_n(void *addr, u64 size)
+struct shadow_origin_ptr __msan_metadata_ptr_for_store_n(void *addr,
+							 uintptr_t size)
 {
 	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/ true);
 }
@@ -54,7 +56,7 @@ DECLARE_METADATA_PTR_GETTER(2);
 DECLARE_METADATA_PTR_GETTER(4);
 DECLARE_METADATA_PTR_GETTER(8);
 
-void __msan_instrument_asm_store(void *addr, u64 size)
+void __msan_instrument_asm_store(void *addr, uintptr_t size)
 {
 	unsigned long irq_flags;
 
@@ -151,7 +153,7 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 }
 EXPORT_SYMBOL(__msan_chain_origin);
 
-void __msan_poison_alloca(void *address, u64 size, char *descr)
+void __msan_poison_alloca(void *address, uintptr_t size, char *descr)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[4];
@@ -178,11 +180,12 @@ void __msan_poison_alloca(void *address, u64 size, char *descr)
 	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
 	kmsan_leave_runtime(irq_flags);
 
-	kmsan_internal_set_shadow_origin(address, size, -1, handle, /*checked*/true);
+	kmsan_internal_set_shadow_origin(address, size, -1, handle,
+					 /*checked*/ true);
 }
 EXPORT_SYMBOL(__msan_poison_alloca);
 
-void __msan_unpoison_alloca(void *address, u64 size)
+void __msan_unpoison_alloca(void *address, uintptr_t size)
 {
 	unsigned long irq_flags;
 
