@@ -246,6 +246,7 @@ void kmsan_handle_urb(const struct urb *urb, bool is_out);
 
 /**
  * kmsan_unpoison_pt_regs() - helper that marks struct pt_regs as initialized.
+ * @regs:	pointer to struct pt_regs.
  */
 void kmsan_unpoison_pt_regs(struct pt_regs *regs);
 
