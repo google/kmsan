@@ -99,8 +99,10 @@ static __always_inline void __##func(struct pt_regs *regs,		\
 __visible noinstr void func(struct pt_regs *regs,			\
 			    unsigned long error_code)			\
 {									\
+	irqentry_state_t state;						\
+									\
 	kmsan_unpoison_pt_regs(regs);					\
-	irqentry_state_t state = irqentry_enter(regs);			\
+	state = irqentry_enter(regs);					\
 									\
 	instrumentation_begin();					\
 	__##func (regs, error_code);					\
@@ -209,9 +211,11 @@ static void __##func(struct pt_regs *regs, u32 vector);			\
 __visible noinstr void func(struct pt_regs *regs,			\
 			    unsigned long error_code)			\
 {									\
-	kmsan_unpoison_pt_regs(regs);					\
-	irqentry_state_t state = irqentry_enter(regs);			\
+	irqentry_state_t state;						\
 	u32 vector = (u32)(u8)error_code;				\
+									\
+	kmsan_unpoison_pt_regs(regs);					\
+	state = irqentry_enter(regs);					\
 									\
 	instrumentation_begin();					\
 	kvm_set_cpu_l1tf_flush_l1d();					\
@@ -251,8 +255,10 @@ static void __##func(struct pt_regs *regs);				\
 									\
 __visible noinstr void func(struct pt_regs *regs)			\
 {									\
+	irqentry_state_t state;						\
+									\
 	kmsan_unpoison_pt_regs(regs);					\
-	irqentry_state_t state = irqentry_enter(regs);			\
+	state = irqentry_enter(regs);					\
 									\
 	instrumentation_begin();					\
 	kvm_set_cpu_l1tf_flush_l1d();					\
@@ -279,8 +285,10 @@ static __always_inline void __##func(struct pt_regs *regs);		\
 									\
 __visible noinstr void func(struct pt_regs *regs)			\
 {									\
+	irqentry_state_t state;						\
+									\
 	kmsan_unpoison_pt_regs(regs);					\
-	irqentry_state_t state = irqentry_enter(regs);			\
+	state = irqentry_enter(regs);					\
 									\
 	instrumentation_begin();					\
 	__irq_enter_raw();						\
