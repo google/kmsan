@@ -126,6 +126,7 @@
  * GCC doesn't support KMSAN.
  */
 #define __no_sanitize_memory
+#define __no_kmsan_checks
 
 #if GCC_VERSION >= 50100
 #define COMPILER_HAS_GENERIC_BUILTIN_OVERFLOW 1
