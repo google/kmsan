@@ -180,7 +180,6 @@ void kmsan_memmove_metadata(void *dst, void *src, size_t n)
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 {
 	unsigned long entries[3];
-	static int skipped;
 	u32 extra_bits;
 	int depth;
 	bool uaf;
@@ -198,7 +197,9 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	uaf = kmsan_uaf_from_eb(extra_bits);
 
 	if (depth >= MAX_CHAIN_DEPTH) {
-		skipped++;
+		static atomic_long_t kmsan_skipped_origins;
+		long skipped = atomic_long_inc_return(&kmsan_skipped_origins);
+
 		if (skipped % 10000 == 0) {
 			pr_warn("not chained %d origins\n", skipped);
 			dump_stack();
