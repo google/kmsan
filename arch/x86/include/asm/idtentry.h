@@ -49,12 +49,10 @@ static __always_inline void __##func(struct pt_regs *regs);		\
 									\
 __visible noinstr void func(struct pt_regs *regs)			\
 {									\
-	irqentry_state_t state;						\
-									\
-	kmsan_unpoison_pt_regs(regs);					\
-	state = irqentry_enter(regs);					\
+	irqentry_state_t state = irqentry_enter(regs);			\
 									\
 	instrumentation_begin();					\
+	kmsan_instrumentation_begin(regs);				\
 	__##func (regs);						\
 	instrumentation_end();						\
 	irqentry_exit(regs, state);					\
@@ -99,12 +97,10 @@ static __always_inline void __##func(struct pt_regs *regs,		\
 __visible noinstr void func(struct pt_regs *regs,			\
 			    unsigned long error_code)			\
 {									\
-	irqentry_state_t state;						\
-									\
-	kmsan_unpoison_pt_regs(regs);					\
-	state = irqentry_enter(regs);					\
+	irqentry_state_t state = irqentry_enter(regs);			\
 									\
 	instrumentation_begin();					\
+	kmsan_instrumentation_begin(regs);				\
 	__##func (regs, error_code);					\
 	instrumentation_end();						\
 	irqentry_exit(regs, state);					\
@@ -139,14 +135,7 @@ static __always_inline void __##func(struct pt_regs *regs,		\
  * is required before the enter/exit() helpers are invoked.
  */
 #define DEFINE_IDTENTRY_RAW(func)					\
-static __always_inline noinstr void __##func(struct pt_regs *regs); \
-__visible noinstr void func(struct pt_regs *regs) {	\
-	kmsan_unpoison_pt_regs(regs);				\
-	__##func(regs);						\
-}								\
-static __always_inline noinstr void __##func(struct pt_regs *regs) \
-/**/
-
+__visible noinstr void func(struct pt_regs *regs)
 
 /**
  * DECLARE_IDTENTRY_RAW_ERRORCODE - Declare functions for raw IDT entry points
@@ -174,13 +163,7 @@ static __always_inline noinstr void __##func(struct pt_regs *regs) \
  * is required before the enter/exit() helpers are invoked.
  */
 #define DEFINE_IDTENTRY_RAW_ERRORCODE(func)				\
-static __always_inline noinstr void __##func(struct pt_regs *regs, unsigned long error_code); \
-__visible noinstr void func(struct pt_regs *regs, unsigned long error_code) {	\
-	kmsan_unpoison_pt_regs(regs);						\
-	__##func(regs, error_code);						\
-}										\
-static __always_inline noinstr void __##func(struct pt_regs *regs, unsigned long error_code) \
-/**/
+__visible noinstr void func(struct pt_regs *regs, unsigned long error_code)
 
 /**
  * DECLARE_IDTENTRY_IRQ - Declare functions for device interrupt IDT entry
@@ -211,13 +194,11 @@ static void __##func(struct pt_regs *regs, u32 vector);			\
 __visible noinstr void func(struct pt_regs *regs,			\
 			    unsigned long error_code)			\
 {									\
-	irqentry_state_t state;						\
+	irqentry_state_t state = irqentry_enter(regs);			\
 	u32 vector = (u32)(u8)error_code;				\
 									\
-	kmsan_unpoison_pt_regs(regs);					\
-	state = irqentry_enter(regs);					\
-									\
 	instrumentation_begin();					\
+	kmsan_instrumentation_begin(regs);				\
 	kvm_set_cpu_l1tf_flush_l1d();					\
 	run_irq_on_irqstack_cond(__##func, regs, vector);		\
 	instrumentation_end();						\
@@ -255,12 +236,10 @@ static void __##func(struct pt_regs *regs);				\
 									\
 __visible noinstr void func(struct pt_regs *regs)			\
 {									\
-	irqentry_state_t state;						\
-									\
-	kmsan_unpoison_pt_regs(regs);					\
-	state = irqentry_enter(regs);					\
+	irqentry_state_t state = irqentry_enter(regs);			\
 									\
 	instrumentation_begin();					\
+	kmsan_instrumentation_begin(regs);				\
 	kvm_set_cpu_l1tf_flush_l1d();					\
 	run_sysvec_on_irqstack_cond(__##func, regs);			\
 	instrumentation_end();						\
@@ -285,12 +264,10 @@ static __always_inline void __##func(struct pt_regs *regs);		\
 									\
 __visible noinstr void func(struct pt_regs *regs)			\
 {									\
-	irqentry_state_t state;						\
-									\
-	kmsan_unpoison_pt_regs(regs);					\
-	state = irqentry_enter(regs);					\
+	irqentry_state_t state = irqentry_enter(regs);			\
 									\
 	instrumentation_begin();					\
+	kmsan_instrumentation_begin(regs);				\
 	__irq_enter_raw();						\
 	kvm_set_cpu_l1tf_flush_l1d();					\
 	__##func (regs);						\
