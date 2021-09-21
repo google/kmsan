@@ -403,3 +403,13 @@ void kmsan_unpoison_pt_regs(struct pt_regs *regs)
 	kmsan_internal_unpoison_memory(regs, sizeof(*regs), /*checked*/ true);
 }
 EXPORT_SYMBOL(kmsan_unpoison_pt_regs);
+
+void kmsan_instrumentation_begin(struct pt_regs *regs)
+{
+	struct kmsan_context_state *state = &kmsan_get_context()->cstate;
+
+	if (state)
+		__memset(state, 0, sizeof(struct kmsan_context_state));
+	kmsan_unpoison_pt_regs(regs);
+}
+EXPORT_SYMBOL(kmsan_instrumentation_begin);
