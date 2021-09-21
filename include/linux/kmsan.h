@@ -250,6 +250,8 @@ void kmsan_handle_urb(const struct urb *urb, bool is_out);
  */
 void kmsan_unpoison_pt_regs(struct pt_regs *regs);
 
+void kmsan_instrumentation_begin(struct pt_regs *regs);
+
 #else
 
 static inline void kmsan_initialize_shadow(void)
@@ -334,6 +336,10 @@ static inline void kmsan_handle_urb(const struct urb *urb, bool is_out)
 {
 }
 static inline void kmsan_unpoison_pt_regs(struct pt_regs *regs)
+{
+}
+
+void kmsan_instrumentation_begin(struct pt_regs *regs)
 {
 }
 
