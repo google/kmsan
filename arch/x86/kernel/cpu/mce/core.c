@@ -2004,6 +2004,7 @@ static __always_inline void exc_machine_check_kernel(struct pt_regs *regs)
 	 * that out because it's an indirect call. Annotate it.
 	 */
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 
 	machine_check_vector(regs);
 
@@ -2015,6 +2016,7 @@ static __always_inline void exc_machine_check_user(struct pt_regs *regs)
 {
 	irqentry_enter_from_user_mode(regs);
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 
 	machine_check_vector(regs);
 

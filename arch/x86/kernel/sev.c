@@ -1346,6 +1346,7 @@ DEFINE_IDTENTRY_VC_SAFE_STACK(exc_vmm_communication)
 	irq_state = irqentry_nmi_enter(regs);
 	lockdep_assert_irqs_disabled();
 	instrumentation_begin();
+	kmsan_instrumentation_begin(regs);
 
 	/*
 	 * This is invoked through an interrupt gate, so IRQs are disabled. The
