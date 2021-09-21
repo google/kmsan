@@ -858,6 +858,12 @@ void init_mem_debugging_and_hardening(void)
 	else
 		static_branch_disable(&init_on_free);
 
+#ifdef CONFIG_KMSAN
+	if (_init_on_alloc_enabled_early || _init_on_free_enabled_early)
+		pr_info("mem auto-init: please make sure init_on_alloc and "
+			"init_on_free are disabled when running KMSAN\n");
+#endif
+
 #ifdef CONFIG_DEBUG_PAGEALLOC
 	if (!debug_pagealloc_enabled())
 		return;
