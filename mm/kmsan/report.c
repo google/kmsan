@@ -66,12 +66,13 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 			pc1 = (void *)entries[2];
 			pc2 = (void *)entries[3];
 			pr_err("Local variable %s created at:\n", descr);
-			if (pc1) pr_err(" %pS\n", pc1);
-			if (pc2) pr_err(" %pS\n", pc2);
+			if (pc1)
+				pr_err(" %pS\n", pc1);
+			if (pc2)
+				pr_err(" %pS\n", pc2);
 			break;
 		}
-		if ((nr_entries == 3) &&
-		    (magic == KMSAN_CHAIN_MAGIC_ORIGIN)) {
+		if ((nr_entries == 3) && (magic == KMSAN_CHAIN_MAGIC_ORIGIN)) {
 			head = entries[1];
 			origin = entries[2];
 			pr_err("Uninit was stored to memory at:\n");
@@ -81,16 +82,18 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 				chained_entries,
 				chained_nr_entries * sizeof(*chained_entries),
 				/*checked*/ false);
-			skipnr = get_stack_skipnr(chained_entries, chained_nr_entries);
-			stack_trace_print(chained_entries + skipnr, chained_nr_entries - skipnr,
-					  0);
+			skipnr = get_stack_skipnr(chained_entries,
+						  chained_nr_entries);
+			stack_trace_print(chained_entries + skipnr,
+					  chained_nr_entries - skipnr, 0);
 			pr_err("\n");
 			continue;
 		}
 		pr_err("Uninit was created at:\n");
 		if (nr_entries) {
 			skipnr = get_stack_skipnr(entries, nr_entries);
-			stack_trace_print(entries + skipnr, nr_entries - skipnr, 0);
+			stack_trace_print(entries + skipnr, nr_entries - skipnr,
+					  0);
 		} else {
 			pr_err("(stack is not available)\n");
 		}
