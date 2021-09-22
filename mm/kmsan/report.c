@@ -18,12 +18,41 @@ DEFINE_SPINLOCK(kmsan_report_lock);
 int panic_on_kmsan __read_mostly;
 core_param(panic_on_kmsan, panic_on_kmsan, int, 0644);
 
+/*
+ * Skip internal KMSAN frames.
+ */
+static int get_stack_skipnr(const unsigned long stack_entries[],
+			    int num_entries)
+{
+	int len, skip;
+	char buf[64];
+
+	for (skip = 0; skip < num_entries; ++skip) {
+		len = scnprintf(buf, sizeof(buf), "%ps",
+				(void *)stack_entries[skip]);
+
+		/* Never show __msan_* or kmsan_* functions. */
+		if ((strnstr(buf, "__msan_", len) == buf) ||
+		    (strnstr(buf, "kmsan_", len) == buf))
+			continue;
+
+		/*
+		 * No match for runtime functions -- @skip entries to skip to
+		 * get to first frame of interest.
+		 */
+		break;
+	}
+
+	return skip;
+}
+
 void kmsan_print_origin(depot_stack_handle_t origin)
 {
 	unsigned long *entries = NULL, *chained_entries = NULL;
-	unsigned long nr_entries, chained_nr_entries, magic;
+	unsigned int nr_entries, chained_nr_entries, skipnr;
 	void *pc1 = NULL, *pc2 = NULL;
 	depot_stack_handle_t head;
+	unsigned long magic;
 	char *descr = NULL;
 
 	if (!origin)
@@ -52,46 +81,21 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 				chained_entries,
 				chained_nr_entries * sizeof(*chained_entries),
 				/*checked*/ false);
-			stack_trace_print(chained_entries, chained_nr_entries,
+			skipnr = get_stack_skipnr(chained_entries, chained_nr_entries);
+			stack_trace_print(chained_entries + skipnr, chained_nr_entries - skipnr,
 					  0);
 			pr_err("\n");
 			continue;
 		}
 		pr_err("Uninit was created at:\n");
-		if (nr_entries)
-			stack_trace_print(entries, nr_entries, 0);
-		else
+		if (nr_entries) {
+			skipnr = get_stack_skipnr(entries, nr_entries);
+			stack_trace_print(entries + skipnr, nr_entries - skipnr, 0);
+		} else {
 			pr_err("(stack is not available)\n");
+		}
 		break;
 	}
-}
-
-/*
- * Skip internal KMSAN frames.
- */
-static int get_stack_skipnr(const unsigned long stack_entries[],
-			    int num_entries)
-{
-	int len, skip;
-	char buf[64];
-
-	for (skip = 0; skip < num_entries; ++skip) {
-		len = scnprintf(buf, sizeof(buf), "%ps",
-				(void *)stack_entries[skip]);
-
-		/* Never show __msan_* or kmsan_* functions. */
-		if ((strnstr(buf, "__msan_", len) == buf) ||
-		    (strnstr(buf, "kmsan_", len) == buf))
-			continue;
-
-		/*
-		 * No match for runtime functions -- @skip entries to skip to
-		 * get to first frame of interest.
-		 */
-		break;
-	}
-
-	return skip;
 }
 
 /**
