@@ -1741,7 +1741,7 @@ static struct dentry *__d_alloc(struct super_block *sb, const struct qstr *name)
 	char *dname;
 	int err;
 
-	dentry = kmem_cache_alloc(dentry_cache, GFP_KERNEL);
+	dentry = kmem_cache_alloc(dentry_cache, GFP_KERNEL | __GFP_ZERO);
 	if (!dentry)
 		return NULL;
 
