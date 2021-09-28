@@ -50,6 +50,8 @@ void kmsan_internal_task_create(struct task_struct *task)
 
 	__memset(ctx, 0, sizeof(struct kmsan_context));
 	ctx->allow_reporting = true;
+	kmsan_internal_unpoison_memory(current_thread_info(),
+				       sizeof(struct thread_info), false);
 }
 
 void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
