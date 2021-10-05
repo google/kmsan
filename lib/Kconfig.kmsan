@@ -1,10 +1,12 @@
 config HAVE_ARCH_KMSAN
 	bool
 
-if HAVE_ARCH_KMSAN
+config HAVE_KMSAN_COMPILER
+	def_bool (CC_IS_CLANG && $(cc-option,-fsanitize=kernel-memory))
 
 config KMSAN
 	bool "KMSAN: detector of uninitialized values use"
+	depends on HAVE_ARCH_KMSAN && HAVE_KMSAN_COMPILER
 	depends on SLUB && !KASAN
 	depends on CC_IS_CLANG && CLANG_VERSION >= 110000
 	select STACKDEPOT
@@ -14,6 +16,8 @@ config KMSAN
 	  instrumentation provided by Clang and thus requires Clang to build.
 
 	  See <file:Documentation/dev-tools/kmsan.rst> for more details.
+
+if KMSAN
 
 config KMSAN_KUNIT_TEST
 	tristate "KMSAN integration test suite" if !KUNIT_ALL_TESTS
