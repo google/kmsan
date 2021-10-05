@@ -79,9 +79,7 @@ static __always_inline struct kmsan_context *kmsan_get_context(void)
  * When a compiler hook is invoked, it may make a call to instrumented code
  * and eventually call itself recursively. To avoid that, we protect the
  * runtime entry points with kmsan_enter_runtime()/kmsan_leave_runtime() and
- * exit the hook if kmsan_in_runtime() is true. But when an interrupt occurs
- * inside the runtime, the hooks won’t run either, which may lead to errors.
- * Therefore we have to disable interrupts inside the runtime.
+ * exit the hook if kmsan_in_runtime() is true.
  */
 
 static __always_inline bool kmsan_in_runtime(void)
