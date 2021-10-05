@@ -43,7 +43,27 @@ enum kmsan_bug_reason {
 	REASON_SUBMIT_URB,
 };
 
+
 void kmsan_print_origin(depot_stack_handle_t origin);
+
+/**
+ * kmsan_report() - Report a use of uninitialized value.
+ * @origin:    Stack ID of the uninitialized value.
+ * @address:   Address at which the memory access happens.
+ * @size:      Memory access size.
+ * @off_first: Offset (from @address) of the first byte to be reported.
+ * @off_last:  Offset (from @address) of the last byte to be reported.
+ * @user_addr: When non-NULL, denotes the userspace address to which the kernel
+ *             is leaking data.
+ * @reason:    Error type from enum kmsan_bug_reason.
+ *
+ * kmsan_report() prints an error message for a consequent group of bytes
+ * sharing the same origin. If an uninitialized value is used in a comparison,
+ * this function is called once without specifying the addresses. When checking
+ * a memory range, KMSAN may call kmsan_report() multiple times with the same
+ * @address, @size, @user_addr and @reason, but different @off_first and
+ * @off_last corresponding to different @origin values.
+ */
 void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
 		  enum kmsan_bug_reason reason);
