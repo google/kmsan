@@ -89,25 +89,19 @@ static __always_inline bool kmsan_in_runtime(void)
 	return kmsan_get_context()->kmsan_in_runtime;
 }
 
-static __always_inline unsigned long kmsan_enter_runtime(void)
+static __always_inline void kmsan_enter_runtime(void)
 {
-	unsigned long irq_flags;
 	struct kmsan_context *ctx;
 
-	local_irq_save(irq_flags);
-	stop_nmi();
 	ctx = kmsan_get_context();
 	BUG_ON(ctx->kmsan_in_runtime++);
-	return irq_flags;
 }
 
-static __always_inline void kmsan_leave_runtime(unsigned long irq_flags)
+static __always_inline void kmsan_leave_runtime()
 {
 	struct kmsan_context *ctx = kmsan_get_context();
 
 	BUG_ON(--ctx->kmsan_in_runtime);
-	restart_nmi();
-	local_irq_restore(irq_flags);
 }
 
 void kmsan_memmove_metadata(void *dst, void *src, size_t n);

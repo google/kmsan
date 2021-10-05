@@ -58,8 +58,6 @@ DECLARE_METADATA_PTR_GETTER(8);
 
 void __msan_instrument_asm_store(void *addr, uintptr_t size)
 {
-	unsigned long irq_flags;
-
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	/*
@@ -73,10 +71,10 @@ void __msan_instrument_asm_store(void *addr, uintptr_t size)
 	}
 	if (is_bad_asm_addr(addr, size, /*is_store*/ true))
 		return;
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	/* Unpoisoning the memory on best effort. */
 	kmsan_internal_unpoison_memory(addr, size, /*checked*/ false);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(__msan_instrument_asm_store);
 
@@ -118,20 +116,19 @@ EXPORT_SYMBOL(__msan_memcpy);
 
 void *__msan_memset(void *dst, int c, uintptr_t n)
 {
-	unsigned long irq_flags;
 	void *result;
 
 	result = __memset(dst, c, n);
 	if (!kmsan_ready || kmsan_in_runtime())
 		return result;
 
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	/*
 	 * Clang doesn't pass parameter metadata here, so it is impossible to
 	 * use shadow of @c to set up the shadow for @dst.
 	 */
 	kmsan_internal_unpoison_memory(dst, n, /*checked*/ false);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 
 	return result;
 }
@@ -140,15 +137,14 @@ EXPORT_SYMBOL(__msan_memset);
 depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 {
 	depot_stack_handle_t ret = 0;
-	unsigned long irq_flags;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return ret;
 
 	/* Creating new origins may allocate memory. */
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	ret = kmsan_internal_chain_origin(origin);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 	return ret;
 }
 EXPORT_SYMBOL(__msan_chain_origin);
@@ -157,7 +153,6 @@ void __msan_poison_alloca(void *address, uintptr_t size, char *descr)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[4];
-	unsigned long irq_flags;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
@@ -176,9 +171,9 @@ void __msan_poison_alloca(void *address, uintptr_t size, char *descr)
 		entries[3] = 0;
 
 	/* stack_depot_save() may allocate memory. */
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	handle = stack_depot_save(entries, ARRAY_SIZE(entries), GFP_ATOMIC);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 
 	kmsan_internal_set_shadow_origin(address, size, -1, handle,
 					 /*checked*/ true);
@@ -187,28 +182,24 @@ EXPORT_SYMBOL(__msan_poison_alloca);
 
 void __msan_unpoison_alloca(void *address, uintptr_t size)
 {
-	unsigned long irq_flags;
-
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	kmsan_internal_unpoison_memory(address, size, /*checked*/ true);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(__msan_unpoison_alloca);
 
 void __msan_warning(u32 origin)
 {
-	unsigned long irq_flags;
-
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	kmsan_report(origin, /*address*/ 0, /*size*/ 0,
 		     /*off_first*/ 0, /*off_last*/ 0, /*user_addr*/ 0,
 		     REASON_ANY);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(__msan_warning);
 

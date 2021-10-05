@@ -29,11 +29,9 @@
 /* Called from kernel/fork.c */
 void kmsan_task_create(struct task_struct *task)
 {
-	unsigned long irq_flags;
-
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	kmsan_internal_task_create(task);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(kmsan_task_create);
 
@@ -52,8 +50,6 @@ EXPORT_SYMBOL(kmsan_task_exit);
 /* Called from mm/slub.c */
 void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 {
-	unsigned long irq_flags;
-
 	if (unlikely(object == NULL))
 		return;
 	if (!kmsan_ready || kmsan_in_runtime())
@@ -65,22 +61,20 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 	if (s->ctor || (s->flags & SLAB_TYPESAFE_BY_RCU))
 		return;
 
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	if (flags & __GFP_ZERO)
 		kmsan_internal_unpoison_memory(object, s->object_size,
 					       KMSAN_POISON_CHECK);
 	else
 		kmsan_internal_poison_memory(object, s->object_size, flags,
 					     KMSAN_POISON_CHECK);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(kmsan_slab_alloc);
 
 /* Called from mm/slub.c */
 void kmsan_slab_free(struct kmem_cache *s, void *object)
 {
-	unsigned long irq_flags;
-
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
@@ -94,49 +88,46 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 	 */
 	if (s->ctor)
 		return;
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	kmsan_internal_poison_memory(object, s->object_size, GFP_KERNEL,
 				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(kmsan_slab_free);
 
 /* Called from mm/slub.c */
 void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 {
-	unsigned long irq_flags;
-
 	if (unlikely(ptr == NULL))
 		return;
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	if (flags & __GFP_ZERO)
 		kmsan_internal_unpoison_memory((void *)ptr, size,
 					       /*checked*/ true);
 	else
 		kmsan_internal_poison_memory((void *)ptr, size, flags,
 					     KMSAN_POISON_CHECK);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(kmsan_kmalloc_large);
 
 /* Called from mm/slub.c */
 void kmsan_kfree_large(const void *ptr)
 {
-	unsigned long irq_flags;
 	struct page *page;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	page = virt_to_head_page((void *)ptr);
 	BUG_ON(ptr != page_address(page));
 	kmsan_internal_poison_memory((void *)ptr,
 				     PAGE_SIZE << compound_order(page),
 				     GFP_KERNEL,
 				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(kmsan_kfree_large);
 
@@ -173,7 +164,6 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 {
 	gfp_t gfp_mask = GFP_KERNEL | __GFP_ZERO;
 	struct page *shadow, *origin;
-	unsigned long irq_flags;
 	unsigned long off = 0;
 	int i, nr;
 
@@ -181,7 +171,7 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 		return;
 
 	nr = (end - start) / PAGE_SIZE;
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	for (i = 0; i < nr; i++, off += PAGE_SIZE) {
 		shadow = alloc_pages(gfp_mask, 1);
 		origin = alloc_pages(gfp_mask, 1);
@@ -196,7 +186,7 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	}
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(kmsan_ioremap_page_range);
 
@@ -204,14 +194,13 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 {
 	unsigned long v_shadow, v_origin;
 	struct page *shadow, *origin;
-	unsigned long irq_flags;
 	int i, nr;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
 	nr = (end - start) / PAGE_SIZE;
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	v_shadow = (unsigned long)vmalloc_shadow(start);
 	v_origin = (unsigned long)vmalloc_origin(start);
 	for (i = 0; i < nr; i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
@@ -226,7 +215,7 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	}
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(kmsan_iounmap_page_range);
 
@@ -340,30 +329,26 @@ EXPORT_SYMBOL(kmsan_handle_dma_sg);
 /* Functions from kmsan-checks.h follow. */
 void kmsan_poison_memory(const void *address, size_t size, gfp_t flags)
 {
-	unsigned long irq_flags;
-
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	/* The users may want to poison/unpoison random memory. */
 	kmsan_internal_poison_memory((void *)address, size, flags,
 				     KMSAN_POISON_NOCHECK);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(kmsan_poison_memory);
 
 void kmsan_unpoison_memory(const void *address, size_t size)
 {
-	unsigned long irq_flags;
-
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	/* The users may want to poison/unpoison random memory. */
 	kmsan_internal_unpoison_memory((void *)address, size,
 				       KMSAN_POISON_NOCHECK);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 EXPORT_SYMBOL(kmsan_unpoison_memory);
 

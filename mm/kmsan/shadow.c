@@ -236,8 +236,6 @@ void __init kmsan_init_alloc_meta_for_range(void *start, void *end)
 /* Called from mm/memory.c */
 void kmsan_copy_page_meta(struct page *dst, struct page *src)
 {
-	unsigned long irq_flags;
-
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	if (!dst || !page_has_metadata(dst))
@@ -248,10 +246,10 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 		return;
 	}
 
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	__memcpy(shadow_ptr_for(dst), shadow_ptr_for(src), PAGE_SIZE);
 	__memcpy(origin_ptr_for(dst), origin_ptr_for(src), PAGE_SIZE);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 }
 
 /* Called from mm/page_alloc.c */
@@ -260,7 +258,6 @@ void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
 	struct page *shadow, *origin;
 	depot_stack_handle_t handle;
-	unsigned long irq_flags;
 	int pages = 1 << order;
 	int i;
 
@@ -281,9 +278,9 @@ void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 		return;
 
 	__memset(page_address(shadow), -1, PAGE_SIZE * pages);
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	handle = kmsan_save_stack_with_flags(flags, /*extra_bits*/ 0);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 	/*
 	 * Addresses are page-aligned, pages are contiguous, so it's ok
 	 * to just fill the origin pages with |handle|.
@@ -305,7 +302,6 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 {
 	unsigned long shadow_start, origin_start, shadow_end, origin_end;
 	struct page **s_pages, **o_pages;
-	unsigned long irq_flags;
 	int nr, i, mapped;
 
 	if (!kmsan_ready)
@@ -330,14 +326,14 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 
 	origin_start = vmalloc_meta((void *)start, KMSAN_META_ORIGIN);
 	origin_end = vmalloc_meta((void *)end, KMSAN_META_ORIGIN);
-	irq_flags = kmsan_enter_runtime();
+	kmsan_enter_runtime();
 	mapped = __vmap_pages_range_noflush(shadow_start, shadow_end, prot,
 					    s_pages, page_shift);
 	BUG_ON(mapped);
 	mapped = __vmap_pages_range_noflush(origin_start, origin_end, prot,
 					    o_pages, page_shift);
 	BUG_ON(mapped);
-	kmsan_leave_runtime(irq_flags);
+	kmsan_leave_runtime();
 	flush_tlb_kernel_range(shadow_start, shadow_end);
 	flush_tlb_kernel_range(origin_start, origin_end);
 	flush_cache_vmap(shadow_start, shadow_end);
