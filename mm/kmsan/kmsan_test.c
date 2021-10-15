@@ -331,6 +331,7 @@ static void test_init_vmalloc(struct kunit *test)
 static void test_uaf(struct kunit *test)
 {
 	volatile int *var;
+	volatile int value;
 	EXPECTATION_USE_AFTER_FREE(expect);
 
 	pr_info("-----------------------------\n");
@@ -338,7 +339,9 @@ static void test_uaf(struct kunit *test)
 	var = kmalloc(80, GFP_KERNEL);
 	var[3] = 0xfeedface;
 	kfree((int *)var);
-	CHECK(var[3]);
+	/* Copy the invalid value before checking it. */
+	value = var[3];
+	CHECK(value);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
