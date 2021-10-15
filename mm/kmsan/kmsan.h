@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * KMSAN internal declarations.
+ * Functions used by the KMSAN runtime.
  *
  * Copyright (C) 2017-2021 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
@@ -131,6 +131,10 @@ static __always_inline unsigned int kmsan_depth_from_eb(unsigned int extra_bits)
 	return extra_bits >> 1;
 }
 
+/*
+ * kmsan_internal_ functions are supposed to be very simple and not require the
+ * kmsan_in_runtime() checks.
+ */
 void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags);
 void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked);
@@ -143,6 +147,8 @@ void kmsan_internal_task_create(struct task_struct *task);
 bool kmsan_metadata_is_contiguous(void *addr, size_t size);
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 int reason);
+bool kmsan_internal_is_module_addr(void *vaddr);
+bool kmsan_internal_is_vmalloc_addr(void *addr);
 
 struct page *kmsan_vmalloc_to_page_or_null(void *vaddr);
 void kmsan_setup_meta(struct page *page, struct page *shadow,
@@ -156,9 +162,5 @@ int __vmap_pages_range_noflush(unsigned long addr, unsigned long end,
 
 /* Declared in mm/internal.h */
 void __free_pages_core(struct page *page, unsigned int order);
-
-void *kmsan_internal_return_address(int arg);
-bool kmsan_internal_is_module_addr(void *vaddr);
-bool kmsan_internal_is_vmalloc_addr(void *addr);
 
 #endif /* __MM_KMSAN_KMSAN_H */
