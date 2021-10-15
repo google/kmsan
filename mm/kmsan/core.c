@@ -213,7 +213,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	extra_bits = kmsan_extra_bits(depth, uaf);
 
 	entries[0] = KMSAN_CHAIN_MAGIC_ORIGIN;
-	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, extra_bits);
+	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, 0);
 	entries[2] = id;
 	return stack_depot_save_extra(entries, ARRAY_SIZE(entries), extra_bits,
 				      GFP_ATOMIC);
