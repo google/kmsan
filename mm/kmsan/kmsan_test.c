@@ -56,6 +56,7 @@ static void probe_console(void *ignore, const char *buf, size_t len)
 		strscpy(observed.header, buf,
 			min(len + 1, sizeof(observed.header)));
 		WRITE_ONCE(observed.available, true);
+		observed.ignore = true;
 	}
 	spin_unlock_irqrestore(&observed.lock, flags);
 }
@@ -85,7 +86,6 @@ static bool report_matches(const struct expect_report *r)
 	const char *end;
 	char *cur;
 
-	observed.ignore = true;
 	/* Doubled-checked locking. */
 	if (!report_available() || !r->symbol) {
 		return (!report_available() && !r->symbol);
