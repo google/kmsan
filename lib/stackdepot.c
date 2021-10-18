@@ -373,6 +373,7 @@ depot_stack_handle_t stack_depot_save(unsigned long *entries,
 {
 	return stack_depot_save_extra(entries, nr_entries, 0, gfp_flags);
 }
+EXPORT_SYMBOL_GPL(stack_depot_save);
 
 static inline int in_irqentry_text(unsigned long ptr)
 {
