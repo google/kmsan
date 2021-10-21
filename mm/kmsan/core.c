@@ -29,18 +29,17 @@
 #include "../slab.h"
 #include "kmsan.h"
 
+/*
+ * Avoid creating too long origin chains, these are unlikely to participate in
+ * real reports.
+ */
 #define MAX_CHAIN_DEPTH 7
 
 bool kmsan_ready;
+
 /*
- * According to Documentation/x86/kernel-stacks, kernel code can run on the
- * following stacks:
- * - regular task stack - when executing the task code
- *  - interrupt stack - when handling external hardware interrupts and softirqs
- *  - NMI stack
- * 0 is for regular interrupts, 1 for softirqs, 2 for NMI.
- * Because interrupts may nest, trying to use a new context for every new
- * interrupt.
+ * Per-CPU KMSAN context to be used in interrupts, where current->kmsan is
+ * unavaliable.
  */
 DEFINE_PER_CPU(struct kmsan_context, kmsan_percpu_ctx);
 
