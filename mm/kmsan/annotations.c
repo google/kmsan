@@ -2,6 +2,11 @@
 /*
  * KMSAN annotations.
  *
+ * The kmsan_init_SIZE functions reside in a separate translation unit to
+ * prevent inlining them. Clang may inline functions marked with
+ * __no_sanitize_memory attribute into functions without it, which effectively
+ * results in ignoring the attribute.
+ *
  * Copyright (C) 2017-2021 Google LLC
  * Author: Alexander Potapenko <glider@google.com>
  *
