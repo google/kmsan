@@ -17,13 +17,8 @@
 
 /*
  * Helper functions that mark the return value initialized.
- * Note that Clang ignores the inline attribute in the cases when a no_sanitize
- * function is called from an instrumented one. For the same reason these
- * functions may not be declared __always_inline - in that case they dissolve in
- * the callers and KMSAN won't be able to notice they should not be
- * instrumented.
+ * See mm/kmsan/annotations.c.
  */
-
 u8 kmsan_init_1(u8 value);
 u16 kmsan_init_2(u16 value);
 u32 kmsan_init_4(u32 value);
