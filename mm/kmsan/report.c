@@ -62,17 +62,12 @@ static char *pretty_descr(char *descr)
 	int i, pos = 0, len = strlen(descr);
 
 	for (i = 0; i < len; i++) {
-		switch (descr[i]) {
-		case '@':
+		if (descr[i] == '@') break;
+		if (descr[i] == '-') continue;
+		report_local_descr[pos] = descr[i];
+		if (pos + 1 == DESCR_SIZE)
 			break;
-		case '-':
-			continue;
-		default:
-			report_local_descr[pos] = descr[i];
-			if (pos + 1 == DESCR_SIZE)
-				break;
-			pos++;
-		}
+		pos++;
 	}
 	report_local_descr[pos] = 0;
 	return report_local_descr;
