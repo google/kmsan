@@ -15,30 +15,27 @@ Here is an example of a KMSAN report::
   =====================================================
   BUG: KMSAN: uninit-value in test_uninit_kmsan_check_memory+0x115/0x2a0 [kmsan_test]
    test_uninit_kmsan_check_memory+0x115/0x2a0 mm/kmsan/kmsan_test.c:281
-   kunit_run_case_internal lib/kunit/test.c:277
-   kunit_try_run_case+0x1af/0x680 lib/kunit/test.c:318
+   kunit_run_case_internal lib/kunit/test.c:333
+   kunit_try_run_case+0x206/0x420 lib/kunit/test.c:374
    kunit_generic_run_threadfn_adapter+0x6d/0xc0 lib/kunit/try-catch.c:28
-   kthread+0x4f9/0x610 kernel/kthread.c:313
-   ret_from_fork+0x1f/0x30 arch/x86/entry/entry_64.S:294
+   kthread+0x66b/0x780 kernel/kthread.c:319
+   ret_from_fork+0x1f/0x30 ??:?
   
   Uninit was stored to memory at:
-   kmsan_save_stack_with_flags mm/kmsan/core.c:78
-   kmsan_internal_chain_origin+0xa0/0x110 mm/kmsan/core.c:213
-   __msan_chain_origin+0xcb/0x140 mm/kmsan/instrumentation.c:148
-   do_uninit_local_array+0x1b8/0x450 [kmsan_test]
+   do_uninit_local_array+0x1b4/0x440 [kmsan_test]
    test_uninit_kmsan_check_memory+0xf9/0x2a0 mm/kmsan/kmsan_test.c:279
-   kunit_run_case_internal lib/kunit/test.c:277
-   kunit_try_run_case+0x1af/0x680 lib/kunit/test.c:318
+   kunit_run_case_internal lib/kunit/test.c:333
+   kunit_try_run_case+0x206/0x420 lib/kunit/test.c:374
    kunit_generic_run_threadfn_adapter+0x6d/0xc0 lib/kunit/try-catch.c:28
-   kthread+0x4f9/0x610 kernel/kthread.c:313
-   ret_from_fork+0x1f/0x30 arch/x86/entry/entry_64.S:294
+   kthread+0x66b/0x780 kernel/kthread.c:319
+   ret_from_fork+0x1f/0x30 ??:?
   
-  Local variable ----uninit@do_uninit_local_array created at:
-   do_uninit_local_array+0x70/0x450 [kmsan_test]
+  Local variable uninit created at:
+   do_uninit_local_array+0x70/0x440 [kmsan_test]
    test_uninit_kmsan_check_memory+0xf9/0x2a0 mm/kmsan/kmsan_test.c:279
   
   Bytes 4-7 of 8 are uninitialized
-  Memory access of size 8 starts at ffff88805324bd90
+  Memory access of size 8 starts at ffff88802ccf7da0
   =====================================================
 
 The report tells that the local variable ``uninit`` was created uninitialized
@@ -50,6 +47,10 @@ The upper stack shows where the uninit value was used - in
 uninitialized in the local variable, as well as the stack where the value was
 copied to another memory location before use.
 
+Please note that KMSAN only reports an error when an uninitialized value is
+being actually used (e.g. in a condition or pointer dereference). A lot of
+uninitialized values in the kernel end up being never used, and reporting them
+would result in too many false positives.
 
 KMSAN and Clang
 ===============
@@ -276,7 +277,7 @@ Disabling the instrumentation
 
 A function can be marked with ``__no_sanitize_memory``. Doing so will result in
 KMSAN not instrumenting that function, which can be helpful if we do not want
-the compiler to mess up some low-level code (e.g. marked as ``noinstr``).
+the compiler to mess up some low-level code (e.g. that marked with ``noinstr``).
 
 This however comes at a cost: stack allocations from such functions will have
 incorrect shadow/origin values, likely leading to false positives. Functions
