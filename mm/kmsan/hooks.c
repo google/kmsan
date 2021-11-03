@@ -15,6 +15,7 @@
 #include <linux/mm.h>
 #include <linux/mm_types.h>
 #include <linux/slab.h>
+#include <linux/uaccess.h>
 #include <linux/usb.h>
 
 #include "../slab.h"
@@ -224,6 +225,8 @@ EXPORT_SYMBOL(kmsan_iounmap_page_range);
 void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
 			size_t left)
 {
+	unsigned long ua_flags;
+
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 	/*
@@ -237,10 +240,13 @@ void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
 	/* Or maybe copy_to_user() failed to copy anything. */
 	if (to_copy <= left)
 		return;
+
+	ua_flags = user_access_save();
 	if ((u64)to < TASK_SIZE) {
 		/* This is a user memory access, check it. */
 		kmsan_internal_check_memory((void *)from, to_copy - left, to,
 					    REASON_COPY_TO_USER);
+		user_access_restore(ua_flags);
 		return;
 	}
 	/* Otherwise this is a kernel memory access. This happens when a compat
@@ -248,7 +254,9 @@ void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
 	 * syscall.
 	 * Don't check anything, just copy the shadow of the copied bytes.
 	 */
-	kmsan_memmove_metadata((void *)to, (void *)from, to_copy - left);
+	kmsan_internal_memmove_metadata((void *)to, (void *)from,
+					to_copy - left);
+	user_access_restore(ua_flags);
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
 
@@ -342,14 +350,18 @@ EXPORT_SYMBOL(kmsan_poison_memory);
 
 void kmsan_unpoison_memory(const void *address, size_t size)
 {
+	unsigned long ua_flags;
+
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
+	ua_flags = user_access_save();
 	kmsan_enter_runtime();
 	/* The users may want to poison/unpoison random memory. */
 	kmsan_internal_unpoison_memory((void *)address, size,
 				       KMSAN_POISON_NOCHECK);
 	kmsan_leave_runtime();
+	user_access_restore(ua_flags);
 }
 EXPORT_SYMBOL(kmsan_unpoison_memory);
 

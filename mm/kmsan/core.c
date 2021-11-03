@@ -86,7 +86,7 @@ depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
 }
 
 /* Copy the metadata following the memmove() behavior. */
-void kmsan_memmove_metadata(void *dst, void *src, size_t n)
+void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
 {
 	depot_stack_handle_t old_origin = 0, chain_origin, new_origin = 0;
 	int src_slots, dst_slots, i, iter, step, skip_bits;

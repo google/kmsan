@@ -10,6 +10,7 @@
 #include "kmsan.h"
 #include <linux/gfp.h>
 #include <linux/mm.h>
+#include <linux/uaccess.h>
 
 static bool is_bad_asm_addr(void *addr, uintptr_t size, bool is_store)
 {
@@ -20,17 +21,29 @@ static bool is_bad_asm_addr(void *addr, uintptr_t size, bool is_store)
 	return false;
 }
 
+struct shadow_origin_ptr static inline get_shadow_origin_ptr(void *addr,
+							     u64 size,
+							     bool store)
+{
+	unsigned long ua_flags = user_access_save();
+	struct shadow_origin_ptr ret;
+
+	ret = kmsan_get_shadow_origin_ptr(addr, size, store);
+	user_access_restore(ua_flags);
+	return ret;
+}
+
 struct shadow_origin_ptr __msan_metadata_ptr_for_load_n(void *addr,
 							uintptr_t size)
 {
-	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/ false);
+	return get_shadow_origin_ptr(addr, size, /*store*/ false);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_load_n);
 
 struct shadow_origin_ptr __msan_metadata_ptr_for_store_n(void *addr,
 							 uintptr_t size)
 {
-	return kmsan_get_shadow_origin_ptr(addr, size, /*store*/ true);
+	return get_shadow_origin_ptr(addr, size, /*store*/ true);
 }
 EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
 
@@ -38,16 +51,14 @@ EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
 	struct shadow_origin_ptr __msan_metadata_ptr_for_load_##size(          \
 		void *addr)                                                    \
 	{                                                                      \
-		return kmsan_get_shadow_origin_ptr(addr, size,                 \
-						   /*store*/ false);           \
+		return get_shadow_origin_ptr(addr, size, /*store*/ false);     \
 	}                                                                      \
 	EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);                    \
                                                                                \
 	struct shadow_origin_ptr __msan_metadata_ptr_for_store_##size(         \
 		void *addr)                                                    \
 	{                                                                      \
-		return kmsan_get_shadow_origin_ptr(addr, size,                 \
-						   /*store*/ true);            \
+		return get_shadow_origin_ptr(addr, size, /*store*/ true);      \
 	}                                                                      \
 	EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size)
 
@@ -58,8 +69,12 @@ DECLARE_METADATA_PTR_GETTER(8);
 
 void __msan_instrument_asm_store(void *addr, uintptr_t size)
 {
+	unsigned long ua_flags;
+
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
+
+	ua_flags = user_access_save();
 	/*
 	 * Most of the accesses are below 32 bytes. The two exceptions so far
 	 * are clwb() (64 bytes) and FPU state (512 bytes).
@@ -69,12 +84,15 @@ void __msan_instrument_asm_store(void *addr, uintptr_t size)
 		WARN_ONCE(1, "assembly store size too big: %d\n", size);
 		size = 8;
 	}
-	if (is_bad_asm_addr(addr, size, /*is_store*/ true))
+	if (is_bad_asm_addr(addr, size, /*is_store*/ true)) {
+		user_access_restore(ua_flags);
 		return;
+	}
 	kmsan_enter_runtime();
 	/* Unpoisoning the memory on best effort. */
 	kmsan_internal_unpoison_memory(addr, size, /*checked*/ false);
 	kmsan_leave_runtime();
+	user_access_restore(ua_flags);
 }
 EXPORT_SYMBOL(__msan_instrument_asm_store);
 
@@ -89,7 +107,7 @@ void *__msan_memmove(void *dst, const void *src, uintptr_t n)
 	if (!kmsan_ready || kmsan_in_runtime())
 		return result;
 
-	kmsan_memmove_metadata(dst, (void *)src, n);
+	kmsan_internal_memmove_metadata(dst, (void *)src, n);
 
 	return result;
 }
@@ -108,7 +126,7 @@ void *__msan_memcpy(void *dst, const void *src, uintptr_t n)
 		return result;
 
 	/* Using memmove instead of memcpy doesn't affect correctness. */
-	kmsan_memmove_metadata(dst, (void *)src, n);
+	kmsan_internal_memmove_metadata(dst, (void *)src, n);
 
 	return result;
 }
@@ -137,14 +155,18 @@ EXPORT_SYMBOL(__msan_memset);
 depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 {
 	depot_stack_handle_t ret = 0;
+	unsigned long ua_flags;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return ret;
+
+	ua_flags = user_access_save();
 
 	/* Creating new origins may allocate memory. */
 	kmsan_enter_runtime();
 	ret = kmsan_internal_chain_origin(origin);
 	kmsan_leave_runtime();
+	user_access_restore(ua_flags);
 	return ret;
 }
 EXPORT_SYMBOL(__msan_chain_origin);
@@ -153,10 +175,12 @@ void __msan_poison_alloca(void *address, uintptr_t size, char *descr)
 {
 	depot_stack_handle_t handle;
 	unsigned long entries[4];
+	unsigned long ua_flags;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
 
+	ua_flags = user_access_save();
 	entries[0] = KMSAN_ALLOCA_MAGIC_ORIGIN;
 	entries[1] = (u64)descr;
 	entries[2] = (u64)__builtin_return_address(0);
@@ -177,6 +201,7 @@ void __msan_poison_alloca(void *address, uintptr_t size, char *descr)
 
 	kmsan_internal_set_shadow_origin(address, size, -1, handle,
 					 /*checked*/ true);
+	user_access_restore(ua_flags);
 }
 EXPORT_SYMBOL(__msan_poison_alloca);
 

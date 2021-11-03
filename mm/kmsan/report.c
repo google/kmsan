@@ -11,6 +11,7 @@
 #include <linux/moduleparam.h>
 #include <linux/stackdepot.h>
 #include <linux/stacktrace.h>
+#include <linux/uaccess.h>
 
 #include "kmsan.h"
 
@@ -62,8 +63,10 @@ static char *pretty_descr(char *descr)
 	int i, pos = 0, len = strlen(descr);
 
 	for (i = 0; i < len; i++) {
-		if (descr[i] == '@') break;
-		if (descr[i] == '-') continue;
+		if (descr[i] == '@')
+			break;
+		if (descr[i] == '-')
+			continue;
 		report_local_descr[pos] = descr[i];
 		if (pos + 1 == DESCR_SIZE)
 			break;
@@ -133,10 +136,10 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
 		  enum kmsan_bug_reason reason)
 {
-	unsigned long stack_entries[KMSAN_STACK_DEPTH] = { 0 };
+	unsigned long stack_entries[KMSAN_STACK_DEPTH];
 	int num_stack_entries, skipnr;
 	char *bug_type = NULL;
-	unsigned long flags;
+	unsigned long flags, ua_flags;
 	bool is_uaf;
 
 	if (!kmsan_ready)
@@ -147,6 +150,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		return;
 
 	current->kmsan.allow_reporting = false;
+	ua_flags = user_access_save();
 	spin_lock_irqsave(&kmsan_report_lock, flags);
 	pr_err("=====================================================\n");
 	is_uaf = kmsan_uaf_from_eb(stack_depot_get_extra_bits(origin));
@@ -194,5 +198,6 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 	spin_unlock_irqrestore(&kmsan_report_lock, flags);
 	if (panic_on_kmsan)
 		panic("panic_on_kmsan set ...\n");
+	user_access_restore(ua_flags);
 	current->kmsan.allow_reporting = true;
 }

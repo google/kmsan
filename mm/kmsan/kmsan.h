@@ -43,7 +43,6 @@ enum kmsan_bug_reason {
 	REASON_SUBMIT_URB,
 };
 
-
 void kmsan_print_origin(depot_stack_handle_t origin);
 
 /**
@@ -104,8 +103,6 @@ static __always_inline void kmsan_leave_runtime()
 	BUG_ON(--ctx->kmsan_in_runtime);
 }
 
-void kmsan_memmove_metadata(void *dst, void *src, size_t n);
-
 depot_stack_handle_t kmsan_save_stack(void);
 depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
 						 unsigned int extra_bits);
@@ -137,11 +134,12 @@ static __always_inline unsigned int kmsan_depth_from_eb(unsigned int extra_bits)
  * kmsan_internal_ functions are supposed to be very simple and not require the
  * kmsan_in_runtime() checks.
  */
+void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n);
 void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
 				  unsigned int poison_flags);
 void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked);
-void kmsan_internal_set_shadow_origin(void *address, size_t size, int b, u32 origin,
-				  bool checked);
+void kmsan_internal_set_shadow_origin(void *address, size_t size, int b,
+				      u32 origin, bool checked);
 depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
 
 void kmsan_internal_task_create(struct task_struct *task);
