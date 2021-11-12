@@ -251,7 +251,7 @@ static void test_params(struct kunit *test)
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
-noinline void do_uninit_local_array(char *array, int start, int stop)
+static noinline void do_uninit_local_array(char *array, int start, int stop)
 {
 	int i;
 	volatile char uninit;
