@@ -4,7 +4,6 @@
  * For each test case checks the presence (or absence) of generated reports.
  * Relies on 'console' tracepoint to capture reports as they appear in the
  * kernel log.
- * Vastly borrowed from KFENCE
  *
  * Copyright (C) 2021, Google LLC.
  * Author: Alexander Potapenko <glider@google.com>
@@ -25,13 +24,13 @@
 #include <linux/tracepoint.h>
 #include <trace/events/printk.h>
 
-DEFINE_PER_CPU(int, per_cpu_var);
+static DEFINE_PER_CPU(int, per_cpu_var);
 
 /* Report as observed from console. */
 static struct {
 	spinlock_t lock;
 	bool available;
-	bool ignore; // stop console output collection
+	bool ignore; /* Stop console output collection. */
 	char header[256];
 } observed = {
 	.lock = __SPIN_LOCK_UNLOCKED(observed.lock),
@@ -119,18 +118,18 @@ out:
 
 /* ===== Test cases ===== */
 
-// Prevent replacing branch with select in LLVM.
-noinline void check_true(char *arg)
+/* Prevent replacing branch with select in LLVM. */
+static noinline void check_true(char *arg)
 {
 	pr_info("%s is true\n", arg);
 }
 
-noinline void check_false(char *arg)
+static noinline void check_false(char *arg)
 {
 	pr_info("%s is false\n", arg);
 }
 
-#define CHECK(x)                                                               \
+#define USE(x)                                                               \
 	do {                                                                   \
 		if (x)                                                         \
 			check_true(#x);                                        \
@@ -143,7 +142,6 @@ noinline void check_false(char *arg)
 		.error_type = reason,                                          \
 		.symbol = fn,                                                  \
 	};                                                                     \
-	/**/
 
 #define EXPECTATION_NO_REPORT(e) EXPECTATION_ETYPE_FN(e, NULL, NULL)
 #define EXPECTATION_UNINIT_VALUE_FN(e, fn)                                     \
@@ -152,7 +150,7 @@ noinline void check_false(char *arg)
 #define EXPECTATION_USE_AFTER_FREE(e)                                          \
 	EXPECTATION_ETYPE_FN(e, "use-after-free", __func__)
 
-int signed_sum3(int a, int b, int c)
+static int signed_sum3(int a, int b, int c)
 {
 	return a + b + c;
 }
@@ -162,10 +160,9 @@ static void test_uninit_kmalloc(struct kunit *test)
 	int *ptr;
 	EXPECTATION_UNINIT_VALUE(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("uninitialized kmalloc test (UMR report)\n");
+	kunit_info(test, "uninitialized kmalloc test (UMR report)\n");
 	ptr = kmalloc(sizeof(int), GFP_KERNEL);
-	CHECK(*ptr);
+	USE(*ptr);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
@@ -174,11 +171,10 @@ static void test_init_kmalloc(struct kunit *test)
 	int *ptr;
 	EXPECTATION_NO_REPORT(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("initialized kmalloc test (no reports)\n");
+	kunit_info(test, "initialized kmalloc test (no reports)\n");
 	ptr = kmalloc(sizeof(int), GFP_KERNEL);
 	memset(ptr, 0, sizeof(int));
-	CHECK(*ptr);
+	USE(*ptr);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
@@ -187,10 +183,9 @@ static void test_init_kzalloc(struct kunit *test)
 	int *ptr;
 	EXPECTATION_NO_REPORT(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("initialized kzalloc test (no reports)\n");
+	kunit_info(test, "initialized kzalloc test (no reports)\n");
 	ptr = kzalloc(sizeof(int), GFP_KERNEL);
-	CHECK(*ptr);
+	USE(*ptr);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
@@ -200,9 +195,8 @@ static void test_uninit_multiple_args(struct kunit *test)
 	volatile char b = 3, c;
 	EXPECTATION_UNINIT_VALUE(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("uninitialized local passed to fn (UMR report)\n");
-	CHECK(signed_sum3(a, b, c));
+	kunit_info(test, "uninitialized local passed to fn (UMR report)\n");
+	USE(signed_sum3(a, b, c));
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
@@ -211,9 +205,8 @@ static void test_uninit_stack_var(struct kunit *test)
 	volatile int cond;
 	EXPECTATION_UNINIT_VALUE(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("uninitialized stack variable (UMR report)\n");
-	CHECK(cond);
+	kunit_info(test, "uninitialized stack variable (UMR report)\n");
+	USE(cond);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
@@ -222,22 +215,21 @@ static void test_init_stack_var(struct kunit *test)
 	volatile int cond = 1;
 	EXPECTATION_NO_REPORT(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("initialized stack variable (no reports)\n");
-	CHECK(cond);
+	kunit_info(test, "initialized stack variable (no reports)\n");
+	USE(cond);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
 static noinline void two_param_fn_2(int arg1, int arg2)
 {
-	CHECK(arg1);
-	CHECK(arg2);
+	USE(arg1);
+	USE(arg2);
 }
 
 static noinline void one_param_fn(int arg)
 {
 	two_param_fn_2(arg, arg);
-	CHECK(arg);
+	USE(arg);
 }
 
 static noinline void two_param_fn(int arg1, int arg2)
@@ -245,8 +237,8 @@ static noinline void two_param_fn(int arg1, int arg2)
 	int init = 0;
 
 	one_param_fn(init);
-	CHECK(arg1);
-	CHECK(arg2);
+	USE(arg1);
+	USE(arg2);
 }
 
 static void test_params(struct kunit *test)
@@ -254,8 +246,7 @@ static void test_params(struct kunit *test)
 	volatile int uninit, init = 1;
 	EXPECTATION_UNINIT_VALUE_FN(expect, "two_param_fn");
 
-	pr_info("-----------------------------\n");
-	pr_info("uninit passed through a function parameter (UMR report)\n");
+	kunit_info(test, "uninit passed through a function parameter (UMR report)\n");
 	two_param_fn(uninit, init);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
@@ -274,8 +265,7 @@ static void test_uninit_kmsan_check_memory(struct kunit *test)
 	volatile char local_array[8];
 	EXPECTATION_UNINIT_VALUE_FN(expect, "test_uninit_kmsan_check_memory");
 
-	pr_info("-----------------------------\n");
-	pr_info("kmsan_check_memory() called on uninit local (UMR report)\n");
+	kunit_info(test, "kmsan_check_memory() called on uninit local (UMR report)\n");
 	do_uninit_local_array((char *)local_array, 5, 7);
 
 	kmsan_check_memory((char *)local_array, 8);
@@ -290,8 +280,7 @@ static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 	int i;
 	EXPECTATION_NO_REPORT(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("pages initialized via vmap (no reports)\n");
+	kunit_info(test, "pages initialized via vmap (no reports)\n");
 
 	pages = kmalloc(sizeof(struct page) * npages, GFP_KERNEL);
 	for (i = 0; i < npages; i++)
@@ -316,12 +305,11 @@ static void test_init_vmalloc(struct kunit *test)
 	int npages = 8, i;
 	EXPECTATION_NO_REPORT(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("pages initialized via vmap (no reports)\n");
+	kunit_info(test, "pages initialized via vmap (no reports)\n");
 	buf = vmalloc(PAGE_SIZE * npages);
 	buf[0] = 1;
 	memset(buf, 0xfe, PAGE_SIZE * npages);
-	CHECK(buf[0]);
+	USE(buf[0]);
 	for (i = 0; i < npages; i++)
 		kmsan_check_memory(&buf[PAGE_SIZE * i], PAGE_SIZE);
 	vfree(buf);
@@ -334,14 +322,13 @@ static void test_uaf(struct kunit *test)
 	volatile int value;
 	EXPECTATION_USE_AFTER_FREE(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("use-after-free in kmalloc-ed buffer (UMR report)\n");
+	kunit_info(test, "use-after-free in kmalloc-ed buffer (UMR report)\n");
 	var = kmalloc(80, GFP_KERNEL);
 	var[3] = 0xfeedface;
 	kfree((int *)var);
 	/* Copy the invalid value before checking it. */
 	value = var[3];
-	CHECK(value);
+	USE(value);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
@@ -350,12 +337,11 @@ static void test_percpu_propagate(struct kunit *test)
 	volatile int uninit, check;
 	EXPECTATION_UNINIT_VALUE(expect);
 
-	pr_info("-----------------------------\n");
-	pr_info("uninit local stored to per_cpu memory (UMR report)\n");
+	kunit_info(test, "uninit local stored to per_cpu memory (UMR report)\n");
 
 	this_cpu_write(per_cpu_var, uninit);
 	check = this_cpu_read(per_cpu_var);
-	CHECK(check);
+	USE(check);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
@@ -364,8 +350,7 @@ static void test_printk(struct kunit *test)
 	volatile int uninit;
 	EXPECTATION_UNINIT_VALUE_FN(expect, "number");
 
-	pr_info("-----------------------------\n");
-	pr_info("uninit local passed to pr_info() (UMR report)\n");
+	kunit_info(test, "uninit local passed to pr_info() (UMR report)\n");
 	pr_info("%px contains %d\n", &uninit, uninit);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
