@@ -199,7 +199,7 @@ static int __dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
 		kmsan_handle_dma_sg(sg, nents, dir);
 		debug_dma_map_sg(dev, sg, nents, ents, dir, attrs);
 	} else if (WARN_ON_ONCE(ents != -EINVAL && ents != -ENOMEM &&
-			      ents != -EIO)) {
+				ents != -EIO)) {
 		return -EIO;
 	}
 
