@@ -27,7 +27,6 @@
 #include <linux/kernel.h>
 #include <linux/kasan.h>
 #include <linux/kmsan.h>
-#include <linux/kmsan-checks.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
 #include <linux/pagevec.h>
