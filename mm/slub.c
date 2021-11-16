@@ -23,7 +23,7 @@
 #include <linux/seq_file.h>
 #include <linux/kasan.h>
 #include <linux/kmsan.h>
-#include <linux/kmsan-checks.h> /* kmsan_init */
+#include <linux/kmsan-checks.h>
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
 #include <linux/mempolicy.h>
@@ -1682,6 +1682,7 @@ static __always_inline bool slab_free_hook(struct kmem_cache *s,
 						void *x, bool init)
 {
 	kmemleak_free_recursive(x, s->flags);
+	kmsan_slab_free(s, x);
 
 	debug_check_no_locks_freed(x, s->object_size);
 
@@ -1735,7 +1736,6 @@ static inline bool slab_free_freelist_hook(struct kmem_cache *s,
 	do {
 		object = next;
 		next = get_freepointer(s, object);
-		kmsan_slab_free(s, object);
 
 		/* If object's reuse doesn't have to be delayed */
 		if (!slab_free_hook(s, object, slab_want_init_on_free(s))) {
@@ -3225,7 +3225,6 @@ redo:
 	init = slab_want_init_on_alloc(gfpflags, s);
 
 out:
-	kmsan_slab_alloc(s, object, gfpflags);
 	slab_post_alloc_hook(s, objcg, gfpflags, 1, &object, init);
 
 	return object;
@@ -3656,7 +3655,7 @@ int kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
 			  void **p)
 {
 	struct kmem_cache_cpu *c;
-	int i, j;
+	int i;
 	struct obj_cgroup *objcg = NULL;
 
 	/* memcg and kmem_cache debug support */
@@ -3722,8 +3721,6 @@ int kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
 	 */
 	slab_post_alloc_hook(s, objcg, flags, size, p,
 				slab_want_init_on_alloc(flags, s));
-	for (j = 0; j < i; j++)
-		kmsan_slab_alloc(s, p[j], flags);
 
 	return i;
 error:
