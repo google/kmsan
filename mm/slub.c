@@ -23,7 +23,6 @@
 #include <linux/seq_file.h>
 #include <linux/kasan.h>
 #include <linux/kmsan.h>
-#include <linux/kmsan-checks.h>
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
 #include <linux/mempolicy.h>
