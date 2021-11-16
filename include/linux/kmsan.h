@@ -11,6 +11,7 @@
 
 #include <linux/dma-direction.h>
 #include <linux/gfp.h>
+#include <linux/kmsan-checks.h>
 #include <linux/stackdepot.h>
 #include <linux/types.h>
 #include <linux/vmalloc.h>
