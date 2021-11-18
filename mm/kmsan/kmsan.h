@@ -19,8 +19,6 @@
 #include <linux/mm.h>
 #include <linux/printk.h>
 
-#include "shadow.h"
-
 #define KMSAN_ALLOCA_MAGIC_ORIGIN 0xabcd0100
 #define KMSAN_CHAIN_MAGIC_ORIGIN 0xabcd0200
 
@@ -36,6 +34,18 @@
 #define KMSAN_META_ORIGIN (true)
 
 extern bool kmsan_ready;
+
+/*
+ * A pair of metadata pointers to be returned by the instrumentation functions.
+ */
+struct shadow_origin_ptr {
+	void *shadow, *origin;
+};
+
+struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *addr, u64 size,
+						     bool store);
+void *kmsan_get_metadata(void *addr, bool is_origin);
+void __init kmsan_init_alloc_meta_for_range(void *start, void *end);
 
 enum kmsan_bug_reason {
 	REASON_ANY,

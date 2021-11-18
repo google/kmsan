@@ -20,7 +20,6 @@
 #include <linux/stddef.h>
 
 #include "kmsan.h"
-#include "shadow.h"
 
 #define shadow_page_for(page) ((page)->kmsan_shadow)
 
