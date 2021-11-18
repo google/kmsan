@@ -129,7 +129,7 @@ static noinline void check_false(char *arg)
 	pr_info("%s is false\n", arg);
 }
 
-#define USE(x)                                                               \
+#define USE(x)                                                                 \
 	do {                                                                   \
 		if (x)                                                         \
 			check_true(#x);                                        \
@@ -141,7 +141,7 @@ static noinline void check_false(char *arg)
 	struct expect_report e = {                                             \
 		.error_type = reason,                                          \
 		.symbol = fn,                                                  \
-	};                                                                     \
+	};
 
 #define EXPECTATION_NO_REPORT(e) EXPECTATION_ETYPE_FN(e, NULL, NULL)
 #define EXPECTATION_UNINIT_VALUE_FN(e, fn)                                     \
@@ -246,7 +246,8 @@ static void test_params(struct kunit *test)
 	volatile int uninit, init = 1;
 	EXPECTATION_UNINIT_VALUE_FN(expect, "two_param_fn");
 
-	kunit_info(test, "uninit passed through a function parameter (UMR report)\n");
+	kunit_info(test,
+		   "uninit passed through a function parameter (UMR report)\n");
 	two_param_fn(uninit, init);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
@@ -265,7 +266,9 @@ static void test_uninit_kmsan_check_memory(struct kunit *test)
 	volatile char local_array[8];
 	EXPECTATION_UNINIT_VALUE_FN(expect, "test_uninit_kmsan_check_memory");
 
-	kunit_info(test, "kmsan_check_memory() called on uninit local (UMR report)\n");
+	kunit_info(
+		test,
+		"kmsan_check_memory() called on uninit local (UMR report)\n");
 	do_uninit_local_array((char *)local_array, 5, 7);
 
 	kmsan_check_memory((char *)local_array, 8);
@@ -337,7 +340,8 @@ static void test_percpu_propagate(struct kunit *test)
 	volatile int uninit, check;
 	EXPECTATION_UNINIT_VALUE(expect);
 
-	kunit_info(test, "uninit local stored to per_cpu memory (UMR report)\n");
+	kunit_info(test,
+		   "uninit local stored to per_cpu memory (UMR report)\n");
 
 	this_cpu_write(per_cpu_var, uninit);
 	check = this_cpu_read(per_cpu_var);
