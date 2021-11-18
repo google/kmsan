@@ -6,10 +6,13 @@ UBSAN_SANITIZE := n
 
 KMSAN_SANITIZE_kmsan_annotations.o := y
 
-CC_FLAGS_KMSAN_RUNTIME := $(call cc-option, -fno-stack-protector)
+# Disable instrumentation of KMSAN runtime with other tools.
+CC_FLAGS_KMSAN_RUNTIME := -fno-stack-protector
+CC_FLAGS_KMSAN_RUNTIME += $(call cc-option,-fno-conserve-stack)
+CC_FLAGS_KMSAN_RUNTIME += -DDISABLE_BRANCH_PROFILING
 
-# KMSAN runtime functions may enable UACCESS checks, so build them without
-# stackprotector to avoid objtool warnings.
+CFLAGS_REMOVE.o = $(CC_FLAGS_FTRACE)
+
 CFLAGS_annotations.o := $(CC_FLAGS_KMSAN_RUNTIME)
 CFLAGS_core.o := $(CC_FLAGS_KMSAN_RUNTIME)
 CFLAGS_hooks.o := $(CC_FLAGS_KMSAN_RUNTIME)
