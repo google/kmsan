@@ -246,11 +246,10 @@ void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 void kmsan_handle_urb(const struct urb *urb, bool is_out);
 
 /**
- * kmsan_unpoison_pt_regs() - helper that marks struct pt_regs as initialized.
- * @regs:	pointer to struct pt_regs.
+ * kmsan_instrumentation_begin() - handle instrumentation_begin().
+ * @regs:	pointer to struct pt_regs that non-instrumented code passes to
+ * 		instrumented code.
  */
-void kmsan_unpoison_pt_regs(struct pt_regs *regs);
-
 void kmsan_instrumentation_begin(struct pt_regs *regs);
 
 #else
@@ -334,9 +333,6 @@ static inline void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 {
 }
 static inline void kmsan_handle_urb(const struct urb *urb, bool is_out)
-{
-}
-static inline void kmsan_unpoison_pt_regs(struct pt_regs *regs)
 {
 }
 
