@@ -52,7 +52,7 @@ __no_sanitize_memory
 static inline void clear_page(void *page)
 {
 #ifdef CONFIG_KMSAN
-	/* alternative_call_2() changes |page|. */
+	/* alternative_call_2() changes @page. */
 	void *page_copy = page;
 #endif
 	alternative_call_2(clear_page_orig,
