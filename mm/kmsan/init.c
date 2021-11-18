@@ -203,7 +203,8 @@ static void kmsan_memblock_discard(void)
 {
 	int i;
 
-	/* For each order=N:
+	/*
+	 * For each order=N:
 	 *  - push held_back[N].shadow and .origin to |collect|;
 	 *  - while there are >= 3 elements in |collect|, do garbage collection:
 	 *    - pop 3 ranges from |collect|;
