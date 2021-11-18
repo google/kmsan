@@ -48,16 +48,16 @@ struct kmsan_context {
 };
 
 /**
- * kmsan_initialize_shadow() - Initialize KMSAN shadow at boot time.
+ * kmsan_init_shadow() - Initialize KMSAN shadow at boot time.
  *
  * Allocate and initialize KMSAN metadata for early allocations.
  */
-void __init kmsan_initialize_shadow(void);
+void __init kmsan_init_shadow(void);
 
 /**
- * kmsan_initialize() - Initialize KMSAN state and enable KMSAN.
+ * kmsan_init_runtime() - Initialize KMSAN state and enable KMSAN.
  */
-void __init kmsan_initialize(void);
+void __init kmsan_init_runtime(void);
 
 /**
  * kmsan_memblock_free_pages() - handle freeing of memblock pages.
@@ -255,10 +255,10 @@ void kmsan_instrumentation_begin(struct pt_regs *regs);
 
 #else
 
-static inline void kmsan_initialize_shadow(void)
+static inline void kmsan_init_shadow(void)
 {
 }
-static inline void kmsan_initialize(void)
+static inline void kmsan_init_runtime(void)
 {
 }
 static inline bool kmsan_memblock_free_pages(struct page *page,

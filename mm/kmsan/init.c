@@ -70,7 +70,7 @@ static void __init kmsan_record_future_shadow_range(void *start, void *end)
  *
  * Allocations via memblock can be only done before slab is initialized.
  */
-void __init kmsan_initialize_shadow(void)
+void __init kmsan_init_shadow(void)
 {
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
 	phys_addr_t p_start, p_end;
@@ -92,7 +92,7 @@ void __init kmsan_initialize_shadow(void)
 			(void *)start_end_pairs[i].start,
 			(void *)start_end_pairs[i].end);
 }
-EXPORT_SYMBOL(kmsan_initialize_shadow);
+EXPORT_SYMBOL(kmsan_init_shadow);
 
 struct page_pair {
 	struct page *shadow, *origin;
@@ -226,7 +226,7 @@ static void kmsan_memblock_discard(void)
 	}
 }
 
-void __init kmsan_initialize(void)
+void __init kmsan_init_runtime(void)
 {
 	/* Assuming current is init_task */
 	kmsan_internal_task_create(current);
@@ -235,4 +235,4 @@ void __init kmsan_initialize(void)
 	pr_info("Starting KernelMemorySanitizer\n");
 	kmsan_ready = true;
 }
-EXPORT_SYMBOL(kmsan_initialize);
+EXPORT_SYMBOL(kmsan_init_runtime);
