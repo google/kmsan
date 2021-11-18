@@ -36,27 +36,27 @@ static void *origin_ptr_for(struct page *page)
 	return page_address(origin_page_for(page));
 }
 
-bool page_has_metadata(struct page *page)
+static bool page_has_metadata(struct page *page)
 {
 	return shadow_page_for(page) && origin_page_for(page);
 }
 
-void set_no_shadow_origin_page(struct page *page)
+static void set_no_shadow_origin_page(struct page *page)
 {
 	shadow_page_for(page) = NULL;
 	origin_page_for(page) = NULL;
 }
 
-DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
-DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
+static DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
+static DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
 
 /*
  * Dummy load and store pages to be used when the real metadata is unavailable.
  * There are separate pages for loads and stores, so that every load returns a
  * zero, and every store doesn't affect other loads.
  */
-char dummy_load_page[PAGE_SIZE] __aligned(PAGE_SIZE);
-char dummy_store_page[PAGE_SIZE] __aligned(PAGE_SIZE);
+static char dummy_load_page[PAGE_SIZE] __aligned(PAGE_SIZE);
+static char dummy_store_page[PAGE_SIZE] __aligned(PAGE_SIZE);
 
 /*
  * Taken from arch/x86/mm/physaddr.h to avoid using an instrumented version.
