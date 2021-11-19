@@ -15,12 +15,17 @@
 
 #include "kmsan.h"
 
-DEFINE_SPINLOCK(kmsan_report_lock);
+static DEFINE_SPINLOCK(kmsan_report_lock);
 #define DESCR_SIZE 128
 /* Protected by kmsan_report_lock */
 static char report_local_descr[DESCR_SIZE];
-int panic_on_kmsan __read_mostly;
-core_param(panic_on_kmsan, panic_on_kmsan, int, 0644);
+static int panic_on_kmsan __read_mostly;
+
+#ifdef MODULE_PARAM_PREFIX
+#undef MODULE_PARAM_PREFIX
+#endif
+#define MODULE_PARAM_PREFIX "kmsan."
+module_param_named(panic, panic_on_kmsan, int, 0);
 
 /*
  * Skip internal KMSAN frames.
@@ -197,7 +202,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irqrestore(&kmsan_report_lock, flags);
 	if (panic_on_kmsan)
-		panic("panic_on_kmsan set ...\n");
+		panic("kmsan.panic set ...\n");
 	user_access_restore(ua_flags);
 	current->kmsan.allow_reporting = true;
 }
