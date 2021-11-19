@@ -84,7 +84,7 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 		return;
 	/*
 	 * If there's a constructor, freed memory must remain in the same state
-	 * till the next allocation. We cannot save its state to detect
+	 * until the next allocation. We cannot save its state to detect
 	 * use-after-free bugs, instead we just keep it unpoisoned.
 	 */
 	if (s->ctor)

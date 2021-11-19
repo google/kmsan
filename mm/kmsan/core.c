@@ -254,8 +254,6 @@ void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b,
 	origin_start =
 		(u32 *)kmsan_get_metadata((void *)address, KMSAN_META_ORIGIN);
 
-	/* Shadow is non-NULL here, so origin must also be valid. */
-	BUG_ON(!origin_start);
 	for (i = 0; i < size / KMSAN_ORIGIN_SIZE; i++)
 		origin_start[i] = origin;
 }
