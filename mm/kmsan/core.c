@@ -34,6 +34,7 @@
  * real reports.
  */
 #define MAX_CHAIN_DEPTH 7
+#define NUM_SKIPPED_TO_WARN 10000
 
 bool kmsan_ready;
 
@@ -201,7 +202,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 		static atomic_long_t kmsan_skipped_origins;
 		long skipped = atomic_long_inc_return(&kmsan_skipped_origins);
 
-		if (skipped % 10000 == 0) {
+		if (skipped % NUM_SKIPPED_TO_WARN == 0) {
 			pr_warn("not chained %d origins\n", skipped);
 			dump_stack();
 			kmsan_print_origin(id);
