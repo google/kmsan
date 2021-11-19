@@ -77,11 +77,11 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void *user_addr,
 		  enum kmsan_bug_reason reason);
 
-DECLARE_PER_CPU(struct kmsan_context, kmsan_percpu_ctx);
+DECLARE_PER_CPU(struct kmsan_ctx, kmsan_percpu_ctx);
 
-static __always_inline struct kmsan_context *kmsan_get_context(void)
+static __always_inline struct kmsan_ctx *kmsan_get_context(void)
 {
-	return in_task() ? &current->kmsan : raw_cpu_ptr(&kmsan_percpu_ctx);
+	return in_task() ? &current->kmsan_ctx : raw_cpu_ptr(&kmsan_percpu_ctx);
 }
 
 /*
@@ -100,7 +100,7 @@ static __always_inline bool kmsan_in_runtime(void)
 
 static __always_inline void kmsan_enter_runtime(void)
 {
-	struct kmsan_context *ctx;
+	struct kmsan_ctx *ctx;
 
 	ctx = kmsan_get_context();
 	BUG_ON(ctx->kmsan_in_runtime++);
@@ -108,7 +108,7 @@ static __always_inline void kmsan_enter_runtime(void)
 
 static __always_inline void kmsan_leave_runtime()
 {
-	struct kmsan_context *ctx = kmsan_get_context();
+	struct kmsan_ctx *ctx = kmsan_get_context();
 
 	BUG_ON(--ctx->kmsan_in_runtime);
 }

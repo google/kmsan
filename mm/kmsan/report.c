@@ -149,12 +149,12 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 
 	if (!kmsan_ready)
 		return;
-	if (!current->kmsan.allow_reporting)
+	if (!current->kmsan_ctx.allow_reporting)
 		return;
 	if (!origin)
 		return;
 
-	current->kmsan.allow_reporting = false;
+	current->kmsan_ctx.allow_reporting = false;
 	ua_flags = user_access_save();
 	spin_lock_irqsave(&kmsan_report_lock, flags);
 	pr_err("=====================================================\n");
@@ -204,5 +204,5 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 	if (panic_on_kmsan)
 		panic("kmsan.panic set ...\n");
 	user_access_restore(ua_flags);
-	current->kmsan.allow_reporting = true;
+	current->kmsan_ctx.allow_reporting = true;
 }

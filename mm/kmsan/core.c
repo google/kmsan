@@ -42,13 +42,13 @@ bool kmsan_ready;
  * Per-CPU KMSAN context to be used in interrupts, where current->kmsan is
  * unavaliable.
  */
-DEFINE_PER_CPU(struct kmsan_context, kmsan_percpu_ctx);
+DEFINE_PER_CPU(struct kmsan_ctx, kmsan_percpu_ctx);
 
 void kmsan_internal_task_create(struct task_struct *task)
 {
-	struct kmsan_context *ctx = &task->kmsan;
+	struct kmsan_ctx *ctx = &task->kmsan_ctx;
 
-	__memset(ctx, 0, sizeof(struct kmsan_context));
+	__memset(ctx, 0, sizeof(struct kmsan_ctx));
 	ctx->allow_reporting = true;
 	kmsan_internal_unpoison_memory(current_thread_info(),
 				       sizeof(struct thread_info), false);

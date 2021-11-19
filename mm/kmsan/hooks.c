@@ -39,7 +39,7 @@ EXPORT_SYMBOL(kmsan_task_create);
 /* Called from kernel/exit.c */
 void kmsan_task_exit(struct task_struct *task)
 {
-	struct kmsan_context *ctx = &task->kmsan;
+	struct kmsan_ctx *ctx = &task->kmsan_ctx;
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		return;
