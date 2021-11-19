@@ -10,7 +10,6 @@
 #ifndef _LINUX_KMSAN_CHECKS_H
 #define _LINUX_KMSAN_CHECKS_H
 
-#include <linux/build_bug.h>
 #include <linux/types.h>
 
 #ifdef CONFIG_KMSAN
@@ -23,6 +22,16 @@ u8 kmsan_init_1(u8 value);
 u16 kmsan_init_2(u16 value);
 u32 kmsan_init_4(u32 value);
 u64 kmsan_init_8(u64 value);
+
+static inline void *kmsan_init_ptr(void *ptr)
+{
+	return (void *)kmsan_init_8((u64)ptr);
+}
+
+static inline char kmsan_init_char(char value)
+{
+	return (u8)kmsan_init_1((u8)value);
+}
 
 #define __decl_kmsan_init_type(type, fn) unsigned type : fn, signed type : fn
 
@@ -40,7 +49,8 @@ u64 kmsan_init_8(u64 value);
 		__decl_kmsan_init_type(short, kmsan_init_2), \
 		__decl_kmsan_init_type(int, kmsan_init_4), \
 		__decl_kmsan_init_type(long, kmsan_init_8),\
-		void *: kmsan_init_8)(val) ))
+		char: kmsan_init_char,\
+		void *: kmsan_init_ptr)(val) ))
 
 /**
  * kmsan_poison_memory() - Mark the memory range as uninitialized.
