@@ -3,9 +3,8 @@ KernelMemorySanitizer (KMSAN)
 =============================
 
 KMSAN is a dynamic error detector aimed at finding uses of uninitialized
-values.
-It is based on compiler instrumentation, and is quite similar to the userspace
-`MemorySanitizer tool`_.
+values. It is based on compiler instrumentation, and is quite similar to the
+userspace `MemorySanitizer tool`_.
 
 Example report
 ==============
@@ -38,9 +37,9 @@ Here is an example of a KMSAN report::
   Memory access of size 8 starts at ffff88802ccf7da0
   =====================================================
 
-The report tells that the local variable ``uninit`` was created uninitialized
-in ``do_uninit_local_array()``. The lower stack trace corresponds to the place
- where this variable was created.
+The report says that the local variable ``uninit`` was created uninitialized in
+``do_uninit_local_array()``. The lower stack trace corresponds to the place
+where this variable was created.
 
 The upper stack shows where the uninit value was used - in
 ``test_uninit_kmsan_check_memory()``. The tool shows the bytes which were left
@@ -48,17 +47,16 @@ uninitialized in the local variable, as well as the stack where the value was
 copied to another memory location before use.
 
 Please note that KMSAN only reports an error when an uninitialized value is
-being actually used (e.g. in a condition or pointer dereference). A lot of
-uninitialized values in the kernel end up being never used, and reporting them
-would result in too many false positives.
+actually used (e.g. in a condition or pointer dereference). A lot of
+uninitialized values in the kernel are never used, and reporting them would
+result in too many false positives.
 
 KMSAN and Clang
 ===============
 
-In order for KMSAN to work the kernel must be
-built with Clang, which so far is the only compiler that has KMSAN support.
-The kernel instrumentation pass is based on the userspace
-`MemorySanitizer tool`_.
+In order for KMSAN to work the kernel must be built with Clang, which so far is
+the only compiler that has KMSAN support. The kernel instrumentation pass is
+based on the userspace `MemorySanitizer tool`_.
 
 How to build
 ============
@@ -66,8 +64,7 @@ How to build
 In order to build a kernel with KMSAN you will need a fresh Clang (14.0.0+).
 Please refer to `LLVM documentation`_ for the instructions on how to build Clang.
 
-Now configure and build the kernel with CONFIG_KMSAN enabled. Make sure to
-enable CONFIG_KMSAN_KUNIT_TEST if you need the test suite.
+Now configure and build the kernel with CONFIG_KMSAN enabled.
 
 How KMSAN works
 ===============
@@ -76,12 +73,10 @@ KMSAN shadow memory
 -------------------
 
 KMSAN associates a metadata byte (also called shadow byte) with every byte of
-kernel memory.
-A bit in the shadow byte is set iff the corresponding bit of the kernel memory
-byte is uninitialized.
-Marking the memory uninitialized (i.e. setting its shadow bytes to ``0xff``) is
-called poisoning, marking it initialized (setting the shadow bytes to ``0x00``)
-is called unpoisoning.
+kernel memory. A bit in the shadow byte is set iff the corresponding bit of the
+kernel memory byte is uninitialized. Marking the memory uninitialized (i.e.
+setting its shadow bytes to ``0xff``) is called poisoning, marking it
+initialized (setting the shadow bytes to ``0x00``) is called unpoisoning.
 
 When a new variable is allocated on the stack, it is poisoned by default by
 instrumentation code inserted by the compiler (unless it is a stack variable
@@ -92,8 +87,7 @@ Compiler instrumentation also tracks the shadow values with the help from the
 runtime library in ``mm/kmsan/``.
 
 The shadow value of a basic or compound type is an array of bytes of the same
-length.
-When a constant value is written into memory, that memory is unpoisoned.
+length. When a constant value is written into memory, that memory is unpoisoned.
 When a value is read from memory, its shadow memory is also obtained and
 propagated into all the operations which use that value. For every instruction
 that takes one or more values the compiler generates code that calculates the
@@ -101,7 +95,7 @@ shadow of the result depending on those values and their shadows.
 
 Example::
 
-  int a = 0xff;
+  int a = 0xff;  // i.e. 0x000000ff
   int b;
   int c = a | b;
 
@@ -114,24 +108,22 @@ Origin tracking
 ---------------
 
 Every four bytes of kernel memory also have a so-called origin assigned to
-them.
-This origin describes the point in program execution at which the uninitialized
-value was created. Every origin is associated with either the full allocation
-stack (for heap-allocated memory), or the function containing the uninitialized
-variable (for locals).
+them. This origin describes the point in program execution at which the
+uninitialized value was created. Every origin is associated with either the
+full allocation stack (for heap-allocated memory), or the function containing
+the uninitialized variable (for locals).
 
 When an uninitialized variable is allocated on stack or heap, a new origin
 value is created, and that variable's origin is filled with that value.
 When a value is read from memory, its origin is also read and kept together
 with the shadow. For every instruction that takes one or more values the origin
 of the result is one of the origins corresponding to any of the uninitialized
-inputs.
-If a poisoned value is written into memory, its origin is written to the
+inputs. If a poisoned value is written into memory, its origin is written to the
 corresponding storage as well.
 
 Example 1::
 
-  int a = 0;
+  int a = 42;
   int b;
   int c = a + b;
 
@@ -140,10 +132,9 @@ stored to the origin of ``c`` right before the addition result is written into
 memory.
 
 Several variables may share the same origin address, if they are stored in the
-same four-byte chunk.
-In this case every write to either variable updates the origin for all of them.
-We have to sacrifice precision in this case, because storing origins for
-individual bits (and even bytes) would be too costly.
+same four-byte chunk. In this case every write to either variable updates the
+origin for all of them. We have to sacrifice precision in this case, because
+storing origins for individual bits (and even bytes) would be too costly.
 
 Example 2::
 
@@ -169,17 +160,15 @@ Origin chaining
 ~~~~~~~~~~~~~~~
 
 To ease debugging, KMSAN creates a new origin for every store of an
-uninitialized value to memory.
-The new origin references both its creation stack and the previous origin the
-value had.
-This may cause increased memory consumption, so we limit the length of origin
-chains in the runtime.
+uninitialized value to memory. The new origin references both its creation stack
+and the previous origin the value had. This may cause increased memory
+consumption, so we limit the length of origin chains in the runtime.
 
 Clang instrumentation API
 -------------------------
 
 Clang instrumentation pass inserts calls to functions defined in
-``mm/kmsan/kmsan_instr.c`` into the kernel code.
+``mm/kmsan/instrumentation.c`` into the kernel code.
 
 Shadow manipulation
 ~~~~~~~~~~~~~~~~~~~
@@ -199,15 +188,14 @@ pair of pointers to the shadow and origin addresses of the given memory::
 The function name depends on the memory access size.
 
 The compiler makes sure that for every loaded value its shadow and origin
-values are read from memory.
-When a value is stored to memory, its shadow and origin are also stored using
-the metadata pointers.
+values are read from memory. When a value is stored to memory, its shadow and
+origin are also stored using the metadata pointers.
 
 Origin tracking
 ~~~~~~~~~~~~~~~
 
-A special function is used to create a new origin value for a local variable
-and set the origin of that variable to that value::
+A special function is used to create a new origin value for a local variable and
+set the origin of that variable to that value::
 
   void __msan_poison_alloca(void *addr, uintptr_t size, char *descr)
 
@@ -275,9 +263,14 @@ In such cases they are ignored at runtime.
 Disabling the instrumentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A function can be marked with ``__no_sanitize_memory``. Doing so will result in
-KMSAN not instrumenting that function, which can be helpful if we do not want
-the compiler to mess up some low-level code (e.g. that marked with ``noinstr``).
+A function can be marked with ``__no_kmsan_checks``. Doing so makes KMSAN
+ignore uninitialized values in that function and mark its output as initialized.
+As a result, the user will not get KMSAN reports related to that function.
+
+Another function attribute supported by KMSAN is ``__no_sanitize_memory``.
+Applying this attribute to a function will result in KMSAN not instrumenting it,
+which can be helpful if we do not want the compiler to mess up some low-level
+code (e.g. that marked with ``noinstr``).
 
 This however comes at a cost: stack allocations from such functions will have
 incorrect shadow/origin values, likely leading to false positives. Functions
@@ -285,11 +278,6 @@ called from non-instrumented code may also receive incorrect metadata for their
 parameters.
 
 As a rule of thumb, avoid using ``__no_sanitize_memory`` explicitly.
-
-Another function attribute supported by KMSAN is ``__no_kmsan_checks``.
-Applying it to a function does not remove KMSAN instrumentation from it, but
-rather makes the compiler ignore uninitialized values coming from the
-function's inputs and initialize its outputs.
 
 It is also possible to disable KMSAN for a single file (e.g. main.o)::
 
@@ -337,8 +325,7 @@ hold the metadata for function parameters and return values.
 But in the case the kernel is running in the interrupt, softirq or NMI context,
 where ``current`` is unavailable, KMSAN switches to per-cpu interrupt state::
 
-  DEFINE_PER_CPU(kmsan_context_state[KMSAN_NESTED_CONTEXT_MAX],
-                 kmsan_percpu_ctx);
+  DEFINE_PER_CPU(struct kmsan_ctx, kmsan_percpu_ctx);
 
 Metadata allocation
 ~~~~~~~~~~~~~~~~~~~
