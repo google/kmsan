@@ -59,7 +59,7 @@
  * provides the behavior consistent with other __no_sanitize_ attributes,
  * guaranteeing that __no_sanitize_memory functions remain uninstrumented.
  */
-#define __no_sanitize_memory __attribute__((disable_sanitizer_instrumentation))
+#define __no_sanitize_memory __disable_sanitizer_instrumentation
 
 /*
  * The __no_kmsan_checks attribute ensures that a function does not produce
