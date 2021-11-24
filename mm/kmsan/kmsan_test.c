@@ -79,16 +79,15 @@ struct expect_report {
 /* Check observed report matches information in @r. */
 static bool report_matches(const struct expect_report *r)
 {
-	bool ret = false;
-	unsigned long flags;
 	typeof(observed.header) expected_header;
+	unsigned long flags;
+	bool ret = false;
 	const char *end;
 	char *cur;
 
 	/* Doubled-checked locking. */
-	if (!report_available() || !r->symbol) {
+	if (!report_available() || !r->symbol)
 		return (!report_available() && !r->symbol);
-	}
 
 	/* Generate expected report contents. */
 
@@ -141,7 +140,7 @@ static noinline void check_false(char *arg)
 	struct expect_report e = {                                             \
 		.error_type = reason,                                          \
 		.symbol = fn,                                                  \
-	};
+	}
 
 #define EXPECTATION_NO_REPORT(e) EXPECTATION_ETYPE_FN(e, NULL, NULL)
 #define EXPECTATION_UNINIT_VALUE_FN(e, fn)                                     \
@@ -157,8 +156,8 @@ static int signed_sum3(int a, int b, int c)
 
 static void test_uninit_kmalloc(struct kunit *test)
 {
-	int *ptr;
 	EXPECTATION_UNINIT_VALUE(expect);
+	int *ptr;
 
 	kunit_info(test, "uninitialized kmalloc test (UMR report)\n");
 	ptr = kmalloc(sizeof(int), GFP_KERNEL);
@@ -168,8 +167,8 @@ static void test_uninit_kmalloc(struct kunit *test)
 
 static void test_init_kmalloc(struct kunit *test)
 {
-	int *ptr;
 	EXPECTATION_NO_REPORT(expect);
+	int *ptr;
 
 	kunit_info(test, "initialized kmalloc test (no reports)\n");
 	ptr = kmalloc(sizeof(int), GFP_KERNEL);
@@ -180,8 +179,8 @@ static void test_init_kmalloc(struct kunit *test)
 
 static void test_init_kzalloc(struct kunit *test)
 {
-	int *ptr;
 	EXPECTATION_NO_REPORT(expect);
+	int *ptr;
 
 	kunit_info(test, "initialized kzalloc test (no reports)\n");
 	ptr = kzalloc(sizeof(int), GFP_KERNEL);
@@ -191,9 +190,9 @@ static void test_init_kzalloc(struct kunit *test)
 
 static void test_uninit_multiple_args(struct kunit *test)
 {
-	volatile int a;
-	volatile char b = 3, c;
 	EXPECTATION_UNINIT_VALUE(expect);
+	volatile char b = 3, c;
+	volatile int a;
 
 	kunit_info(test, "uninitialized local passed to fn (UMR report)\n");
 	USE(signed_sum3(a, b, c));
@@ -202,8 +201,8 @@ static void test_uninit_multiple_args(struct kunit *test)
 
 static void test_uninit_stack_var(struct kunit *test)
 {
-	volatile int cond;
 	EXPECTATION_UNINIT_VALUE(expect);
+	volatile int cond;
 
 	kunit_info(test, "uninitialized stack variable (UMR report)\n");
 	USE(cond);
@@ -212,8 +211,8 @@ static void test_uninit_stack_var(struct kunit *test)
 
 static void test_init_stack_var(struct kunit *test)
 {
-	volatile int cond = 1;
 	EXPECTATION_NO_REPORT(expect);
+	volatile int cond = 1;
 
 	kunit_info(test, "initialized stack variable (no reports)\n");
 	USE(cond);
@@ -243,8 +242,8 @@ static noinline void two_param_fn(int arg1, int arg2)
 
 static void test_params(struct kunit *test)
 {
-	volatile int uninit, init = 1;
 	EXPECTATION_UNINIT_VALUE_FN(expect, "two_param_fn");
+	volatile int uninit, init = 1;
 
 	kunit_info(test,
 		   "uninit passed through a function parameter (UMR report)\n");
@@ -254,8 +253,8 @@ static void test_params(struct kunit *test)
 
 static noinline void do_uninit_local_array(char *array, int start, int stop)
 {
-	int i;
 	volatile char uninit;
+	int i;
 
 	for (i = start; i < stop; i++)
 		array[i] = uninit;
@@ -263,8 +262,8 @@ static noinline void do_uninit_local_array(char *array, int start, int stop)
 
 static void test_uninit_kmsan_check_memory(struct kunit *test)
 {
-	volatile char local_array[8];
 	EXPECTATION_UNINIT_VALUE_FN(expect, "test_uninit_kmsan_check_memory");
+	volatile char local_array[8];
 
 	kunit_info(
 		test,
@@ -277,15 +276,15 @@ static void test_uninit_kmsan_check_memory(struct kunit *test)
 
 static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 {
+	EXPECTATION_NO_REPORT(expect);
 	const int npages = 2;
 	struct page **pages;
 	void *vbuf;
 	int i;
-	EXPECTATION_NO_REPORT(expect);
 
 	kunit_info(test, "pages initialized via vmap (no reports)\n");
 
-	pages = kmalloc(sizeof(struct page) * npages, GFP_KERNEL);
+	pages = kmalloc_array(npages, sizeof(struct page), GFP_KERNEL);
 	for (i = 0; i < npages; i++)
 		pages[i] = alloc_page(GFP_KERNEL);
 	vbuf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
@@ -304,9 +303,9 @@ static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 
 static void test_init_vmalloc(struct kunit *test)
 {
-	char *buf;
-	int npages = 8, i;
 	EXPECTATION_NO_REPORT(expect);
+	int npages = 8, i;
+	char *buf;
 
 	kunit_info(test, "pages initialized via vmap (no reports)\n");
 	buf = vmalloc(PAGE_SIZE * npages);
@@ -321,9 +320,9 @@ static void test_init_vmalloc(struct kunit *test)
 
 static void test_uaf(struct kunit *test)
 {
-	volatile int *var;
-	volatile int value;
 	EXPECTATION_USE_AFTER_FREE(expect);
+	volatile int value;
+	volatile int *var;
 
 	kunit_info(test, "use-after-free in kmalloc-ed buffer (UMR report)\n");
 	var = kmalloc(80, GFP_KERNEL);
@@ -337,8 +336,8 @@ static void test_uaf(struct kunit *test)
 
 static void test_percpu_propagate(struct kunit *test)
 {
-	volatile int uninit, check;
 	EXPECTATION_UNINIT_VALUE(expect);
+	volatile int uninit, check;
 
 	kunit_info(test,
 		   "uninit local stored to per_cpu memory (UMR report)\n");
@@ -351,8 +350,8 @@ static void test_percpu_propagate(struct kunit *test)
 
 static void test_printk(struct kunit *test)
 {
-	volatile int uninit;
 	EXPECTATION_UNINIT_VALUE_FN(expect, "number");
+	volatile int uninit;
 
 	kunit_info(test, "uninit local passed to pr_info() (UMR report)\n");
 	pr_info("%px contains %d\n", &uninit, uninit);
