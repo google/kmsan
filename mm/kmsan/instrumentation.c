@@ -12,7 +12,7 @@
 #include <linux/mm.h>
 #include <linux/uaccess.h>
 
-static bool is_bad_asm_addr(void *addr, uintptr_t size, bool is_store)
+static inline bool is_bad_asm_addr(void *addr, uintptr_t size, bool is_store)
 {
 	if ((u64)addr < TASK_SIZE)
 		return true;
@@ -21,7 +21,7 @@ static bool is_bad_asm_addr(void *addr, uintptr_t size, bool is_store)
 	return false;
 }
 
-struct shadow_origin_ptr static inline get_shadow_origin_ptr(void *addr,
+static inline struct shadow_origin_ptr get_shadow_origin_ptr(void *addr,
 							     u64 size,
 							     bool store)
 {
