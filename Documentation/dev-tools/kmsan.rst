@@ -19,7 +19,7 @@ Here is an example of a KMSAN report::
    kunit_generic_run_threadfn_adapter+0x6d/0xc0 lib/kunit/try-catch.c:28
    kthread+0x66b/0x780 kernel/kthread.c:319
    ret_from_fork+0x1f/0x30 ??:?
-  
+
   Uninit was stored to memory at:
    do_uninit_local_array+0x1b4/0x440 [kmsan_test]
    test_uninit_kmsan_check_memory+0xf9/0x2a0 mm/kmsan/kmsan_test.c:279
@@ -28,11 +28,11 @@ Here is an example of a KMSAN report::
    kunit_generic_run_threadfn_adapter+0x6d/0xc0 lib/kunit/try-catch.c:28
    kthread+0x66b/0x780 kernel/kthread.c:319
    ret_from_fork+0x1f/0x30 ??:?
-  
+
   Local variable uninit created at:
    do_uninit_local_array+0x70/0x440 [kmsan_test]
    test_uninit_kmsan_check_memory+0xf9/0x2a0 mm/kmsan/kmsan_test.c:279
-  
+
   Bytes 4-7 of 8 are uninitialized
   Memory access of size 8 starts at ffff88802ccf7da0
   =====================================================
