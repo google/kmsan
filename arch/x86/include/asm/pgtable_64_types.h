@@ -151,7 +151,7 @@ extern unsigned int ptrs_per_p4d;
  *
  * 1st quarter: VMALLOC_START to VMALLOC_END - new vmalloc area
  * 2nd quarter: KMSAN_VMALLOC_SHADOW_START to
- * 		VMALLOC_END+KMSAN_VMALLOC_SHADOW_OFFSET - vmalloc area shadow
+ *              VMALLOC_END+KMSAN_VMALLOC_SHADOW_OFFSET - vmalloc area shadow
  * 3rd quarter: KMSAN_VMALLOC_ORIGIN_START to
  *              VMALLOC_END+KMSAN_VMALLOC_ORIGIN_OFFSET - vmalloc area origins
  * 4th quarter: KMSAN_MODULES_SHADOW_START to KMSAN_MODULES_ORIGIN_START
