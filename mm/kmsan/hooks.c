@@ -27,7 +27,6 @@
  * skipping effects of functions like memset() inside instrumented code.
  */
 
-/* Called from kernel/fork.c */
 void kmsan_task_create(struct task_struct *task)
 {
 	kmsan_enter_runtime();
@@ -36,7 +35,6 @@ void kmsan_task_create(struct task_struct *task)
 }
 EXPORT_SYMBOL(kmsan_task_create);
 
-/* Called from kernel/exit.c */
 void kmsan_task_exit(struct task_struct *task)
 {
 	struct kmsan_ctx *ctx = &task->kmsan_ctx;
@@ -48,7 +46,6 @@ void kmsan_task_exit(struct task_struct *task)
 }
 EXPORT_SYMBOL(kmsan_task_exit);
 
-/* Called from mm/slub.c */
 void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 {
 	if (unlikely(object == NULL))
@@ -73,7 +70,6 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 }
 EXPORT_SYMBOL(kmsan_slab_alloc);
 
-/* Called from mm/slub.c */
 void kmsan_slab_free(struct kmem_cache *s, void *object)
 {
 	if (!kmsan_ready || kmsan_in_runtime())
@@ -96,7 +92,6 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 }
 EXPORT_SYMBOL(kmsan_slab_free);
 
-/* Called from mm/slub.c */
 void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 {
 	if (unlikely(ptr == NULL))
@@ -114,7 +109,6 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 }
 EXPORT_SYMBOL(kmsan_kmalloc_large);
 
-/* Called from mm/slub.c */
 void kmsan_kfree_large(const void *ptr)
 {
 	struct page *page;
@@ -144,7 +138,6 @@ static unsigned long vmalloc_origin(unsigned long addr)
 						 KMSAN_META_ORIGIN);
 }
 
-/* Called from mm/vmalloc.c */
 void kmsan_vunmap_range_noflush(unsigned long start, unsigned long end)
 {
 	__vunmap_range_noflush(vmalloc_shadow(start), vmalloc_shadow(end));
@@ -154,7 +147,6 @@ void kmsan_vunmap_range_noflush(unsigned long start, unsigned long end)
 }
 EXPORT_SYMBOL(kmsan_vunmap_range_noflush);
 
-/* Called from lib/ioremap.c */
 /*
  * This function creates new shadow/origin pages for the physical pages mapped
  * into the virtual memory. If those physical pages already had shadow/origin,
@@ -221,7 +213,6 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 }
 EXPORT_SYMBOL(kmsan_iounmap_page_range);
 
-/* Called from include/linux/uaccess.h, include/linux/uaccess.h */
 void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
 			size_t left)
 {
