@@ -21,9 +21,8 @@ static inline bool is_bad_asm_addr(void *addr, uintptr_t size, bool is_store)
 	return false;
 }
 
-static inline struct shadow_origin_ptr get_shadow_origin_ptr(void *addr,
-							     u64 size,
-							     bool store)
+static inline struct shadow_origin_ptr
+get_shadow_origin_ptr(void *addr, u64 size, bool store)
 {
 	unsigned long ua_flags = user_access_save();
 	struct shadow_origin_ptr ret;
