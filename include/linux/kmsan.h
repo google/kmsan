@@ -61,6 +61,8 @@ void __init kmsan_init_runtime(void);
 
 /**
  * kmsan_memblock_free_pages() - handle freeing of memblock pages.
+ * @page:	struct page to free.
+ * @order:	order of @page.
  *
  * Freed pages are either returned to buddy allocator or held back to be used
  * as metadata pages.
@@ -160,8 +162,8 @@ void kmsan_kfree_large(const void *ptr);
 
 /**
  * kmsan_map_kernel_range_noflush() - Notify KMSAN about a vmap.
- * @start:	start address of vmapped range.
- * @end:	size of vmapped range.
+ * @start:	start of vmapped range.
+ * @end:	end of vmapped range.
  * @prot:	page protection flags used for vmap.
  * @pages:	array of pages.
  * @page_shift:	page_shift passed to vmap_range_noflush().
@@ -175,8 +177,8 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 
 /**
  * kmsan_vunmap_kernel_range_noflush() - Notify KMSAN about a vunmap.
- * @start: start address of vunmapped range.
- * @end:   end address of vunmapped range.
+ * @start: start of vunmapped range.
+ * @end:   end of vunmapped range.
  *
  * KMSAN unmaps the contiguous metadata ranges created by
  * kmsan_map_kernel_range_noflush().
@@ -189,7 +191,7 @@ void kmsan_vunmap_range_noflush(unsigned long start, unsigned long end);
  * @end:	range end.
  * @phys_addr:	physical range start.
  * @prot:	page protection flags used for ioremap_page_range().
- * @page_shift:	page_shift argument passed to vmap_range_noflush()
+ * @page_shift:	page_shift argument passed to vmap_range_noflush().
  *
  * KMSAN creates new metadata pages for the physical pages mapped into the
  * virtual memory.
@@ -240,7 +242,7 @@ void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 /**
  * kmsan_handle_urb() - Handle a USB data transfer.
  * @urb:    struct urb pointer.
- * @is_out: data transfer direction (true means output to hardware)
+ * @is_out: data transfer direction (true means output to hardware).
  *
  * If @is_out is true, KMSAN checks the transfer buffer of @urb. Otherwise,
  * KMSAN initializes the transfer buffer.
@@ -249,8 +251,8 @@ void kmsan_handle_urb(const struct urb *urb, bool is_out);
 
 /**
  * kmsan_instrumentation_begin() - handle instrumentation_begin().
- * @regs:	pointer to struct pt_regs that non-instrumented code passes to
- * 		instrumented code.
+ * @regs: pointer to struct pt_regs that non-instrumented code passes to
+ *        instrumented code.
  */
 void kmsan_instrumentation_begin(struct pt_regs *regs);
 
@@ -259,9 +261,11 @@ void kmsan_instrumentation_begin(struct pt_regs *regs);
 static inline void kmsan_init_shadow(void)
 {
 }
+
 static inline void kmsan_init_runtime(void)
 {
 }
+
 static inline bool kmsan_memblock_free_pages(struct page *page,
 					     unsigned int order)
 {
@@ -271,6 +275,7 @@ static inline bool kmsan_memblock_free_pages(struct page *page,
 static inline void kmsan_task_create(struct task_struct *task)
 {
 }
+
 static inline void kmsan_task_exit(struct task_struct *task)
 {
 }
@@ -280,12 +285,15 @@ static inline int kmsan_alloc_page(struct page *page, unsigned int order,
 {
 	return 0;
 }
+
 static inline void kmsan_free_page(struct page *page, unsigned int order)
 {
 }
+
 static inline void kmsan_copy_page_meta(struct page *dst, struct page *src)
 {
 }
+
 static inline void kmsan_gup_pgd_range(struct page **pages, int nr)
 {
 }
@@ -294,16 +302,20 @@ static inline void kmsan_slab_alloc(struct kmem_cache *s, void *object,
 				    gfp_t flags)
 {
 }
+
 static inline void kmsan_slab_free(struct kmem_cache *s, void *object)
 {
 }
+
 static inline void kmsan_kmalloc_large(const void *ptr, size_t size,
 				       gfp_t flags)
 {
 }
+
 static inline void kmsan_kfree_large(const void *ptr)
 {
 }
+
 static inline void kmsan_vmap_pages_range_noflush(unsigned long start,
 						  unsigned long end,
 						  pgprot_t prot,
@@ -324,6 +336,7 @@ static inline void kmsan_ioremap_page_range(unsigned long start,
 					    unsigned int page_shift)
 {
 }
+
 static inline void kmsan_iounmap_page_range(unsigned long start,
 					    unsigned long end)
 {
@@ -333,10 +346,12 @@ static inline void kmsan_handle_dma(struct page *page, size_t offset,
 				    size_t size, enum dma_data_direction dir)
 {
 }
+
 static inline void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 				       enum dma_data_direction dir)
 {
 }
+
 static inline void kmsan_handle_urb(const struct urb *urb, bool is_out)
 {
 }
