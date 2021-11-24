@@ -10457,8 +10457,8 @@ L:	kasan-dev@googlegroups.com
 S:	Maintained
 F:	Documentation/dev-tools/kmsan.rst
 F:	include/linux/kmsan*.h
-F:	mm/kmsan/
 F:	lib/Kconfig.kmsan
+F:	mm/kmsan/
 F:	scripts/Makefile.kmsan
 
 KPROBES
