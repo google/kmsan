@@ -43,14 +43,14 @@ static inline char kmsan_init_char(char value)
  * Return: value of @val that KMSAN treats as initialized.
  */
 #define kmsan_init(val)                                                        \
-	(			\
-	(typeof(val))(_Generic((val),		\
-		__decl_kmsan_init_type(char, kmsan_init_1), \
-		__decl_kmsan_init_type(short, kmsan_init_2), \
-		__decl_kmsan_init_type(int, kmsan_init_4), \
-		__decl_kmsan_init_type(long, kmsan_init_8),\
-		char: kmsan_init_char,\
-		void *: kmsan_init_ptr)(val) ))
+	(							\
+	(typeof(val))(_Generic((val),				\
+		__decl_kmsan_init_type(char, kmsan_init_1),	\
+		__decl_kmsan_init_type(short, kmsan_init_2),	\
+		__decl_kmsan_init_type(int, kmsan_init_4),	\
+		__decl_kmsan_init_type(long, kmsan_init_8),	\
+		char : kmsan_init_char,				\
+		void * : kmsan_init_ptr)(val)))
 
 /**
  * kmsan_poison_memory() - Mark the memory range as uninitialized.
