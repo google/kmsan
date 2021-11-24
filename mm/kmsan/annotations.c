@@ -20,7 +20,7 @@
 	{                                                                      \
 		return value;                                                  \
 	}                                                                      \
-	EXPORT_SYMBOL(kmsan_init_##size) /* */
+	EXPORT_SYMBOL(kmsan_init_##size)
 
 DECLARE_KMSAN_INIT(1, u8);
 DECLARE_KMSAN_INIT(2, u16);

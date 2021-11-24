@@ -77,13 +77,13 @@ void __init kmsan_init_shadow(void)
 	int nid;
 	u64 i;
 
-	for_each_reserved_mem_range (i, &p_start, &p_end)
+	for_each_reserved_mem_range(i, &p_start, &p_end)
 		kmsan_record_future_shadow_range(phys_to_virt(p_start),
 						 phys_to_virt(p_end));
 	/* Allocate shadow for .data */
 	kmsan_record_future_shadow_range(_sdata, _edata);
 
-	for_each_online_node (nid)
+	for_each_online_node(nid)
 		kmsan_record_future_shadow_range(
 			NODE_DATA(nid), (char *)NODE_DATA(nid) + nd_size);
 

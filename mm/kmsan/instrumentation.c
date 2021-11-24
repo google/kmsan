@@ -53,7 +53,6 @@ EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
 		return get_shadow_origin_ptr(addr, size, /*store*/ false);     \
 	}                                                                      \
 	EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);                    \
-                                                                               \
 	struct shadow_origin_ptr __msan_metadata_ptr_for_store_##size(         \
 		void *addr)                                                    \
 	{                                                                      \

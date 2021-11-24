@@ -320,7 +320,7 @@ void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 	struct scatterlist *item;
 	int i;
 
-	for_each_sg (sg, item, nents, i)
+	for_each_sg(sg, item, nents, i)
 		kmsan_handle_dma(sg_page(item), item->offset, item->length,
 				 dir);
 }

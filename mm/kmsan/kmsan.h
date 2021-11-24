@@ -106,7 +106,7 @@ static __always_inline void kmsan_enter_runtime(void)
 	BUG_ON(ctx->kmsan_in_runtime++);
 }
 
-static __always_inline void kmsan_leave_runtime()
+static __always_inline void kmsan_leave_runtime(void)
 {
 	struct kmsan_ctx *ctx = kmsan_get_context();
 
