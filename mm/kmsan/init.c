@@ -9,7 +9,6 @@
 
 #include "kmsan.h"
 
-#include <asm/cpu_entry_area.h>
 #include <asm/sections.h>
 #include <linux/mm.h>
 #include <linux/memblock.h>

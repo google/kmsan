@@ -7,7 +7,6 @@
  *
  */
 
-#include <asm/cpu_entry_area.h>
 #include <asm/page.h>
 #include <asm/pgtable_64_types.h>
 #include <asm/tlbflush.h>
@@ -45,9 +44,6 @@ static void set_no_shadow_origin_page(struct page *page)
 	shadow_page_for(page) = NULL;
 	origin_page_for(page) = NULL;
 }
-
-static DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
-static DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
 
 /*
  * Dummy load and store pages to be used when the real metadata is unavailable.
@@ -109,23 +105,6 @@ static unsigned long vmalloc_meta(void *addr, bool is_origin)
 						KMSAN_MODULES_SHADOW_START);
 	}
 	return 0;
-}
-
-static void *get_cea_meta_or_null(void *addr, bool is_origin)
-{
-	int cpu = smp_processor_id();
-	char *metadata_array;
-	int off;
-
-	if (((u64)addr < CPU_ENTRY_AREA_BASE) ||
-	    ((u64)addr >= (CPU_ENTRY_AREA_BASE + CPU_ENTRY_AREA_MAP_SIZE)))
-		return NULL;
-	off = (char *)addr - (char *)get_cpu_entry_area(cpu);
-	if ((off < 0) || (off >= CPU_ENTRY_AREA_SIZE))
-		return NULL;
-	metadata_array =
-		is_origin ? cpu_entry_area_origin : cpu_entry_area_shadow;
-	return &per_cpu(metadata_array[off], cpu);
 }
 
 static struct page *virt_to_page_or_null(void *vaddr)
@@ -193,10 +172,6 @@ void *kmsan_get_metadata(void *address, bool is_origin)
 	if (kmsan_internal_is_vmalloc_addr(address) ||
 	    kmsan_internal_is_module_addr(address))
 		return (void *)vmalloc_meta(address, is_origin);
-
-	ret = get_cea_meta_or_null(address, is_origin);
-	if (ret)
-		return ret;
 
 	page = virt_to_page_or_null(address);
 	if (!page)
