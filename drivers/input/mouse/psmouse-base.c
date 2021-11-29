@@ -546,13 +546,16 @@ static int genius_detect(struct psmouse *psmouse, bool set_properties)
 {
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
 	u8 param[4];
+	int error;
 
 	param[0] = 3;
 	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRES);
 	ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
 	ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
 	ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
-	ps2_command(ps2dev, param, PSMOUSE_CMD_GETINFO);
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETINFO);
+	if (error)
+		return error;
 
 	if (param[0] != 0x00 || param[1] != 0x33 || param[2] != 0x55)
 		return -ENODEV;
@@ -578,6 +581,7 @@ static int intellimouse_detect(struct psmouse *psmouse, bool set_properties)
 {
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
 	u8 param[2];
+	int error;
 
 	param[0] = 200;
 	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
@@ -585,7 +589,9 @@ static int intellimouse_detect(struct psmouse *psmouse, bool set_properties)
 	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
 	param[0] =  80;
 	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
-	ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	if (error)
+		return error;
 
 	if (param[0] != 3)
 		return -ENODEV;
@@ -611,6 +617,7 @@ static int im_explorer_detect(struct psmouse *psmouse, bool set_properties)
 {
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
 	u8 param[2];
+	int error;
 
 	intellimouse_detect(psmouse, 0);
 
@@ -620,7 +627,9 @@ static int im_explorer_detect(struct psmouse *psmouse, bool set_properties)
 	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
 	param[0] =  80;
 	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
-	ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	if (error)
+		return error;
 
 	if (param[0] != 4)
 		return -ENODEV;
@@ -658,7 +667,7 @@ static int thinking_detect(struct psmouse *psmouse, bool set_properties)
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
 	u8 param[2];
 	static const u8 seq[] = { 20, 60, 40, 20, 20, 60, 40, 20, 20 };
-	int i;
+	int error, i;
 
 	param[0] = 10;
 	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
@@ -668,7 +677,9 @@ static int thinking_detect(struct psmouse *psmouse, bool set_properties)
 		param[0] = seq[i];
 		ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
 	}
-	ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	if (error)
+		return error;
 
 	if (param[0] != 2)
 		return -ENODEV;
