@@ -347,10 +347,13 @@ static inline void *freelist_dereference(const struct kmem_cache *s,
 			    (unsigned long)ptr_addr);
 }
 
+/*
+ * See the comment to get_freepointer_safe().
+ */
 static inline void *get_freepointer(struct kmem_cache *s, void *object)
 {
 	object = kasan_reset_tag(object);
-	return freelist_dereference(s, object + s->offset);
+	return kmsan_init(freelist_dereference(s, object + s->offset));
 }
 
 static void prefetch_freepointer(const struct kmem_cache *s, void *object)
