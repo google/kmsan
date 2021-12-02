@@ -88,7 +88,7 @@ reqsk_alloc(const struct request_sock_ops *ops, struct sock *sk_listener,
 {
 	struct request_sock *req;
 
-	req = kmem_cache_alloc(ops->slab, GFP_ATOMIC | __GFP_NOWARN | __GFP_ZERO);
+	req = kmem_cache_alloc(ops->slab, GFP_ATOMIC | __GFP_NOWARN);
 	if (!req)
 		return NULL;
 	req->rsk_listener = NULL;
