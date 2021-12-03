@@ -198,6 +198,8 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		       address);
 	if (user_addr && reason == REASON_COPY_TO_USER)
 		pr_err("Data copied to user address %px\n", user_addr);
+	pr_err("\n");
+	dump_stack_print_info(KERN_ERR);
 	pr_err("=====================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 	spin_unlock_irqrestore(&kmsan_report_lock, flags);
