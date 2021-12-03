@@ -9,7 +9,7 @@
  *
  */
 
-#include <asm/cacheflush.h>
+#include <linux/cacheflush.h>
 #include <linux/dma-direction.h>
 #include <linux/gfp.h>
 #include <linux/mm.h>

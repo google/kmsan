@@ -10,7 +10,7 @@
 #include <asm/page.h>
 #include <asm/pgtable_64_types.h>
 #include <asm/tlbflush.h>
-#include <asm/cacheflush.h>
+#include <linux/cacheflush.h>
 #include <linux/memblock.h>
 #include <linux/mm_types.h>
 #include <linux/percpu-defs.h>
