@@ -18,7 +18,7 @@
 #define DECLARE_KMSAN_INIT(size, t)                                            \
 	__no_sanitize_memory t kmsan_init_##size(t value)                      \
 	{                                                                      \
-		return (value);                                                \
+		return value;                                                  \
 	}                                                                      \
 	EXPORT_SYMBOL(kmsan_init_##size)
 
