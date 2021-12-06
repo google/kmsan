@@ -9472,7 +9472,7 @@ void __init sched_init(void)
  * This function might be called from code that is not instrumented with KMSAN.
  * Do not instrument it to avoid false positive reports.
  */
-__no_sanitize_memory
+__no_kmsan_checks
 void __might_sleep(const char *file, int line)
 {
 	unsigned int state = get_current_state();
