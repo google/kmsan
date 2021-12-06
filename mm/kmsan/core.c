@@ -125,7 +125,8 @@ void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
 		    KMSAN_ORIGIN_SIZE;
 	KMSAN_BUG_ON(!src_slots || !dst_slots);
 	KMSAN_BUG_ON((src_slots < 1) || (dst_slots < 1));
-	KMSAN_BUG_ON((src_slots - dst_slots > 1) || (dst_slots - src_slots < -1));
+	KMSAN_BUG_ON((src_slots - dst_slots > 1) ||
+		     (dst_slots - src_slots < -1));
 
 	backwards = dst > src;
 	i = backwards ? min(src_slots, dst_slots) - 1 : 0;
