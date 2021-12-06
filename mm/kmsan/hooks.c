@@ -118,7 +118,7 @@ void kmsan_kfree_large(const void *ptr)
 		return;
 	kmsan_enter_runtime();
 	page = virt_to_head_page((void *)ptr);
-	KMSAN_BUG_ON(ptr != page_address(page));
+	KMSAN_WARN_ON(ptr != page_address(page));
 	kmsan_internal_poison_memory((void *)ptr,
 				     PAGE_SIZE << compound_order(page),
 				     GFP_KERNEL,
@@ -380,6 +380,8 @@ EXPORT_SYMBOL(kmsan_gup_pgd_range);
 
 void kmsan_check_memory(const void *addr, size_t size)
 {
+	if (!kmsan_enabled)
+		return;
 	return kmsan_internal_check_memory((void *)addr, size, /*user_addr*/ 0,
 					   REASON_ANY);
 }

@@ -99,7 +99,7 @@ void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
 	shadow_dst = kmsan_get_metadata(dst, KMSAN_META_SHADOW);
 	if (!shadow_dst)
 		return;
-	KMSAN_BUG_ON(!kmsan_metadata_is_contiguous(dst, n));
+	KMSAN_WARN_ON(!kmsan_metadata_is_contiguous(dst, n));
 
 	shadow_src = kmsan_get_metadata(src, KMSAN_META_SHADOW);
 	if (!shadow_src) {
@@ -110,23 +110,23 @@ void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
 		__memset(shadow_dst, 0, n);
 		return;
 	}
-	KMSAN_BUG_ON(!kmsan_metadata_is_contiguous(src, n));
+	KMSAN_WARN_ON(!kmsan_metadata_is_contiguous(src, n));
 
 	__memmove(shadow_dst, shadow_src, n);
 
 	origin_dst = kmsan_get_metadata(dst, KMSAN_META_ORIGIN);
 	origin_src = kmsan_get_metadata(src, KMSAN_META_ORIGIN);
-	KMSAN_BUG_ON(!origin_dst || !origin_src);
+	KMSAN_WARN_ON(!origin_dst || !origin_src);
 	src_slots = (ALIGN((u64)src + n, KMSAN_ORIGIN_SIZE) -
 		     ALIGN_DOWN((u64)src, KMSAN_ORIGIN_SIZE)) /
 		    KMSAN_ORIGIN_SIZE;
 	dst_slots = (ALIGN((u64)dst + n, KMSAN_ORIGIN_SIZE) -
 		     ALIGN_DOWN((u64)dst, KMSAN_ORIGIN_SIZE)) /
 		    KMSAN_ORIGIN_SIZE;
-	KMSAN_BUG_ON(!src_slots || !dst_slots);
-	KMSAN_BUG_ON((src_slots < 1) || (dst_slots < 1));
-	KMSAN_BUG_ON((src_slots - dst_slots > 1) ||
-		     (dst_slots - src_slots < -1));
+	KMSAN_WARN_ON(!src_slots || !dst_slots);
+	KMSAN_WARN_ON((src_slots < 1) || (dst_slots < 1));
+	KMSAN_WARN_ON((src_slots - dst_slots > 1) ||
+		      (dst_slots - src_slots < -1));
 
 	backwards = dst > src;
 	i = backwards ? min(src_slots, dst_slots) - 1 : 0;
@@ -135,7 +135,7 @@ void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
 	align_shadow_src =
 		(u32 *)ALIGN_DOWN((u64)shadow_src, KMSAN_ORIGIN_SIZE);
 	for (step = 0; step < min(src_slots, dst_slots); step++, i += iter) {
-		KMSAN_BUG_ON(i < 0);
+		KMSAN_WARN_ON(i < 0);
 		shadow = align_shadow_src[i];
 		if (i == 0) {
 			/*
@@ -229,7 +229,7 @@ void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b,
 	size_t pad = 0;
 	int i;
 
-	KMSAN_BUG_ON(!kmsan_metadata_is_contiguous(addr, size));
+	KMSAN_WARN_ON(!kmsan_metadata_is_contiguous(addr, size));
 	shadow_start = kmsan_get_metadata(addr, KMSAN_META_SHADOW);
 	if (!shadow_start) {
 		/*
@@ -285,7 +285,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 
 	if (!size)
 		return;
-	KMSAN_BUG_ON(!kmsan_metadata_is_contiguous(addr, size));
+	KMSAN_WARN_ON(!kmsan_metadata_is_contiguous(addr, size));
 	while (pos < size) {
 		chunk_size = min(size - pos,
 				 PAGE_SIZE - ((addr64 + pos) % PAGE_SIZE));
@@ -327,7 +327,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 			}
 			origin = kmsan_get_metadata((void *)(addr64 + pos + i),
 						    KMSAN_META_ORIGIN);
-			KMSAN_BUG_ON(!origin);
+			KMSAN_WARN_ON(!origin);
 			new_origin = *origin;
 			/*
 			 * Encountered new origin - report the previous
@@ -347,7 +347,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 		}
 		pos += chunk_size;
 	}
-	KMSAN_BUG_ON(pos != size);
+	KMSAN_WARN_ON(pos != size);
 	if (cur_origin) {
 		kmsan_enter_runtime();
 		kmsan_report(cur_origin, addr, size, cur_off_start, pos - 1,

@@ -31,8 +31,8 @@ static void __init kmsan_record_future_shadow_range(void *start, void *end)
 	bool merged = false;
 	int i;
 
-	KMSAN_BUG_ON(future_index == NUM_FUTURE_RANGES);
-	KMSAN_BUG_ON((nstart >= nend) || !nstart || !nend);
+	KMSAN_WARN_ON(future_index == NUM_FUTURE_RANGES);
+	KMSAN_WARN_ON((nstart >= nend) || !nstart || !nend);
 	nstart = ALIGN_DOWN(nstart, PAGE_SIZE);
 	nend = ALIGN(nend, PAGE_SIZE);
 
@@ -146,7 +146,7 @@ struct smallstack collect = {
 
 static void smallstack_push(struct smallstack *stack, struct page *pages)
 {
-	KMSAN_BUG_ON(stack->index == MAX_BLOCKS);
+	KMSAN_WARN_ON(stack->index == MAX_BLOCKS);
 	stack->items[stack->index] = pages;
 	stack->index++;
 }
@@ -156,7 +156,7 @@ static struct page *smallstack_pop(struct smallstack *stack)
 {
 	struct page *ret;
 
-	KMSAN_BUG_ON(stack->index == 0);
+	KMSAN_WARN_ON(stack->index == 0);
 	stack->index--;
 	ret = stack->items[stack->index];
 	stack->items[stack->index] = NULL;
@@ -234,5 +234,6 @@ void __init kmsan_init_runtime(void)
 	pr_info("vmalloc area at: %px\n", VMALLOC_START);
 	pr_info("Starting KernelMemorySanitizer\n");
 	kmsan_enabled = true;
+	KMSAN_WARN_ON(true);
 }
 EXPORT_SYMBOL(kmsan_init_runtime);

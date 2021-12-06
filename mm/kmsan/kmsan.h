@@ -34,6 +34,7 @@
 #define KMSAN_META_ORIGIN (true)
 
 extern bool kmsan_enabled;
+extern int panic_on_kmsan;
 
 /*
  * KMSAN performs a lot of consistency checks that are currently enabled by
@@ -41,7 +42,19 @@ extern bool kmsan_enabled;
  * debugging, but KMSAN itself is a debugging tool, so it makes little sense to
  * recover if something goes wrong.
  */
-#define KMSAN_BUG_ON(cond) BUG_ON(cond)
+#define KMSAN_WARN_ON(cond)                                                    \
+	({                                                                     \
+		const bool __cond = WARN_ON(cond);                             \
+		if (unlikely(__cond)) {                                        \
+			WRITE_ONCE(kmsan_enabled, false);                      \
+			if (panic_on_kmsan) {                                  \
+				/* Can't call panic() here because */          \
+				/* of uaccess checks.*/                        \
+				BUG();                                         \
+			}                                                      \
+		}                                                              \
+		__cond;                                                        \
+	})
 
 /*
  * A pair of metadata pointers to be returned by the instrumentation functions.
@@ -111,14 +124,14 @@ static __always_inline void kmsan_enter_runtime(void)
 	struct kmsan_ctx *ctx;
 
 	ctx = kmsan_get_context();
-	KMSAN_BUG_ON(ctx->kmsan_in_runtime++);
+	KMSAN_WARN_ON(ctx->kmsan_in_runtime++);
 }
 
 static __always_inline void kmsan_leave_runtime(void)
 {
 	struct kmsan_ctx *ctx = kmsan_get_context();
 
-	KMSAN_BUG_ON(--ctx->kmsan_in_runtime);
+	KMSAN_WARN_ON(--ctx->kmsan_in_runtime);
 }
 
 depot_stack_handle_t kmsan_save_stack(void);
