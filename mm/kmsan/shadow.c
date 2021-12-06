@@ -127,7 +127,7 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 	 */
 	KMSAN_BUG_ON(size > PAGE_SIZE);
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		goto return_dummy;
 
 	KMSAN_BUG_ON(!kmsan_metadata_is_contiguous(address, size));
@@ -210,7 +210,7 @@ void __init kmsan_init_alloc_meta_for_range(void *start, void *end)
 /* Called from mm/memory.c */
 void kmsan_copy_page_meta(struct page *dst, struct page *src)
 {
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 	if (!dst || !page_has_metadata(dst))
 		return;
@@ -229,7 +229,7 @@ void kmsan_copy_page_meta(struct page *dst, struct page *src)
 /* Called from mm/page_alloc.c */
 void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 {
-	bool initialized = (flags & __GFP_ZERO) || !kmsan_ready;
+	bool initialized = (flags & __GFP_ZERO) || !kmsan_enabled;
 	struct page *shadow, *origin;
 	depot_stack_handle_t handle;
 	int pages = 1 << order;
@@ -278,7 +278,7 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 	struct page **s_pages, **o_pages;
 	int nr, i, mapped;
 
-	if (!kmsan_ready)
+	if (!kmsan_enabled)
 		return;
 
 	shadow_start = vmalloc_meta((void *)start, KMSAN_META_SHADOW);

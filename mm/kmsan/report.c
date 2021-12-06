@@ -147,7 +147,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 	unsigned long flags, ua_flags;
 	bool is_uaf;
 
-	if (!kmsan_ready)
+	if (!kmsan_enabled)
 		return;
 	if (!current->kmsan_ctx.allow_reporting)
 		return;

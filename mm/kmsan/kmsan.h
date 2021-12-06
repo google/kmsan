@@ -33,7 +33,7 @@
 #define KMSAN_META_SHADOW (false)
 #define KMSAN_META_ORIGIN (true)
 
-extern bool kmsan_ready;
+extern bool kmsan_enabled;
 
 /*
  * KMSAN performs a lot of consistency checks that are currently enabled by

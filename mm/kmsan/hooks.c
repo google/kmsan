@@ -40,7 +40,7 @@ void kmsan_task_exit(struct task_struct *task)
 {
 	struct kmsan_ctx *ctx = &task->kmsan_ctx;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 
 	ctx->allow_reporting = false;
@@ -51,7 +51,7 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 {
 	if (unlikely(object == NULL))
 		return;
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 	/*
 	 * There's a ctor or this is an RCU cache - do nothing. The memory
@@ -73,7 +73,7 @@ EXPORT_SYMBOL(kmsan_slab_alloc);
 
 void kmsan_slab_free(struct kmem_cache *s, void *object)
 {
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 
 	/* RCU slabs could be legally used after free within the RCU period */
@@ -97,7 +97,7 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 {
 	if (unlikely(ptr == NULL))
 		return;
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 	kmsan_enter_runtime();
 	if (flags & __GFP_ZERO)
@@ -114,7 +114,7 @@ void kmsan_kfree_large(const void *ptr)
 {
 	struct page *page;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 	kmsan_enter_runtime();
 	page = virt_to_head_page((void *)ptr);
@@ -162,7 +162,7 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	unsigned long off = 0;
 	int i, nr;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 
 	nr = (end - start) / PAGE_SIZE;
@@ -191,7 +191,7 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	struct page *shadow, *origin;
 	int i, nr;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 
 	nr = (end - start) / PAGE_SIZE;
@@ -219,7 +219,7 @@ void kmsan_copy_to_user(const void *to, const void *from, size_t to_copy,
 {
 	unsigned long ua_flags;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 	/*
 	 * At this point we've copied the memory already. It's hard to check it
@@ -330,7 +330,7 @@ EXPORT_SYMBOL(kmsan_handle_dma_sg);
 /* Functions from kmsan-checks.h follow. */
 void kmsan_poison_memory(const void *address, size_t size, gfp_t flags)
 {
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 	kmsan_enter_runtime();
 	/* The users may want to poison/unpoison random memory. */
@@ -344,7 +344,7 @@ void kmsan_unpoison_memory(const void *address, size_t size)
 {
 	unsigned long ua_flags;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 
 	ua_flags = user_access_save();
@@ -391,7 +391,7 @@ void kmsan_instrumentation_begin(struct pt_regs *regs)
 
 	if (state)
 		__memset(state, 0, sizeof(struct kmsan_context_state));
-	if (!kmsan_ready || !regs)
+	if (!kmsan_enabled || !regs)
 		return;
 	kmsan_internal_unpoison_memory(regs, sizeof(*regs), /*checked*/ true);
 }

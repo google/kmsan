@@ -233,6 +233,6 @@ void __init kmsan_init_runtime(void)
 	kmsan_memblock_discard();
 	pr_info("vmalloc area at: %px\n", VMALLOC_START);
 	pr_info("Starting KernelMemorySanitizer\n");
-	kmsan_ready = true;
+	kmsan_enabled = true;
 }
 EXPORT_SYMBOL(kmsan_init_runtime);

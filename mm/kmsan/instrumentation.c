@@ -69,7 +69,7 @@ void __msan_instrument_asm_store(void *addr, uintptr_t size)
 {
 	unsigned long ua_flags;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 
 	ua_flags = user_access_save();
@@ -102,7 +102,7 @@ void *__msan_memmove(void *dst, const void *src, uintptr_t n)
 	if (!n)
 		/* Some people call memmove() with zero length. */
 		return result;
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return result;
 
 	kmsan_internal_memmove_metadata(dst, (void *)src, n);
@@ -120,7 +120,7 @@ void *__msan_memcpy(void *dst, const void *src, uintptr_t n)
 		/* Some people call memcpy() with zero length. */
 		return result;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return result;
 
 	/* Using memmove instead of memcpy doesn't affect correctness. */
@@ -135,7 +135,7 @@ void *__msan_memset(void *dst, int c, uintptr_t n)
 	void *result;
 
 	result = __memset(dst, c, n);
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return result;
 
 	kmsan_enter_runtime();
@@ -155,7 +155,7 @@ depot_stack_handle_t __msan_chain_origin(depot_stack_handle_t origin)
 	depot_stack_handle_t ret = 0;
 	unsigned long ua_flags;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return ret;
 
 	ua_flags = user_access_save();
@@ -175,7 +175,7 @@ void __msan_poison_alloca(void *address, uintptr_t size, char *descr)
 	unsigned long entries[4];
 	unsigned long ua_flags;
 
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 
 	ua_flags = user_access_save();
@@ -205,7 +205,7 @@ EXPORT_SYMBOL(__msan_poison_alloca);
 
 void __msan_unpoison_alloca(void *address, uintptr_t size)
 {
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 
 	kmsan_enter_runtime();
@@ -216,7 +216,7 @@ EXPORT_SYMBOL(__msan_unpoison_alloca);
 
 void __msan_warning(u32 origin)
 {
-	if (!kmsan_ready || kmsan_in_runtime())
+	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 	kmsan_enter_runtime();
 	kmsan_report(origin, /*address*/ 0, /*size*/ 0,

@@ -36,7 +36,7 @@
 #define MAX_CHAIN_DEPTH 7
 #define NUM_SKIPPED_TO_WARN 10000
 
-bool kmsan_ready;
+bool kmsan_enabled __read_mostly;
 
 /*
  * Per-CPU KMSAN context to be used in interrupts, where current->kmsan is
