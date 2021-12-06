@@ -12,30 +12,34 @@ Example report
 Here is an example of a KMSAN report::
 
   =====================================================
-  BUG: KMSAN: uninit-value in test_uninit_kmsan_check_memory+0x115/0x2a0 [kmsan_test]
-   test_uninit_kmsan_check_memory+0x115/0x2a0 mm/kmsan/kmsan_test.c:281
+  BUG: KMSAN: uninit-value in test_uninit_kmsan_check_memory+0x1be/0x380 [kmsan_test]
+   test_uninit_kmsan_check_memory+0x1be/0x380 mm/kmsan/kmsan_test.c:273
    kunit_run_case_internal lib/kunit/test.c:333
    kunit_try_run_case+0x206/0x420 lib/kunit/test.c:374
    kunit_generic_run_threadfn_adapter+0x6d/0xc0 lib/kunit/try-catch.c:28
-   kthread+0x66b/0x780 kernel/kthread.c:319
+   kthread+0x721/0x850 kernel/kthread.c:327
    ret_from_fork+0x1f/0x30 ??:?
 
   Uninit was stored to memory at:
-   do_uninit_local_array+0x1b4/0x440 [kmsan_test]
-   test_uninit_kmsan_check_memory+0xf9/0x2a0 mm/kmsan/kmsan_test.c:279
+   do_uninit_local_array+0xfa/0x110 mm/kmsan/kmsan_test.c:260
+   test_uninit_kmsan_check_memory+0x1a2/0x380 mm/kmsan/kmsan_test.c:271
    kunit_run_case_internal lib/kunit/test.c:333
    kunit_try_run_case+0x206/0x420 lib/kunit/test.c:374
    kunit_generic_run_threadfn_adapter+0x6d/0xc0 lib/kunit/try-catch.c:28
-   kthread+0x66b/0x780 kernel/kthread.c:319
+   kthread+0x721/0x850 kernel/kthread.c:327
    ret_from_fork+0x1f/0x30 ??:?
 
   Local variable uninit created at:
-   do_uninit_local_array+0x70/0x440 [kmsan_test]
-   test_uninit_kmsan_check_memory+0xf9/0x2a0 mm/kmsan/kmsan_test.c:279
+   do_uninit_local_array+0x4a/0x110 mm/kmsan/kmsan_test.c:256
+   test_uninit_kmsan_check_memory+0x1a2/0x380 mm/kmsan/kmsan_test.c:271
 
   Bytes 4-7 of 8 are uninitialized
-  Memory access of size 8 starts at ffff88802ccf7da0
+  Memory access of size 8 starts at ffff888083fe3da0
+
+  CPU: 0 PID: 6731 Comm: kunit_try_catch Tainted: G    B       E     5.16.0-rc3+ #104
+  Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.14.0-2 04/01/2014
   =====================================================
+
 
 The report says that the local variable ``uninit`` was created uninitialized in
 ``do_uninit_local_array()``. The lower stack trace corresponds to the place
