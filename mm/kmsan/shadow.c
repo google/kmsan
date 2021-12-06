@@ -93,7 +93,7 @@ static unsigned long vmalloc_meta(void *addr, bool is_origin)
 {
 	unsigned long addr64 = (unsigned long)addr, off;
 
-	BUG_ON(is_origin && !IS_ALIGNED(addr64, KMSAN_ORIGIN_SIZE));
+	KMSAN_BUG_ON(is_origin && !IS_ALIGNED(addr64, KMSAN_ORIGIN_SIZE));
 	if (kmsan_internal_is_vmalloc_addr(addr)) {
 		off = addr64 - VMALLOC_START;
 		return off + (is_origin ? KMSAN_VMALLOC_ORIGIN_START :
@@ -125,12 +125,12 @@ struct shadow_origin_ptr kmsan_get_shadow_origin_ptr(void *address, u64 size,
 	 * Even if we redirect this memory access to the dummy page, it will
 	 * go out of bounds.
 	 */
-	BUG_ON(size > PAGE_SIZE);
+	KMSAN_BUG_ON(size > PAGE_SIZE);
 
 	if (!kmsan_ready || kmsan_in_runtime())
 		goto return_dummy;
 
-	BUG_ON(!kmsan_metadata_is_contiguous(address, size));
+	KMSAN_BUG_ON(!kmsan_metadata_is_contiguous(address, size));
 	shadow = kmsan_get_metadata(address, KMSAN_META_SHADOW);
 	if (!shadow)
 		goto return_dummy;
@@ -303,10 +303,10 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 	kmsan_enter_runtime();
 	mapped = __vmap_pages_range_noflush(shadow_start, shadow_end, prot,
 					    s_pages, page_shift);
-	BUG_ON(mapped);
+	KMSAN_BUG_ON(mapped);
 	mapped = __vmap_pages_range_noflush(origin_start, origin_end, prot,
 					    o_pages, page_shift);
-	BUG_ON(mapped);
+	KMSAN_BUG_ON(mapped);
 	kmsan_leave_runtime();
 	flush_tlb_kernel_range(shadow_start, shadow_end);
 	flush_tlb_kernel_range(origin_start, origin_end);

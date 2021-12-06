@@ -118,7 +118,7 @@ void kmsan_kfree_large(const void *ptr)
 		return;
 	kmsan_enter_runtime();
 	page = virt_to_head_page((void *)ptr);
-	BUG_ON(ptr != page_address(page));
+	KMSAN_BUG_ON(ptr != page_address(page));
 	kmsan_internal_poison_memory((void *)ptr,
 				     PAGE_SIZE << compound_order(page),
 				     GFP_KERNEL,

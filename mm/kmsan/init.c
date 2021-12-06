@@ -31,8 +31,8 @@ static void __init kmsan_record_future_shadow_range(void *start, void *end)
 	bool merged = false;
 	int i;
 
-	BUG_ON(future_index == NUM_FUTURE_RANGES);
-	BUG_ON((nstart >= nend) || !nstart || !nend);
+	KMSAN_BUG_ON(future_index == NUM_FUTURE_RANGES);
+	KMSAN_BUG_ON((nstart >= nend) || !nstart || !nend);
 	nstart = ALIGN_DOWN(nstart, PAGE_SIZE);
 	nend = ALIGN(nend, PAGE_SIZE);
 
@@ -146,7 +146,7 @@ struct smallstack collect = {
 
 static void smallstack_push(struct smallstack *stack, struct page *pages)
 {
-	BUG_ON(stack->index == MAX_BLOCKS);
+	KMSAN_BUG_ON(stack->index == MAX_BLOCKS);
 	stack->items[stack->index] = pages;
 	stack->index++;
 }
@@ -156,7 +156,7 @@ static struct page *smallstack_pop(struct smallstack *stack)
 {
 	struct page *ret;
 
-	BUG_ON(stack->index == 0);
+	KMSAN_BUG_ON(stack->index == 0);
 	stack->index--;
 	ret = stack->items[stack->index];
 	stack->items[stack->index] = NULL;

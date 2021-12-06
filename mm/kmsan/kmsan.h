@@ -36,6 +36,14 @@
 extern bool kmsan_ready;
 
 /*
+ * KMSAN performs a lot of consistency checks that are currently enabled by
+ * default. BUG_ON is normally discouraged in the kernel, unless used for
+ * debugging, but KMSAN itself is a debugging tool, so it makes little sense to
+ * recover if something goes wrong.
+ */
+#define KMSAN_BUG_ON(cond) BUG_ON(cond)
+
+/*
  * A pair of metadata pointers to be returned by the instrumentation functions.
  */
 struct shadow_origin_ptr {
@@ -103,14 +111,14 @@ static __always_inline void kmsan_enter_runtime(void)
 	struct kmsan_ctx *ctx;
 
 	ctx = kmsan_get_context();
-	BUG_ON(ctx->kmsan_in_runtime++);
+	KMSAN_BUG_ON(ctx->kmsan_in_runtime++);
 }
 
 static __always_inline void kmsan_leave_runtime(void)
 {
 	struct kmsan_ctx *ctx = kmsan_get_context();
 
-	BUG_ON(--ctx->kmsan_in_runtime);
+	KMSAN_BUG_ON(--ctx->kmsan_in_runtime);
 }
 
 depot_stack_handle_t kmsan_save_stack(void);
