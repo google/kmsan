@@ -17,6 +17,10 @@ KCOV_INSTRUMENT := n
 # eventually.
 KCSAN_SANITIZE := n
 
+# Some functions in core.c perform context switching. Apply __no_kmsan_checks
+# to the whole file to avoid false positives.
+KMSAN_ENABLE_CHECKS_core.o := n
+
 ifneq ($(CONFIG_SCHED_OMIT_FRAME_POINTER),y)
 # According to Alan Modra <alan@linuxcare.com.au>, the -fno-omit-frame-pointer is
 # needed for x86 only.  Why this used to be enabled for all architectures is beyond
