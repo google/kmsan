@@ -437,7 +437,8 @@ int psmouse_reset(struct psmouse *psmouse)
 	u8 param[2];
 	int error;
 
-	if (error = ps2_command(&psmouse->ps2dev, param, PSMOUSE_CMD_RESET_BAT))
+	error = ps2_command(&psmouse->ps2dev, param, PSMOUSE_CMD_RESET_BAT);
+	if (error)
 		return error;
 
 	if (param[0] != PSMOUSE_RET_BAT && param[1] != PSMOUSE_RET_ID)
@@ -548,15 +549,20 @@ static int genius_detect(struct psmouse *psmouse, bool set_properties)
 	int error;
 
 	param[0] = 3;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRES))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRES);
+	if (error)
 		return error;
-	if (error = ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11))
+	error = ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
+	if (error)
 		return error;
-	if (error = ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11))
+	error = ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
+	if (error)
 		return error;
-	if (error = ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11))
+	error = ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
+	if (error)
 		return error;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETINFO))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETINFO);
+	if (error)
 		return error;
 
 	if (param[0] != 0x00 || param[1] != 0x33 || param[2] != 0x55)
@@ -586,15 +592,19 @@ static int intellimouse_detect(struct psmouse *psmouse, bool set_properties)
 	int error;
 
 	param[0] = 200;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	if (error)
 		return error;
 	param[0] = 100;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	if (error)
 		return error;
 	param[0] =  80;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	if (error)
 		return error;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	if (error)
 		return error;
 
 	if (param[0] != 3)
@@ -626,15 +636,19 @@ static int im_explorer_detect(struct psmouse *psmouse, bool set_properties)
 	intellimouse_detect(psmouse, 0);
 
 	param[0] = 200;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	if (error)
 		return error;
 	param[0] = 200;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	if (error)
 		return error;
 	param[0] =  80;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	if (error)
 		return error;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	if (error)
 		return error;
 
 	if (param[0] != 4)
@@ -676,17 +690,21 @@ static int thinking_detect(struct psmouse *psmouse, bool set_properties)
 	int error, i;
 
 	param[0] = 10;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	if (error)
 		return error;
 	param[0] = 0;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRES))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRES);
+	if (error)
 		return error;
 	for (i = 0; i < ARRAY_SIZE(seq); i++) {
 		param[0] = seq[i];
-		if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE))
-		return error;
+		error = ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+		if (error)
+			return error;
 	}
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	if (error)
 		return error;
 
 	if (param[0] != 2)
@@ -1278,7 +1296,8 @@ static int psmouse_probe(struct psmouse *psmouse)
 	 * subsequent ID queries, probably due to a firmware bug.
 	 */
 	param[0] = 0xa5;
-	if (error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID))
+	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
+	if (error)
 		return error;
 
 	if (param[0] != 0x00 && param[0] != 0x03 &&
