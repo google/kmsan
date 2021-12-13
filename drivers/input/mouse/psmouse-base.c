@@ -107,6 +107,14 @@ static const struct attribute_group psmouse_attribute_group = {
 	.attrs	= psmouse_attributes,
 };
 
+#define ps2_command_or_return(dev, param, cmd)			\
+	{							\
+		int error = ps2_command((dev), (param), (cmd));	\
+		if (error)					\
+			return error;				\
+		(0);						\
+	}
+
 /*
  * psmouse_mutex protects all operations changing state of mouse
  * (connecting, disconnecting, changing rate or resolution via
@@ -435,11 +443,8 @@ static irqreturn_t psmouse_interrupt(struct serio *serio,
 int psmouse_reset(struct psmouse *psmouse)
 {
 	u8 param[2];
-	int error;
 
-	error = ps2_command(&psmouse->ps2dev, param, PSMOUSE_CMD_RESET_BAT);
-	if (error)
-		return error;
+	ps2_command_or_return(&psmouse->ps2dev, param, PSMOUSE_CMD_RESET_BAT);
 
 	if (param[0] != PSMOUSE_RET_BAT && param[1] != PSMOUSE_RET_ID)
 		return -EIO;
@@ -546,16 +551,13 @@ static int genius_detect(struct psmouse *psmouse, bool set_properties)
 {
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
 	u8 param[4];
-	int error;
 
 	param[0] = 3;
-	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRES);
-	ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
-	ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
-	ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
-	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETINFO);
-	if (error)
-		return error;
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRES);
+	ps2_command_or_return(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
+	ps2_command_or_return(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
+	ps2_command_or_return(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11);
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_GETINFO);
 
 	if (param[0] != 0x00 || param[1] != 0x33 || param[2] != 0x55)
 		return -ENODEV;
@@ -581,17 +583,14 @@ static int intellimouse_detect(struct psmouse *psmouse, bool set_properties)
 {
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
 	u8 param[2];
-	int error;
 
 	param[0] = 200;
-	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRATE);
 	param[0] = 100;
-	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRATE);
 	param[0] =  80;
-	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
-	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
-	if (error)
-		return error;
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_GETID);
 
 	if (param[0] != 3)
 		return -ENODEV;
@@ -617,19 +616,16 @@ static int im_explorer_detect(struct psmouse *psmouse, bool set_properties)
 {
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
 	u8 param[2];
-	int error;
 
 	intellimouse_detect(psmouse, 0);
 
 	param[0] = 200;
-	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRATE);
 	param[0] = 200;
-	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRATE);
 	param[0] =  80;
-	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
-	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
-	if (error)
-		return error;
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_GETID);
 
 	if (param[0] != 4)
 		return -ENODEV;
@@ -667,19 +663,17 @@ static int thinking_detect(struct psmouse *psmouse, bool set_properties)
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
 	u8 param[2];
 	static const u8 seq[] = { 20, 60, 40, 20, 20, 60, 40, 20, 20 };
-	int error, i;
+	int i;
 
 	param[0] = 10;
-	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRATE);
 	param[0] = 0;
-	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRES);
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRES);
 	for (i = 0; i < ARRAY_SIZE(seq); i++) {
 		param[0] = seq[i];
-		ps2_command(ps2dev, param, PSMOUSE_CMD_SETRATE);
+		ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_SETRATE);
 	}
-	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
-	if (error)
-		return error;
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_GETID);
 
 	if (param[0] != 2)
 		return -ENODEV;
@@ -1270,9 +1264,7 @@ static int psmouse_probe(struct psmouse *psmouse)
 	 * subsequent ID queries, probably due to a firmware bug.
 	 */
 	param[0] = 0xa5;
-	error = ps2_command(ps2dev, param, PSMOUSE_CMD_GETID);
-	if (error)
-		return error;
+	ps2_command_or_return(ps2dev, param, PSMOUSE_CMD_GETID);
 
 	if (param[0] != 0x00 && param[0] != 0x03 &&
 	    param[0] != 0x04 && param[0] != 0xff)
