@@ -38,6 +38,10 @@ KCSAN_SANITIZE := n
 KMSAN_SANITIZE_head$(BITS).o				:= n
 KMSAN_SANITIZE_nmi.o					:= n
 
+# Some functions in process_64.c perform context switching.
+# Apply __no_kmsan_checks to the whole file to avoid false positives.
+KMSAN_ENABLE_CHECKS_process_64.o			:= n
+
 OBJECT_FILES_NON_STANDARD_test_nx.o			:= y
 
 ifdef CONFIG_FRAME_POINTER
