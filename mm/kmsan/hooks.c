@@ -19,6 +19,7 @@
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 
+#include "../internal.h"
 #include "../slab.h"
 #include "kmsan.h"
 

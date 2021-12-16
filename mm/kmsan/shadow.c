@@ -18,6 +18,7 @@
 #include <linux/smp.h>
 #include <linux/stddef.h>
 
+#include "../internal.h"
 #include "kmsan.h"
 
 #define shadow_page_for(page) ((page)->kmsan_shadow)
