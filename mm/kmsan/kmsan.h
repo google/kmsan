@@ -186,11 +186,6 @@ void kmsan_setup_meta(struct page *page, struct page *shadow,
 		      struct page *origin, int order);
 
 /* Declared in mm/vmalloc.c */
-void __vunmap_range_noflush(unsigned long start, unsigned long end);
-int __vmap_pages_range_noflush(unsigned long addr, unsigned long end,
-			       pgprot_t prot, struct page **pages,
-			       unsigned int page_shift);
-
 /* Declared in mm/internal.h */
 void __free_pages_core(struct page *page, unsigned int order);
 
