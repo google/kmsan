@@ -185,8 +185,4 @@ struct page *kmsan_vmalloc_to_page_or_null(void *vaddr);
 void kmsan_setup_meta(struct page *page, struct page *shadow,
 		      struct page *origin, int order);
 
-/* Declared in mm/vmalloc.c */
-/* Declared in mm/internal.h */
-void __free_pages_core(struct page *page, unsigned int order);
-
 #endif /* __MM_KMSAN_KMSAN_H */
