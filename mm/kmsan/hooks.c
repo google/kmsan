@@ -396,6 +396,10 @@ void kmsan_instrumentation_begin(struct pt_regs *regs)
 		__memset(state, 0, sizeof(struct kmsan_context_state));
 	if (!kmsan_enabled || !regs)
 		return;
-	kmsan_internal_unpoison_memory(regs, sizeof(*regs), /*checked*/ true);
+	/*
+	 * @regs may reside in cpu_entry_area, for which KMSAN does not allocate
+	 * metadata. Do not force an error in that case.
+	 */
+	kmsan_internal_unpoison_memory(regs, sizeof(*regs), /*checked*/ false);
 }
 EXPORT_SYMBOL(kmsan_instrumentation_begin);
