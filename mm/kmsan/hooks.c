@@ -358,27 +358,6 @@ void kmsan_unpoison_memory(const void *address, size_t size)
 }
 EXPORT_SYMBOL(kmsan_unpoison_memory);
 
-void kmsan_gup_pgd_range(struct page **pages, int nr)
-{
-	void *page_addr;
-	int i;
-
-	/*
-	 * gup_pgd_range() has just created a number of new pages that KMSAN
-	 * treats as uninitialized. In the case they belong to the userspace
-	 * memory, unpoison the corresponding kernel pages.
-	 */
-	for (i = 0; i < nr; i++) {
-		if (PageHighMem(pages[i]))
-			continue;
-		page_addr = page_address(pages[i]);
-		if (((u64)page_addr < TASK_SIZE) &&
-		    ((u64)page_addr + PAGE_SIZE < TASK_SIZE))
-			kmsan_unpoison_memory(page_addr, PAGE_SIZE);
-	}
-}
-EXPORT_SYMBOL(kmsan_gup_pgd_range);
-
 void kmsan_check_memory(const void *addr, size_t size)
 {
 	if (!kmsan_enabled)

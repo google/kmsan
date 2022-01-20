@@ -113,16 +113,6 @@ void kmsan_free_page(struct page *page, unsigned int order);
 void kmsan_copy_page_meta(struct page *dst, struct page *src);
 
 /**
- * kmsan_gup_pgd_range() - Notify KMSAN about a gup_pgd_range() call.
- * @pages: array of struct page pointers.
- * @nr:    array size.
- *
- * gup_pgd_range() creates new pages, some of which may belong to the userspace
- * memory. In that case KMSAN marks them as initialized.
- */
-void kmsan_gup_pgd_range(struct page **pages, int nr);
-
-/**
  * kmsan_slab_alloc() - Notify KMSAN about a slab allocation.
  * @s:      slab cache the object belongs to.
  * @object: object pointer.
@@ -291,10 +281,6 @@ static inline void kmsan_free_page(struct page *page, unsigned int order)
 }
 
 static inline void kmsan_copy_page_meta(struct page *dst, struct page *src)
-{
-}
-
-static inline void kmsan_gup_pgd_range(struct page **pages, int nr)
 {
 }
 
