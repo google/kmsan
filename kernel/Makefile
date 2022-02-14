@@ -40,6 +40,11 @@ KASAN_SANITIZE_kcov.o := n
 KCSAN_SANITIZE_kcov.o := n
 UBSAN_SANITIZE_kcov.o := n
 KMSAN_SANITIZE_kcov.o := n
+
+# Code in stactrace.c may branch on random values taken from the stack.
+# Prevent KMSAN false positives by not instrumenting this file.
+KMSAN_SANITIZE_stacktrace.o := n
+
 CFLAGS_kcov.o := $(call cc-option, -fno-conserve-stack) -fno-stack-protector
 
 # Don't instrument error handlers
