@@ -45,6 +45,18 @@ struct kmsan_ctx {
 };
 
 /**
+ * kmsan_init_shadow() - Initialize KMSAN shadow at boot time.
+ *
+ * Allocate and initialize KMSAN metadata for early allocations.
+ */
+void __init kmsan_init_shadow(void);
+
+/**
+ * kmsan_init_runtime() - Initialize KMSAN state and enable KMSAN.
+ */
+void __init kmsan_init_runtime(void);
+
+/**
  * kmsan_memblock_free_pages() - handle freeing of memblock pages.
  * @page:	struct page to free.
  * @order:	order of @page.
@@ -186,6 +198,14 @@ void kmsan_ioremap_page_range(unsigned long addr, unsigned long end,
 void kmsan_iounmap_page_range(unsigned long start, unsigned long end);
 
 #else
+
+static inline void kmsan_init_shadow(void)
+{
+}
+
+static inline void kmsan_init_runtime(void)
+{
+}
 
 static inline bool kmsan_memblock_free_pages(struct page *page,
 					     unsigned int order)
