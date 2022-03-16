@@ -60,6 +60,16 @@ void __init kmsan_init_shadow(void);
 void __init kmsan_init_runtime(void);
 
 /**
+ * kmsan_memblock_free_pages() - handle freeing of memblock pages.
+ * @page:	struct page to free.
+ * @order:	order of @page.
+ *
+ * Freed pages are either returned to buddy allocator or held back to be used
+ * as metadata pages.
+ */
+bool __init kmsan_memblock_free_pages(struct page *page, unsigned int order);
+
+/**
  * kmsan_task_create() - Initialize KMSAN state for the task.
  * @task: task to initialize.
  */
@@ -244,6 +254,12 @@ static inline void kmsan_init_shadow(void)
 
 static inline void kmsan_init_runtime(void)
 {
+}
+
+static inline bool kmsan_memblock_free_pages(struct page *page,
+					     unsigned int order)
+{
+	return true;
 }
 
 static inline void kmsan_task_create(struct task_struct *task)
