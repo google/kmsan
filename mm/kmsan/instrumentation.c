@@ -79,7 +79,7 @@ void __msan_instrument_asm_store(void *addr, uintptr_t size)
 	 * It's unlikely that the assembly will touch more than 512 bytes.
 	 */
 	if (size > 512) {
-		WARN_ONCE(1, "assembly store size too big: %d\n", size);
+		WARN_ONCE(1, "assembly store size too big: %ld\n", size);
 		size = 8;
 	}
 	if (is_bad_asm_addr(addr, size, /*is_store*/ true)) {
