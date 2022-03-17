@@ -267,7 +267,14 @@ void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 /* Called from mm/page_alloc.c */
 void kmsan_free_page(struct page *page, unsigned int order)
 {
-	return; // really nothing to do here. Could rewrite shadow instead.
+        if (!kmsan_enabled || kmsan_in_runtime())
+                return;
+        kmsan_enter_runtime();
+        kmsan_internal_poison_memory(page_address(page),
+                                     PAGE_SIZE << compound_order(page),
+                                     GFP_KERNEL,
+                                     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
+        kmsan_leave_runtime();
 }
 
 /* Called from mm/vmalloc.c */
