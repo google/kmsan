@@ -233,7 +233,6 @@ void __init kmsan_init_runtime(void)
 	/* Assuming current is init_task */
 	kmsan_internal_task_create(current);
 	kmsan_memblock_discard();
-	pr_info("vmalloc area at: %px\n", VMALLOC_START);
 	pr_info("Starting KernelMemorySanitizer\n");
 	pr_info("ATTENTION: KMSAN is a debugging tool! Do not use it on production machines!\n");
 	kmsan_enabled = true;
