@@ -177,7 +177,8 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		stack_trace_save(stack_entries, KMSAN_STACK_DEPTH, 1);
 	skipnr = get_stack_skipnr(stack_entries, num_stack_entries);
 
-	pr_err("BUG: KMSAN: %s in %pS\n", bug_type, stack_entries[skipnr]);
+	pr_err("BUG: KMSAN: %s in %pS\n",
+	       bug_type, (void *)stack_entries[skipnr]);
 	stack_trace_print(stack_entries + skipnr, num_stack_entries - skipnr,
 			  0);
 	pr_err("\n");
