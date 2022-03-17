@@ -204,7 +204,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 		long skipped = atomic_long_inc_return(&kmsan_skipped_origins);
 
 		if (skipped % NUM_SKIPPED_TO_WARN == 0) {
-			pr_warn("not chained %d origins\n", skipped);
+			pr_warn("not chained %ld origins\n", skipped);
 			dump_stack();
 			kmsan_print_origin(id);
 		}
@@ -237,7 +237,7 @@ void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b,
 		 * and origin pages are NULL, or all are non-NULL.
 		 */
 		if (checked) {
-			pr_err("%s: not memsetting %d bytes starting at %px, because the shadow is NULL\n",
+			pr_err("%s: not memsetting %ld bytes starting at %px, because the shadow is NULL\n",
 			       __func__, size, addr);
 			BUG();
 		}
@@ -399,9 +399,9 @@ bool kmsan_metadata_is_contiguous(void *addr, size_t size)
 
 report:
 	pr_err("%s: attempting to access two shadow page ranges.\n", __func__);
-	pr_err("Access of size %d at %px.\n", size, addr);
+	pr_err("Access of size %ld at %px.\n", size, addr);
 	pr_err("Addresses belonging to different ranges: %px and %px\n",
-	       cur_addr, next_addr);
+	       (void *)cur_addr, (void *)next_addr);
 	pr_err("page[0].shadow: %px, page[1].shadow: %px\n", cur_shadow,
 	       next_shadow);
 	pr_err("page[0].origin: %px, page[1].origin: %px\n", cur_origin,
