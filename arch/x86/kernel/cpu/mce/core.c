@@ -1376,7 +1376,7 @@ static void queue_task_work(struct mce *m, char *msg, void (*func)(struct callba
 /* Handle unconfigured int18 (should never happen) */
 static noinstr void unexpected_machine_check(struct pt_regs *regs)
 {
-	instrumentation_begin();
+	instrumentation_begin_with_regs(regs);
 	pr_err("CPU#%d: Unexpected int18 (Machine Check)\n",
 	       smp_processor_id());
 	instrumentation_end();
