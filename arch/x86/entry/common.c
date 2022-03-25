@@ -14,6 +14,7 @@
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/errno.h>
+#include <linux/kmsan.h>
 #include <linux/ptrace.h>
 #include <linux/export.h>
 #include <linux/nospec.h>
@@ -75,7 +76,7 @@ __visible noinstr void do_syscall_64(struct pt_regs *regs, int nr)
 	add_random_kstack_offset();
 	nr = syscall_enter_from_user_mode(regs, nr);
 
-	instrumentation_begin();
+	instrumentation_begin_with_regs(regs);
 
 	if (!do_syscall_x64(regs, nr) && !do_syscall_x32(regs, nr) && nr != -1) {
 		/* Invalid system call, but still a system call. */
