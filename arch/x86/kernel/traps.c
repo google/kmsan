@@ -229,7 +229,7 @@ static noinstr bool handle_bug(struct pt_regs *regs)
 	/*
 	 * All lies, just get the WARN/BUG out.
 	 */
-	instrumentation_begin();
+	instrumentation_begin_with_regs(regs);
 	/*
 	 * Since we're emulating a CALL with exceptions, restore the interrupt
 	 * state to what it was at the exception site.
@@ -260,7 +260,7 @@ DEFINE_IDTENTRY_RAW(exc_invalid_op)
 		return;
 
 	state = irqentry_enter(regs);
-	instrumentation_begin();
+	instrumentation_begin_with_regs(regs);
 	handle_invalid_op(regs);
 	instrumentation_end();
 	irqentry_exit(regs, state);
@@ -414,7 +414,7 @@ DEFINE_IDTENTRY_DF(exc_double_fault)
 #endif
 
 	irqentry_nmi_enter(regs);
-	instrumentation_begin();
+	instrumentation_begin_with_regs(regs);
 	notify_die(DIE_TRAP, str, regs, error_code, X86_TRAP_DF, SIGSEGV);
 
 	tsk->thread.error_code = error_code;
@@ -690,14 +690,14 @@ DEFINE_IDTENTRY_RAW(exc_int3)
 	 */
 	if (user_mode(regs)) {
 		irqentry_enter_from_user_mode(regs);
-		instrumentation_begin();
+		instrumentation_begin_with_regs(regs);
 		do_int3_user(regs);
 		instrumentation_end();
 		irqentry_exit_to_user_mode(regs);
 	} else {
 		irqentry_state_t irq_state = irqentry_nmi_enter(regs);
 
-		instrumentation_begin();
+		instrumentation_begin_with_regs(regs);
 		if (!do_int3(regs))
 			die("int3", regs, 0);
 		instrumentation_end();
@@ -896,7 +896,7 @@ static __always_inline void exc_debug_kernel(struct pt_regs *regs,
 	 */
 	unsigned long dr7 = local_db_save();
 	irqentry_state_t irq_state = irqentry_nmi_enter(regs);
-	instrumentation_begin();
+	instrumentation_begin_with_regs(regs);
 
 	/*
 	 * If something gets miswired and we end up here for a user mode
@@ -975,7 +975,7 @@ static __always_inline void exc_debug_user(struct pt_regs *regs,
 	 */
 
 	irqentry_enter_from_user_mode(regs);
-	instrumentation_begin();
+	instrumentation_begin_with_regs(regs);
 
 	/*
 	 * Start the virtual/ptrace DR6 value with just the DR_STEP mask
