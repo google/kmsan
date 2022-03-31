@@ -103,9 +103,9 @@ void kmsan_print_origin(depot_stack_handle_t origin)
 			pr_err("Local variable %s created at:\n",
 			       pretty_descr(descr));
 			if (pc1)
-				pr_err(" %pS\n", pc1);
+				pr_err(" %pSb\n", pc1);
 			if (pc2)
-				pr_err(" %pS\n", pc2);
+				pr_err(" %pSb\n", pc2);
 			break;
 		}
 		if ((nr_entries == 3) && (magic == KMSAN_CHAIN_MAGIC_ORIGIN)) {
@@ -177,7 +177,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		stack_trace_save(stack_entries, KMSAN_STACK_DEPTH, 1);
 	skipnr = get_stack_skipnr(stack_entries, num_stack_entries);
 
-	pr_err("BUG: KMSAN: %s in %pS\n",
+	pr_err("BUG: KMSAN: %s in %pSb\n",
 	       bug_type, (void *)stack_entries[skipnr]);
 	stack_trace_print(stack_entries + skipnr, num_stack_entries - skipnr,
 			  0);
