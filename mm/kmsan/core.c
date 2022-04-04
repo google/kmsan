@@ -78,7 +78,6 @@ depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
 	unsigned int nr_entries;
 
 	nr_entries = stack_trace_save(entries, KMSAN_STACK_DEPTH, 0);
-	nr_entries = filter_irq_stacks(entries, nr_entries);
 
 	/* Don't sleep (see might_sleep_if() in __alloc_pages_nodemask()). */
 	flags &= ~__GFP_DIRECT_RECLAIM;
@@ -252,6 +251,12 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	entries[0] = KMSAN_CHAIN_MAGIC_ORIGIN;
 	entries[1] = kmsan_save_stack_with_flags(GFP_ATOMIC, 0);
 	entries[2] = id;
+	/*
+	 * @entries is a local var in non-instrumented code, so KMSAN does not
+	 * know it is initialized. Explicitly unpoison it to avoid false
+	 * positives when __stack_depot_save() passes it to instrumented code.
+	 */
+	kmsan_internal_unpoison_memory(entries, sizeof(entries), false);
 	return __stack_depot_save(entries, ARRAY_SIZE(entries), extra_bits,
 				  GFP_ATOMIC, true);
 }
