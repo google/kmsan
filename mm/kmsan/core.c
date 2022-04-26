@@ -280,7 +280,7 @@ void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b,
 		if (checked) {
 			pr_err("%s: not memsetting %ld bytes starting at %px, because the shadow is NULL\n",
 			       __func__, size, addr);
-			BUG();
+			KMSAN_WARN_ON(true);
 		}
 		return;
 	}
