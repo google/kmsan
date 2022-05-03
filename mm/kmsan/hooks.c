@@ -369,12 +369,14 @@ EXPORT_SYMBOL(kmsan_check_memory);
 
 void kmsan_instrumentation_begin(struct pt_regs *regs)
 {
-	struct kmsan_context_state *state = &kmsan_get_context()->cstate;
+	struct kmsan_context_state *state;
 
+	if (!kmsan_enabled)
+		return;
+
+	state = &kmsan_get_context()->cstate;
 	if (state)
 		__memset(state, 0, sizeof(struct kmsan_context_state));
-	if (!kmsan_enabled || !regs)
-		return;
 	/*
 	 * @regs may reside in cpu_entry_area, for which KMSAN does not allocate
 	 * metadata. Do not force an error in that case.
