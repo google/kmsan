@@ -193,7 +193,7 @@ static void collect_split(void)
 		smallstack_push(&tmp, &page[0]);
 		smallstack_push(&tmp, &page[1 << tmp.order]);
 	}
-	__memcpy(&collect, &tmp, sizeof(struct smallstack));
+	__memcpy(&collect, &tmp, sizeof(tmp));
 }
 
 /*
