@@ -47,11 +47,11 @@ DEFINE_PER_CPU(struct kmsan_ctx, kmsan_percpu_ctx);
 void kmsan_internal_task_create(struct task_struct *task)
 {
 	struct kmsan_ctx *ctx = &task->kmsan_ctx;
+	struct thread_info *info = current_thread_info();
 
-	__memset(ctx, 0, sizeof(struct kmsan_ctx));
+	__memset(ctx, 0, sizeof(*ctx));
 	ctx->allow_reporting = true;
-	kmsan_internal_unpoison_memory(current_thread_info(),
-				       sizeof(struct thread_info), false);
+	kmsan_internal_unpoison_memory(info, sizeof(*info), false);
 }
 
 void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
