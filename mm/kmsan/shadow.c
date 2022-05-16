@@ -233,7 +233,7 @@ void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	kmsan_leave_runtime();
 	/*
 	 * Addresses are page-aligned, pages are contiguous, so it's ok
-	 * to just fill the origin pages with |handle|.
+	 * to just fill the origin pages with @handle.
 	 */
 	for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++)
 		((depot_stack_handle_t *)page_address(origin))[i] = handle;
