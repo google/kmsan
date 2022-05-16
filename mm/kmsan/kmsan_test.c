@@ -156,7 +156,7 @@ static void test_uninit_kmalloc(struct kunit *test)
 	int *ptr;
 
 	kunit_info(test, "uninitialized kmalloc test (UMR report)\n");
-	ptr = kmalloc(sizeof(int), GFP_KERNEL);
+	ptr = kmalloc(sizeof(*ptr), GFP_KERNEL);
 	USE(*ptr);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
@@ -170,8 +170,8 @@ static void test_init_kmalloc(struct kunit *test)
 	int *ptr;
 
 	kunit_info(test, "initialized kmalloc test (no reports)\n");
-	ptr = kmalloc(sizeof(int), GFP_KERNEL);
-	memset(ptr, 0, sizeof(int));
+	ptr = kmalloc(sizeof(*ptr), GFP_KERNEL);
+	memset(ptr, 0, sizeof(*ptr));
 	USE(*ptr);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
@@ -183,7 +183,7 @@ static void test_init_kzalloc(struct kunit *test)
 	int *ptr;
 
 	kunit_info(test, "initialized kzalloc test (no reports)\n");
-	ptr = kzalloc(sizeof(int), GFP_KERNEL);
+	ptr = kzalloc(sizeof(*ptr), GFP_KERNEL);
 	USE(*ptr);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
@@ -304,7 +304,7 @@ static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 
 	kunit_info(test, "pages initialized via vmap (no reports)\n");
 
-	pages = kmalloc_array(npages, sizeof(struct page), GFP_KERNEL);
+	pages = kmalloc_array(npages, sizeof(*pages), GFP_KERNEL);
 	for (i = 0; i < npages; i++)
 		pages[i] = alloc_page(GFP_KERNEL);
 	vbuf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
