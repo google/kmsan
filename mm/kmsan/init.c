@@ -141,7 +141,7 @@ struct smallstack {
 	int order;
 };
 
-struct smallstack collect = {
+static struct smallstack collect = {
 	.index = 0,
 	.order = MAX_ORDER,
 };
@@ -206,12 +206,12 @@ static void kmsan_memblock_discard(void)
 
 	/*
 	 * For each order=N:
-	 *  - push held_back[N].shadow and .origin to |collect|;
-	 *  - while there are >= 3 elements in |collect|, do garbage collection:
-	 *    - pop 3 ranges from |collect|;
+	 *  - push held_back[N].shadow and .origin to @collect;
+	 *  - while there are >= 3 elements in @collect, do garbage collection:
+	 *    - pop 3 ranges from @collect;
 	 *    - use two of them as shadow and origin for the third one;
 	 *    - repeat;
-	 *  - split each remaining element from |collect| into 2 ranges of
+	 *  - split each remaining element from @collect into 2 ranges of
 	 *    order=N-1,
 	 *  - repeat.
 	 */
