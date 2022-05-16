@@ -3,13 +3,15 @@ config HAVE_ARCH_KMSAN
 	bool
 
 config HAVE_KMSAN_COMPILER
-	def_bool (CC_IS_CLANG && $(cc-option,-fsanitize=kernel-memory -mllvm -msan-disable-checks=1))
+	# Clang versions <14.0.0 also support -fsanitize=kernel-memory, but not
+	# all the features necessary to build the kernel with KMSAN.
+	depends on CC_IS_CLANG && CLANG_VERSION >= 140000
+	def_bool $(cc-option,-fsanitize=kernel-memory -mllvm -msan-disable-checks=1)
 
 config KMSAN
 	bool "KMSAN: detector of uninitialized values use"
 	depends on HAVE_ARCH_KMSAN && HAVE_KMSAN_COMPILER
 	depends on SLUB && DEBUG_KERNEL && !KASAN && !KCSAN
-	depends on CC_IS_CLANG && CLANG_VERSION >= 140000
 	select STACKDEPOT
 	select STACKDEPOT_ALWAYS_INIT
 	help
