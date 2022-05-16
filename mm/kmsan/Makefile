@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Makefile for KernelMemorySanitizer (KMSAN).
+#
+#
 obj-y := core.o instrumentation.o init.o hooks.o report.o shadow.o annotations.o
 
 KMSAN_SANITIZE := n
