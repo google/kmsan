@@ -103,7 +103,7 @@ void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
 	shadow_src = kmsan_get_metadata(src, KMSAN_META_SHADOW);
 	if (!shadow_src) {
 		/*
-		 * |src| is untracked: zero out destination shadow, ignore the
+		 * @src is untracked: zero out destination shadow, ignore the
 		 * origins, we're done.
 		 */
 		__memset(shadow_dst, 0, n);
@@ -137,8 +137,8 @@ void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
 		shadow = align_shadow_src[i];
 		if (i == 0) {
 			/*
-			 * If |src| isn't aligned on KMSAN_ORIGIN_SIZE, don't
-			 * look at the first |src % KMSAN_ORIGIN_SIZE| bytes
+			 * If @src isn't aligned on KMSAN_ORIGIN_SIZE, don't
+			 * look at the first @src % KMSAN_ORIGIN_SIZE bytes
 			 * of the first shadow slot.
 			 */
 			skip_bits = ((u64)src % KMSAN_ORIGIN_SIZE) * 8;
@@ -146,9 +146,9 @@ void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
 		}
 		if (i == src_slots - 1) {
 			/*
-			 * If |src + n| isn't aligned on
+			 * If @src + n isn't aligned on
 			 * KMSAN_ORIGIN_SIZE, don't look at the last
-			 * |(src + n) % KMSAN_ORIGIN_SIZE| bytes of the
+			 * (@src + n) % KMSAN_ORIGIN_SIZE bytes of the
 			 * last shadow slot.
 			 */
 			skip_bits = (((u64)src + n) % KMSAN_ORIGIN_SIZE) * 8;
@@ -225,7 +225,7 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	if (!id)
 		return id;
 	/*
-	 * Make sure we have enough spare bits in |id| to hold the UAF bit and
+	 * Make sure we have enough spare bits in @id to hold the UAF bit and
 	 * the chain depth.
 	 */
 	BUILD_BUG_ON((1 << STACK_DEPOT_EXTRA_BITS) <= (MAX_CHAIN_DEPTH << 1));
