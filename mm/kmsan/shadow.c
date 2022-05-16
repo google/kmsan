@@ -268,8 +268,8 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 		return;
 
 	nr = (end - start) / PAGE_SIZE;
-	s_pages = kcalloc(nr, sizeof(struct page *), GFP_KERNEL);
-	o_pages = kcalloc(nr, sizeof(struct page *), GFP_KERNEL);
+	s_pages = kcalloc(nr, sizeof(*s_pages), GFP_KERNEL);
+	o_pages = kcalloc(nr, sizeof(*o_pages), GFP_KERNEL);
 	if (!s_pages || !o_pages)
 		goto ret;
 	for (i = 0; i < nr; i++) {
