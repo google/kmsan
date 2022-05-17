@@ -7,8 +7,7 @@
  *
  */
 
-#include <asm/page.h>
-#include <asm/pgtable_64_types.h>
+#include <asm/kmsan.h>
 #include <asm/tlbflush.h>
 #include <linux/cacheflush.h>
 #include <linux/memblock.h>
@@ -53,42 +52,6 @@ static void set_no_shadow_origin_page(struct page *page)
  */
 static char dummy_load_page[PAGE_SIZE] __aligned(PAGE_SIZE);
 static char dummy_store_page[PAGE_SIZE] __aligned(PAGE_SIZE);
-
-/*
- * Taken from arch/x86/mm/physaddr.h to avoid using an instrumented version.
- */
-static bool kmsan_phys_addr_valid(unsigned long addr)
-{
-	if (IS_ENABLED(CONFIG_PHYS_ADDR_T_64BIT))
-		return !(addr >> boot_cpu_data.x86_phys_bits);
-	else
-		return true;
-}
-
-/*
- * Taken from arch/x86/mm/physaddr.c to avoid using an instrumented version.
- */
-static bool kmsan_virt_addr_valid(void *addr)
-{
-	unsigned long x = (unsigned long)addr;
-	unsigned long y = x - __START_KERNEL_map;
-
-	/* use the carry flag to determine if x was < __START_KERNEL_map */
-	if (unlikely(x > y)) {
-		x = y + phys_base;
-
-		if (y >= KERNEL_IMAGE_SIZE)
-			return false;
-	} else {
-		x = y + (__START_KERNEL_map - PAGE_OFFSET);
-
-		/* carry flag will be set if starting x was >= PAGE_OFFSET */
-		if ((x > y) || !kmsan_phys_addr_valid(x))
-			return false;
-	}
-
-	return pfn_valid(x >> PAGE_SHIFT);
-}
 
 static unsigned long vmalloc_meta(void *addr, bool is_origin)
 {
