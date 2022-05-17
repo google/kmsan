@@ -126,7 +126,6 @@ void *kmsan_get_metadata(void *address, bool is_origin)
 {
 	u64 addr = (u64)address, pad, off;
 	struct page *page;
-	void *ret;
 
 	if (is_origin && !IS_ALIGNED(addr, KMSAN_ORIGIN_SIZE)) {
 		pad = addr % KMSAN_ORIGIN_SIZE;
@@ -144,8 +143,7 @@ void *kmsan_get_metadata(void *address, bool is_origin)
 		return NULL;
 	off = addr % PAGE_SIZE;
 
-	ret = (is_origin ? origin_ptr_for(page) : shadow_ptr_for(page)) + off;
-	return ret;
+	return (is_origin ? origin_ptr_for(page) : shadow_ptr_for(page)) + off;
 }
 
 void kmsan_copy_page_meta(struct page *dst, struct page *src)
