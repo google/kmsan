@@ -15,7 +15,7 @@
 
 #include "kmsan.h"
 
-static DEFINE_SPINLOCK(kmsan_report_lock);
+static DEFINE_RAW_SPINLOCK(kmsan_report_lock);
 #define DESCR_SIZE 128
 /* Protected by kmsan_report_lock */
 static char report_local_descr[DESCR_SIZE];
@@ -144,7 +144,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 	unsigned long stack_entries[KMSAN_STACK_DEPTH];
 	int num_stack_entries, skipnr;
 	char *bug_type = NULL;
-	unsigned long flags, ua_flags;
+	unsigned long ua_flags;
 	bool is_uaf;
 
 	if (!kmsan_enabled)
@@ -156,7 +156,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 
 	current->kmsan_ctx.allow_reporting = false;
 	ua_flags = user_access_save();
-	spin_lock_irqsave(&kmsan_report_lock, flags);
+	raw_spin_lock(&kmsan_report_lock);
 	pr_err("=====================================================\n");
 	is_uaf = kmsan_uaf_from_eb(stack_depot_get_extra_bits(origin));
 	switch (reason) {
@@ -203,7 +203,7 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 	dump_stack_print_info(KERN_ERR);
 	pr_err("=====================================================\n");
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
-	spin_unlock_irqrestore(&kmsan_report_lock, flags);
+	raw_spin_unlock(&kmsan_report_lock);
 	if (panic_on_kmsan)
 		panic("kmsan.panic set ...\n");
 	user_access_restore(ua_flags);
