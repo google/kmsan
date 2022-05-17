@@ -57,12 +57,12 @@ static char dummy_store_page[PAGE_SIZE] __aligned(PAGE_SIZE);
 /*
  * Taken from arch/x86/mm/physaddr.h to avoid using an instrumented version.
  */
-static int kmsan_phys_addr_valid(unsigned long addr)
+static bool kmsan_phys_addr_valid(unsigned long addr)
 {
 	if (IS_ENABLED(CONFIG_PHYS_ADDR_T_64BIT))
 		return !(addr >> boot_cpu_data.x86_phys_bits);
 	else
-		return 1;
+		return true;
 }
 
 /*
