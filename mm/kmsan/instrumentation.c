@@ -122,7 +122,9 @@ void *__msan_memmove(void *dst, const void *src, uintptr_t n)
 	if (!kmsan_enabled || kmsan_in_runtime())
 		return result;
 
+	kmsan_enter_runtime();
 	kmsan_internal_memmove_metadata(dst, (void *)src, n);
+	kmsan_leave_runtime();
 
 	return result;
 }
@@ -141,8 +143,10 @@ void *__msan_memcpy(void *dst, const void *src, uintptr_t n)
 	if (!kmsan_enabled || kmsan_in_runtime())
 		return result;
 
+	kmsan_enter_runtime();
 	/* Using memmove instead of memcpy doesn't affect correctness. */
 	kmsan_internal_memmove_metadata(dst, (void *)src, n);
+	kmsan_leave_runtime();
 
 	return result;
 }
