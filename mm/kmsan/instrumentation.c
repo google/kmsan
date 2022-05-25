@@ -263,37 +263,25 @@ void __msan_warning(u32 origin)
 EXPORT_SYMBOL(__msan_warning);
 
 /*
- * Clean the context state when calling an instrumented function from a
- * non-instrumented one.
- * Instrumented functions take arguments' metadata from the context state, but
- * if the caller is uninstrumented, that metadata is not properly set up, which
- * may lead to false positive or false negative reports.
- * We conservatively wipe the context state in the case the current function was
- * called from one marked as noinstr. This prevents false positives, yet may
- * still cause false negatives.
- */
-static inline void wipe_context_state(struct kmsan_context_state *state) {
-	u64 save_overflow_size = state->va_arg_overflow_size_tls;
-
-	__memset(state, 0, sizeof(*state));
-	state->va_arg_overflow_size_tls = save_overflow_size;
-}
-
-/*
  * At the beginning of an instrumented function, obtain the pointer to
  * `struct kmsan_context_state` holding the metadata for function parameters.
  *
  * Instrumentation code passes the value of __builtin_return_address(0) to
  * __msan_get_context_state(), which lets KMSAN detect the cases when @caller
- * is a noinstr function.
+ * is a noinstr function. In that case we conservatively wipe the context state
+ * to prevent false positive reports caused by the shadow/origins for the
+ * function arguments not being properly set up.
  */
 struct kmsan_context_state *__msan_get_context_state(void *caller)
 {
 	char *cl = (char *)caller;
 	struct kmsan_context_state *state = &kmsan_get_context()->cstate;
+	unsigned long ua_flags;
 
 	if (unlikely(cl >= __noinstr_text_start && cl < __noinstr_text_end)) {
-		wipe_context_state(state);
+		ua_flags = user_access_save();
+		__memset(state, 0, sizeof(*state));
+		user_access_restore(ua_flags);
 	}
 	return state;
 }
