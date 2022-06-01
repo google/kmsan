@@ -272,17 +272,21 @@ EXPORT_SYMBOL(__msan_warning);
  * to prevent false positive reports caused by the shadow/origins for the
  * function arguments not being properly set up.
  */
-struct kmsan_context_state *__msan_get_context_state(void *caller)
+struct kmsan_context_state *__msan_get_context_state_caller(void *caller)
 {
 	char *cl = (char *)caller;
 	struct kmsan_context_state *state = &kmsan_get_context()->cstate;
-	unsigned long ua_flags;
 
 	if (unlikely(cl >= __noinstr_text_start && cl < __noinstr_text_end)) {
-		ua_flags = user_access_save();
 		__memset(state, 0, sizeof(*state));
-		user_access_restore(ua_flags);
 	}
+	return state;
+}
+EXPORT_SYMBOL(__msan_get_context_state_caller);
+
+struct kmsan_context_state *__msan_get_context_state(void)
+{
+	struct kmsan_context_state *state = &kmsan_get_context()->cstate;
 	return state;
 }
 EXPORT_SYMBOL(__msan_get_context_state);
