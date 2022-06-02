@@ -14,7 +14,6 @@
 #include <linux/kmsan-checks.h>
 #include <linux/stackdepot.h>
 #include <linux/types.h>
-#include <linux/vmalloc.h>
 
 struct page;
 struct kmem_cache;
