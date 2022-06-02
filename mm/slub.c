@@ -6015,7 +6015,7 @@ static int sysfs_slab_alias(struct kmem_cache *s, const char *name)
 	al->name = name;
 	al->next = alias_list;
 	alias_list = al;
-	kmsan_unpoison_memory(al, sizeof(struct saved_alias));
+	kmsan_unpoison_memory(al, sizeof(*al));
 	return 0;
 }
 
