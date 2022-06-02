@@ -158,7 +158,7 @@ static void kcov_remote_area_put(struct kcov_remote_area *area,
 	 * is initialized. Unpoison it explicitly to avoid reports in
 	 * kcov_remote_area_get().
 	 */
-	kmsan_unpoison_memory(&area->list, sizeof(struct list_head));
+	kmsan_unpoison_memory(&area->list, sizeof(area->list));
 }
 
 static notrace bool check_kcov_mode(enum kcov_mode needed_mode, struct task_struct *t)
