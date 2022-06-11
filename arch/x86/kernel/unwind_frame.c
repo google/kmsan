@@ -183,6 +183,7 @@ static struct pt_regs *decode_frame_pointer(unsigned long *bp)
 }
 #endif
 
+__no_sanitize_memory
 static bool update_stack_state(struct unwind_state *state,
 			       unsigned long *next_bp)
 {
@@ -250,6 +251,7 @@ static bool update_stack_state(struct unwind_state *state,
 	return true;
 }
 
+__no_sanitize_memory
 bool unwind_next_frame(struct unwind_state *state)
 {
 	struct pt_regs *regs;
