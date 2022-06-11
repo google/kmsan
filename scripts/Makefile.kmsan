@@ -1,2 +1,2 @@
 # SPDX-License-Identifier: GPL-2.0
-export CFLAGS_KMSAN := -fsanitize=kernel-memory -mllvm -msan-pass-caller-to-runtime=1
+export CFLAGS_KMSAN := -fsanitize=kernel-memory -mllvm -msan-pass-caller-to-runtime=1 -Xclang -fsanitize-memory-param-retval
