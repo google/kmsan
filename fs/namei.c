@@ -2001,8 +2001,8 @@ static const char *handle_dots(struct nameidata *nd, int type)
 static const char *walk_component(struct nameidata *nd, int flags)
 {
 	struct dentry *dentry;
-	struct inode *inode;
-	unsigned seq;
+	struct inode *inode = NULL;
+	unsigned seq = 0;
 	/*
 	 * "." and ".." are special - ".." especially so because it has
 	 * to be able to know about the current root directory and
@@ -3349,8 +3349,8 @@ static const char *open_last_lookups(struct nameidata *nd,
 	struct dentry *dir = nd->path.dentry;
 	int open_flag = op->open_flag;
 	bool got_write = false;
-	unsigned seq;
-	struct inode *inode;
+	unsigned seq = 0;
+	struct inode *inode = NULL;
 	struct dentry *dentry;
 	const char *res;
 
