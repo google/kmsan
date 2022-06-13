@@ -56,4 +56,3 @@ See https://github.com/google/kmsan/wiki/KMSAN-Trophies for the list of trophies
 
 1. `CONFIG_DRM_AMD_DC_DCN1_0` doesn't work with Clang because of https://bugs.llvm.org/show_bug.cgi?id=38738.
 To work around the problem, disable `CONFIG_DRM_AMD_DC`
-2. `CONFIG_UNWINDER_ORC` doesn't work yet, use `CONFIG_UNWINDER_FRAME_POINTER`.
