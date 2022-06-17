@@ -368,6 +368,7 @@ static void prefetch_freepointer(const struct kmem_cache *s, void *object)
  * To work around this problem, use kmsan_init() to force initialize the
  * return value of get_freepointer_safe().
  */
+__no_sanitize_memory
 static inline void *get_freepointer_safe(struct kmem_cache *s, void *object)
 {
 	unsigned long freepointer_addr;
