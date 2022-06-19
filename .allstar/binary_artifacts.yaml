@@ -1,0 +1,4 @@
+# Exemption reason: This is a fork of the upstream Linux repo, which contains binaries.
+# Exemption timeframe: permanent
+optConfig:
+  optOut: true
