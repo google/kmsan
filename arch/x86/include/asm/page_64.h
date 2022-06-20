@@ -49,7 +49,6 @@ void clear_page_erms(void *page);
 #ifdef CONFIG_KMSAN
 void kmsan_unpoison_memory(const void *addr, size_t size);
 #endif
-__no_sanitize_memory
 static inline void clear_page(void *page)
 {
 #ifdef CONFIG_KMSAN
