@@ -182,7 +182,7 @@ static void show_regs_if_on_stack(struct stack_info *info, struct pt_regs *regs,
  * pointers may not have their KMSAN shadow set up properly, which may result
  * in false positive reports. Disable instrumentation to avoid those.
  */
-__no_sanitize_memory
+__no_kmsan_checks
 static void show_trace_log_lvl(struct task_struct *task, struct pt_regs *regs,
 			unsigned long *stack, const char *log_lvl)
 {
