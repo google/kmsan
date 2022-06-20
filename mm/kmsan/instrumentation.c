@@ -17,8 +17,6 @@
 #include <linux/mm.h>
 #include <linux/uaccess.h>
 
-#include <asm/sections.h>
-
 static inline bool is_bad_asm_addr(void *addr, uintptr_t size, bool is_store)
 {
 	if ((u64)addr < TASK_SIZE)
@@ -272,17 +270,8 @@ EXPORT_SYMBOL(__msan_warning);
  * to prevent false positive reports caused by the shadow/origins for the
  * function arguments not being properly set up.
  */
-struct kmsan_context_state *__msan_get_context_state(void *caller)
+struct kmsan_context_state *__msan_get_context_state(void)
 {
-	char *cl = (char *)caller;
-	struct kmsan_context_state *state = &kmsan_get_context()->cstate;
-	unsigned long ua_flags;
-
-	if (unlikely(cl >= __noinstr_text_start && cl < __noinstr_text_end)) {
-		ua_flags = user_access_save();
-		__memset(state, 0, sizeof(*state));
-		user_access_restore(ua_flags);
-	}
-	return state;
+	return &kmsan_get_context()->cstate;
 }
 EXPORT_SYMBOL(__msan_get_context_state);
