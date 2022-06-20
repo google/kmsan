@@ -233,7 +233,15 @@ static noinline void two_param_fn(int arg1, int arg2)
 
 static void test_params(struct kunit *test)
 {
+#ifdef CONFIG_KMSAN_CHECK_PARAM_RETVAL
+	/*
+	 * With eager param/retval checking enabled, KMSAN will report an error
+	 * before the call to two_param_fn().
+	 */
+	EXPECTATION_UNINIT_VALUE_FN(expect, "test_params");
+#else
 	EXPECTATION_UNINIT_VALUE_FN(expect, "two_param_fn");
+#endif
 	volatile int uninit, init = 1;
 
 	kunit_info(test,
@@ -383,7 +391,15 @@ static void test_percpu_propagate(struct kunit *test)
  */
 static void test_printk(struct kunit *test)
 {
+#ifdef CONFIG_KMSAN_CHECK_PARAM_RETVAL
+	/*
+	 * With eager param/retval checking enabled, KMSAN will report an error
+	 * before the call to pr_info().
+	 */
+	EXPECTATION_UNINIT_VALUE_FN(expect, "test_printk");
+#else
 	EXPECTATION_UNINIT_VALUE_FN(expect, "number");
+#endif
 	volatile int uninit;
 
 	kunit_info(test, "uninit local passed to pr_info() (UMR report)\n");
