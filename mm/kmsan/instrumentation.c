@@ -263,12 +263,6 @@ EXPORT_SYMBOL(__msan_warning);
 /*
  * At the beginning of an instrumented function, obtain the pointer to
  * `struct kmsan_context_state` holding the metadata for function parameters.
- *
- * Instrumentation code passes the value of __builtin_return_address(0) to
- * __msan_get_context_state(), which lets KMSAN detect the cases when @caller
- * is a noinstr function. In that case we conservatively wipe the context state
- * to prevent false positive reports caused by the shadow/origins for the
- * function arguments not being properly set up.
  */
 struct kmsan_context_state *__msan_get_context_state(void)
 {
