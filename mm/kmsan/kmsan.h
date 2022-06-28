@@ -106,12 +106,12 @@ static __always_inline struct kmsan_ctx *kmsan_get_context(void)
 }
 
 /*
- * When a compiler hook is invoked, it may make a call to instrumented code
- * and eventually call itself recursively. To avoid that, we protect the
- * runtime entry points with kmsan_enter_runtime()/kmsan_leave_runtime() and
- * exit the hook if kmsan_in_runtime() is true.
+ * When a compiler hook or KMSAN runtime function is invoked, it may make a
+ * call to instrumented code and eventually call itself recursively. To avoid
+ * that, we guard the runtime entry regions with
+ * kmsan_enter_runtime()/kmsan_leave_runtime() and exit the hook if
+ * kmsan_in_runtime() is true.
  */
-
 static __always_inline bool kmsan_in_runtime(void)
 {
 	if ((hardirq_count() >> HARDIRQ_SHIFT) > 1)
