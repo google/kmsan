@@ -53,10 +53,16 @@ The upper stack shows where the uninit value was used - in
 uninitialized in the local variable, as well as the stack where the value was
 copied to another memory location before use.
 
-Please note that KMSAN only reports an error when an uninitialized value is
-actually used (e.g. in a condition or pointer dereference). A lot of
-uninitialized values in the kernel are never used, and reporting them would
-result in too many false positives.
+A use of uninitialized value ``v`` is reported by KMSAN in the following cases:
+ - in a condition, e.g. ``if (v) { ... }``;
+ - in an indexing or pointer dereferencing, e.g. ``array[v]`` or ``*v``;
+ - when it is copied to userspace or hardware, e.g. ``copy_to_user(..., &v, ...)``;
+ - when it is passed as an argument to a function, and
+   ``CONFIG_KMSAN_CHECK_PARAM_RETVAL`` is enabled (see below).
+
+The mentioned cases (apart from copying data to userspace or hardware, which is
+a security issue) are considered undefined behavior from the C11 Standard point
+of view.
 
 KMSAN and Clang
 ===============
@@ -198,7 +204,7 @@ The compiler makes sure that for every loaded value its shadow and origin
 values are read from memory. When a value is stored to memory, its shadow and
 origin are also stored using the metadata pointers.
 
-Origin tracking
+Handling locals
 ~~~~~~~~~~~~~~~
 
 A special function is used to create a new origin value for a local variable and
@@ -227,7 +233,23 @@ At the beginning of every instrumented function KMSAN inserts a call to
   };
 
 This structure is used by KMSAN to pass parameter shadows and origins between
-instrumented functions.
+instrumented functions (unless the parameters are checked immediately by
+``CONFIG_KMSAN_CHECK_PARAM_RETVAL``).
+
+Passing uninitialized values to functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+KMSAN instrumentation pass has an option, ``-fsanitize-memory-param-retval``,
+which makes the compiler check function parameters passed by value, as well as
+function return values.
+
+The option is controlled by ``CONFIG_KMSAN_CHECK_PARAM_RETVAL``, which is
+enabled by default to let KMSAN report uninitialized values earlier.
+Please refer to the `LKML discussion`_ for more details.
+
+Because of the way the checks are implemented in LLVM (they are only applied to
+parameters marked as ``noundef``), not all parameters are guaranteed to be
+checked, so we cannot give up the metadata storage in ``kmsan_context_state``.
 
 String functions
 ~~~~~~~~~~~~~~~~
@@ -244,9 +266,8 @@ with the data::
 Error reporting
 ~~~~~~~~~~~~~~~
 
-For each pointer dereference and each condition the compiler emits a shadow
-check that calls ``__msan_warning()`` in the case a poisoned value is being
-used::
+For each use of a value the compiler emits a shadow check that calls
+``__msan_warning()`` in the case that value is poisoned::
 
   void __msan_warning(u32 origin)
 
@@ -385,23 +406,6 @@ more details.
 When an array of pages is mapped into a contiguous virtual memory space, their
 shadow and origin pages are similarly mapped into contiguous regions.
 
-3. For CPU entry area there are separate per-CPU arrays that hold its
-metadata::
-
-  DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_shadow);
-  DEFINE_PER_CPU(char[CPU_ENTRY_AREA_SIZE], cpu_entry_area_origin);
-
-When calculating shadow and origin addresses for a given memory address, KMSAN
-checks whether the address belongs to the physical page range, the virtual page
-range or CPU entry area.
-
-Handling ``pt_regs``
-~~~~~~~~~~~~~~~~~~~~
-
-Many functions receive a ``struct pt_regs`` holding the register state at a
-certain point. Registers do not have (easily calculatable) shadow or origin
-associated with them, so we assume they are always initialized.
-
 References
 ==========
 
@@ -412,3 +416,4 @@ In Proceedings of CGO 2015.
 
 .. _MemorySanitizer tool: https://clang.llvm.org/docs/MemorySanitizer.html
 .. _LLVM documentation: https://llvm.org/docs/GettingStarted.html
+.. _LKML discussion: https://lore.kernel.org/all/20220614144853.3693273-1-glider@google.com/
