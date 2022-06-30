@@ -111,6 +111,13 @@ static __always_inline struct kmsan_ctx *kmsan_get_context(void)
  * that, we guard the runtime entry regions with
  * kmsan_enter_runtime()/kmsan_leave_runtime() and exit the hook if
  * kmsan_in_runtime() is true.
+ *
+ * Non-runtime code may occasionally get executed in nested IRQs from the
+ * runtime code (e.g. when called via smp_call_function_single()). Because some
+ * KMSAN routines may take locks (e.g. for memory allocation), we conservatively
+ * bail out instead of calling them. To minimize the effect of this (potentially
+ * missing initialization events) kmsan_in_runtime() is not checked in
+ * non-blocking runtime functions.
  */
 static __always_inline bool kmsan_in_runtime(void)
 {
