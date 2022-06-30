@@ -93,7 +93,6 @@ void __init kmsan_init_shadow(void)
 			(void *)start_end_pairs[i].start,
 			(void *)start_end_pairs[i].end);
 }
-EXPORT_SYMBOL(kmsan_init_shadow);
 
 struct page_pair {
 	struct page *shadow, *origin;
@@ -237,4 +236,3 @@ void __init kmsan_init_runtime(void)
 	pr_info("ATTENTION: KMSAN is a debugging tool! Do not use it on production machines!\n");
 	kmsan_enabled = true;
 }
-EXPORT_SYMBOL(kmsan_init_runtime);
