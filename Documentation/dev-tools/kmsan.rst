@@ -1,9 +1,9 @@
 .. SPDX-License-Identifier: GPL-2.0
 .. Copyright (C) 2022, Google LLC.
 
-=============================
-KernelMemorySanitizer (KMSAN)
-=============================
+===================================
+The Kernel Memory Sanitizer (KMSAN)
+===================================
 
 KMSAN is a dynamic error detector aimed at finding uses of uninitialized
 values. It is based on compiler instrumentation, and is quite similar to the
@@ -12,8 +12,19 @@ userspace `MemorySanitizer tool`_.
 An important note is that KMSAN is not intended for production use, because it
 drastically increases kernel memory footprint and slows the whole system down.
 
+Usage
+=====
+
+Building the kernel
+-------------------
+
+In order to build a kernel with KMSAN you will need a fresh Clang (14.0.6+).
+Please refer to `LLVM documentation`_ for the instructions on how to build Clang.
+
+Now configure and build the kernel with CONFIG_KMSAN enabled.
+
 Example report
-==============
+--------------
 
 Here is an example of a KMSAN report::
 
@@ -46,13 +57,12 @@ Here is an example of a KMSAN report::
   Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.14.0-2 04/01/2014
   =====================================================
 
-
 The report says that the local variable ``uninit`` was created uninitialized in
-``do_uninit_local_array()``. The lower stack trace corresponds to the place
+``do_uninit_local_array()``. The third stack trace corresponds to the place
 where this variable was created.
 
-The upper stack shows where the uninit value was used - in
-``test_uninit_kmsan_check_memory()``. The tool shows the bytes which were left
+The first stack trace shows where the uninit value was used (in
+``test_uninit_kmsan_check_memory()``). The tool shows the bytes which were left
 uninitialized in the local variable, as well as the stack where the value was
 copied to another memory location before use.
 
@@ -67,20 +77,46 @@ The mentioned cases (apart from copying data to userspace or hardware, which is
 a security issue) are considered undefined behavior from the C11 Standard point
 of view.
 
-KMSAN and Clang
-===============
+Disabling the instrumentation
+-----------------------------
+
+A function can be marked with ``__no_kmsan_checks``. Doing so makes KMSAN
+ignore uninitialized values in that function and mark its output as initialized.
+As a result, the user will not get KMSAN reports related to that function.
+
+Another function attribute supported by KMSAN is ``__no_sanitize_memory``.
+Applying this attribute to a function will result in KMSAN not instrumenting
+it, which can be helpful if we do not want the compiler to interfere with some
+low-level code (e.g. that marked with ``noinstr`` which implicitly adds
+``__no_sanitize_memory``).
+
+This however comes at a cost: stack allocations from such functions will have
+incorrect shadow/origin values, likely leading to false positives. Functions
+called from non-instrumented code may also receive incorrect metadata for their
+parameters.
+
+As a rule of thumb, avoid using ``__no_sanitize_memory`` explicitly.
+
+It is also possible to disable KMSAN for a single file (e.g. main.o)::
+
+  KMSAN_SANITIZE_main.o := n
+
+or for the whole directory::
+
+  KMSAN_SANITIZE := n
+
+in the Makefile. Think of this as applying ``__no_sanitize_memory`` to every
+function in the file or directory. Most users won't need KMSAN_SANITIZE, unless
+their code gets broken by KMSAN (e.g. runs at early boot time).
+
+Support
+=======
 
 In order for KMSAN to work the kernel must be built with Clang, which so far is
 the only compiler that has KMSAN support. The kernel instrumentation pass is
 based on the userspace `MemorySanitizer tool`_.
 
-How to build
-============
-
-In order to build a kernel with KMSAN you will need a fresh Clang (14.0.0+).
-Please refer to `LLVM documentation`_ for the instructions on how to build Clang.
-
-Now configure and build the kernel with CONFIG_KMSAN enabled.
+The runtime library only supports x86_64 at the moment.
 
 How KMSAN works
 ===============
@@ -99,8 +135,9 @@ instrumentation code inserted by the compiler (unless it is a stack variable
 that is immediately initialized). Any new heap allocation done without
 ``__GFP_ZERO`` is also poisoned.
 
-Compiler instrumentation also tracks the shadow values with the help from the
-runtime library in ``mm/kmsan/``.
+Compiler instrumentation also tracks the shadow values as they are used along
+the code. When needed, instrumentation code invokes the runtime library in
+``mm/kmsan/`` to persist shadow values.
 
 The shadow value of a basic or compound type is an array of bytes of the same
 length. When a constant value is written into memory, that memory is unpoisoned.
@@ -119,22 +156,21 @@ In this case the shadow of ``a`` is ``0``, shadow of ``b`` is ``0xffffffff``,
 shadow of ``c`` is ``0xffffff00``. This means that the upper three bytes of
 ``c`` are uninitialized, while the lower byte is initialized.
 
-
 Origin tracking
 ---------------
 
-Every four bytes of kernel memory also have a so-called origin assigned to
-them. This origin describes the point in program execution at which the
-uninitialized value was created. Every origin is associated with either the
-full allocation stack (for heap-allocated memory), or the function containing
-the uninitialized variable (for locals).
+Every four bytes of kernel memory also have a so-called origin mapped to them.
+This origin describes the point in program execution at which the uninitialized
+value was created. Every origin is associated with either the full allocation
+stack (for heap-allocated memory), or the function containing the uninitialized
+variable (for locals).
 
 When an uninitialized variable is allocated on stack or heap, a new origin
-value is created, and that variable's origin is filled with that value.
-When a value is read from memory, its origin is also read and kept together
-with the shadow. For every instruction that takes one or more values the origin
-of the result is one of the origins corresponding to any of the uninitialized
-inputs. If a poisoned value is written into memory, its origin is written to the
+value is created, and that variable's origin is filled with that value. When a
+value is read from memory, its origin is also read and kept together with the
+shadow. For every instruction that takes one or more values, the origin of the
+result is one of the origins corresponding to any of the uninitialized inputs.
+If a poisoned value is written into memory, its origin is written to the
 corresponding storage as well.
 
 Example 1::
@@ -166,7 +202,7 @@ Example 2::
 
 If ``a`` is initialized and ``b`` is not, the shadow of the result would be
 0xffff0000, and the origin of the result would be the origin of ``b``.
-``ret.s[0]`` would have the same origin, but it will be never used, because
+``ret.s[0]`` would have the same origin, but it will never be used, because
 that variable is initialized.
 
 If both function arguments are uninitialized, only the origin of the second
@@ -184,7 +220,7 @@ Clang instrumentation API
 -------------------------
 
 Clang instrumentation pass inserts calls to functions defined in
-``mm/kmsan/instrumentation.c`` into the kernel code.
+``mm/kmsan/nstrumentation.c`` into the kernel code.
 
 Shadow manipulation
 ~~~~~~~~~~~~~~~~~~~
@@ -216,7 +252,7 @@ set the origin of that variable to that value::
   void __msan_poison_alloca(void *addr, uintptr_t size, char *descr)
 
 Access to per-task data
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 At the beginning of every instrumented function KMSAN inserts a call to
 ``__msan_get_context_state()``::
@@ -242,9 +278,9 @@ instrumented functions (unless the parameters are checked immediately by
 Passing uninitialized values to functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-KMSAN instrumentation pass has an option, ``-fsanitize-memory-param-retval``,
-which makes the compiler check function parameters passed by value, as well as
-function return values.
+Clang's MemorySanitizer instrumentation has an option,
+``-fsanitize-memory-param-retval``, which makes the compiler check function
+parameters passed by value, as well as function return values.
 
 The option is controlled by ``CONFIG_KMSAN_CHECK_PARAM_RETVAL``, which is
 enabled by default to let KMSAN report uninitialized values earlier.
@@ -291,36 +327,6 @@ false positives in bitwise operations, atomics etc.
 Sometimes the pointers passed into inline assembly do not point to valid memory.
 In such cases they are ignored at runtime.
 
-Disabling the instrumentation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-A function can be marked with ``__no_kmsan_checks``. Doing so makes KMSAN
-ignore uninitialized values in that function and mark its output as initialized.
-As a result, the user will not get KMSAN reports related to that function.
-
-Another function attribute supported by KMSAN is ``__no_sanitize_memory``.
-Applying this attribute to a function will result in KMSAN not instrumenting it,
-which can be helpful if we do not want the compiler to mess up some low-level
-code (e.g. that marked with ``noinstr``).
-
-This however comes at a cost: stack allocations from such functions will have
-incorrect shadow/origin values, likely leading to false positives. Functions
-called from non-instrumented code may also receive incorrect metadata for their
-parameters.
-
-As a rule of thumb, avoid using ``__no_sanitize_memory`` explicitly.
-
-It is also possible to disable KMSAN for a single file (e.g. main.o)::
-
-  KMSAN_SANITIZE_main.o := n
-
-or for the whole directory::
-
-  KMSAN_SANITIZE := n
-
-in the Makefile. Think of this as applying ``__no_sanitize_memory`` to every
-function in the file or directory. Most users won't need KMSAN_SANITIZE, unless
-their code gets broken by KMSAN (e.g. runs at early boot time).
 
 Runtime library
 ---------------
@@ -345,7 +351,6 @@ context (see above) and a per-task flag disallowing KMSAN reports::
     struct kmsan_context kmsan;
     ...
   }
-
 
 KMSAN contexts
 ~~~~~~~~~~~~~~
@@ -378,9 +383,9 @@ fragmented, so normal data pages may arbitrarily interleave with the metadata
 pages.
 
 This means that in general for two contiguous memory pages their shadow/origin
-pages may not be contiguous. So, if a memory access crosses the boundary
-of a memory block, accesses to shadow/origin memory may potentially corrupt
-other pages or read incorrect values from them.
+pages may not be contiguous. Consequently, if a memory access crosses the
+boundary of a memory block, accesses to shadow/origin memory may potentially
+corrupt other pages or read incorrect values from them.
 
 In practice, contiguous memory pages returned by the same ``alloc_pages()``
 call will have contiguous metadata, whereas if these pages belong to two
