@@ -205,7 +205,6 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
 	kmsan_leave_runtime();
 }
-EXPORT_SYMBOL(kmsan_iounmap_page_range);
 
 void kmsan_copy_to_user(void __user *to, const void *from, size_t to_copy,
 			size_t left)
