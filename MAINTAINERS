@@ -11185,6 +11185,7 @@ R:	Dmitry Vyukov <dvyukov@google.com>
 L:	kasan-dev@googlegroups.com
 S:	Maintained
 F:	Documentation/dev-tools/kmsan.rst
+F:	arch/*/include/asm/kmsan.h
 F:	include/linux/kmsan*.h
 F:	lib/Kconfig.kmsan
 F:	mm/kmsan/
