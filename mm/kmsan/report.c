@@ -65,9 +65,9 @@ static int get_stack_skipnr(const unsigned long stack_entries[],
  */
 static char *pretty_descr(char *descr)
 {
-	int i, pos = 0, len = strlen(descr);
+	int pos = 0, len = strlen(descr);
 
-	for (i = 0; i < len; i++) {
+	for (int i = 0; i < len; i++) {
 		if (descr[i] == '@')
 			break;
 		if (descr[i] == '-')
