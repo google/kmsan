@@ -93,10 +93,10 @@ void __init kmsan_init_shadow(void)
 			(void *)start_end_pairs[i].end);
 }
 
-struct page_pair {
+struct metadata_page_pair {
 	struct page *shadow, *origin;
 };
-static struct page_pair held_back[MAX_ORDER] __initdata;
+static struct metadata_page_pair held_back[MAX_ORDER] __initdata;
 
 /*
  * Eager metadata allocation. When the memblock allocator is freeing pages to
