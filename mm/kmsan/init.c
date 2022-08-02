@@ -31,7 +31,6 @@ static void __init kmsan_record_future_shadow_range(void *start, void *end)
 {
 	u64 nstart = (u64)start, nend = (u64)end, cstart, cend;
 	bool merged = false;
-	int i;
 
 	KMSAN_WARN_ON(future_index == NUM_FUTURE_RANGES);
 	KMSAN_WARN_ON((nstart >= nend) || !nstart || !nend);
@@ -45,7 +44,7 @@ static void __init kmsan_record_future_shadow_range(void *start, void *end)
 	 * The number of ranges is less than 20, so there is no need to organize
 	 * them into a more intelligent data structure.
 	 */
-	for (i = 0; i < future_index; i++) {
+	for (int i = 0; i < future_index; i++) {
 		cstart = start_end_pairs[i].start;
 		cend = start_end_pairs[i].end;
 		if ((cstart < nstart && cend < nstart) ||
@@ -75,10 +74,10 @@ void __init kmsan_init_shadow(void)
 {
 	const size_t nd_size = roundup(sizeof(pg_data_t), PAGE_SIZE);
 	phys_addr_t p_start, p_end;
+	u64 loop;
 	int nid;
-	u64 i;
 
-	for_each_reserved_mem_range(i, &p_start, &p_end)
+	for_each_reserved_mem_range(loop, &p_start, &p_end)
 		kmsan_record_future_shadow_range(phys_to_virt(p_start),
 						 phys_to_virt(p_end));
 	/* Allocate shadow for .data */
@@ -88,7 +87,7 @@ void __init kmsan_init_shadow(void)
 		kmsan_record_future_shadow_range(
 			NODE_DATA(nid), (char *)NODE_DATA(nid) + nd_size);
 
-	for (i = 0; i < future_index; i++)
+	for (int i = 0; i < future_index; i++)
 		kmsan_init_alloc_meta_for_range(
 			(void *)start_end_pairs[i].start,
 			(void *)start_end_pairs[i].end);
@@ -201,8 +200,6 @@ static void collect_split(void)
  */
 static void kmsan_memblock_discard(void)
 {
-	int i;
-
 	/*
 	 * For each order=N:
 	 *  - push held_back[N].shadow and .origin to @collect;
@@ -215,7 +212,7 @@ static void kmsan_memblock_discard(void)
 	 *  - repeat.
 	 */
 	collect.order = MAX_ORDER - 1;
-	for (i = MAX_ORDER - 1; i >= 0; i--) {
+	for (int i = MAX_ORDER - 1; i >= 0; i--) {
 		if (held_back[i].shadow)
 			smallstack_push(&collect, held_back[i].shadow);
 		if (held_back[i].origin)
