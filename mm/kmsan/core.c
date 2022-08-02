@@ -269,7 +269,6 @@ void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b,
 	void *shadow_start;
 	u32 *origin_start;
 	size_t pad = 0;
-	int i;
 
 	KMSAN_WARN_ON(!kmsan_metadata_is_contiguous(addr, size));
 	shadow_start = kmsan_get_metadata(addr, KMSAN_META_SHADOW);
@@ -296,7 +295,7 @@ void kmsan_internal_set_shadow_origin(void *addr, size_t size, int b,
 	origin_start =
 		(u32 *)kmsan_get_metadata((void *)address, KMSAN_META_ORIGIN);
 
-	for (i = 0; i < size / KMSAN_ORIGIN_SIZE; i++)
+	for (int i = 0; i < size / KMSAN_ORIGIN_SIZE; i++)
 		origin_start[i] = origin;
 }
 
@@ -322,7 +321,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 	depot_stack_handle_t *origin = NULL;
 	unsigned char *shadow = NULL;
 	int cur_off_start = -1;
-	int i, chunk_size;
+	int chunk_size;
 	size_t pos = 0;
 
 	if (!size)
@@ -350,7 +349,7 @@ void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 			pos += chunk_size;
 			continue;
 		}
-		for (i = 0; i < chunk_size; i++) {
+		for (int i = 0; i < chunk_size; i++) {
 			if (!shadow[i]) {
 				/*
 				 * This byte is unpoisoned. If there were
