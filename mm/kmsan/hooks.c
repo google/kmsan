@@ -35,7 +35,6 @@ void kmsan_task_create(struct task_struct *task)
 	kmsan_internal_task_create(task);
 	kmsan_leave_runtime();
 }
-EXPORT_SYMBOL(kmsan_task_create);
 
 void kmsan_task_exit(struct task_struct *task)
 {
@@ -46,7 +45,6 @@ void kmsan_task_exit(struct task_struct *task)
 
 	ctx->allow_reporting = false;
 }
-EXPORT_SYMBOL(kmsan_task_exit);
 
 void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 {
