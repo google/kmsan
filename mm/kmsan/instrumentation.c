@@ -57,18 +57,18 @@ EXPORT_SYMBOL(__msan_metadata_ptr_for_store_n);
  * Declare functions that obtain shadow/origin pointers for loads and stores
  * with fixed size.
  */
-#define DECLARE_METADATA_PTR_GETTER(size)                                      \
-	struct shadow_origin_ptr __msan_metadata_ptr_for_load_##size(          \
-		void *addr)                                                    \
-	{                                                                      \
-		return get_shadow_origin_ptr(addr, size, /*store*/ false);     \
-	}                                                                      \
-	EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);                    \
-	struct shadow_origin_ptr __msan_metadata_ptr_for_store_##size(         \
-		void *addr)                                                    \
-	{                                                                      \
-		return get_shadow_origin_ptr(addr, size, /*store*/ true);      \
-	}                                                                      \
+#define DECLARE_METADATA_PTR_GETTER(size)                                  \
+	struct shadow_origin_ptr __msan_metadata_ptr_for_load_##size(      \
+		void *addr)                                                \
+	{                                                                  \
+		return get_shadow_origin_ptr(addr, size, /*store*/ false); \
+	}                                                                  \
+	EXPORT_SYMBOL(__msan_metadata_ptr_for_load_##size);                \
+	struct shadow_origin_ptr __msan_metadata_ptr_for_store_##size(     \
+		void *addr)                                                \
+	{                                                                  \
+		return get_shadow_origin_ptr(addr, size, /*store*/ true);  \
+	}                                                                  \
 	EXPORT_SYMBOL(__msan_metadata_ptr_for_store_##size)
 
 DECLARE_METADATA_PTR_GETTER(1);
