@@ -110,11 +110,38 @@ void __msan_instrument_asm_store(void *addr, uintptr_t size)
 }
 EXPORT_SYMBOL(__msan_instrument_asm_store);
 
+/*
+ * KMSAN instrumentation pass replaces LLVM memcpy, memmove and memset
+ * intrinsics with calls to respective __msan_ functions. We use
+ * get_param0_metadata() and set_retval_metadata() to store the shadow/origin
+ * values for the destination argument of these functions and use them for the
+ * functions' return values.
+ */
+static inline void get_param0_metadata(u64 *shadow,
+				       depot_stack_handle_t *origin)
+{
+	struct kmsan_ctx *ctx = kmsan_get_context();
+
+	*shadow = *(u64 *)(ctx->cstate.param_tls);
+	*origin = ctx->cstate.param_origin_tls[0];
+}
+
+static inline void set_retval_metadata(u64 shadow, depot_stack_handle_t origin)
+{
+	struct kmsan_ctx *ctx = kmsan_get_context();
+
+	*(u64 *)(ctx->cstate.retval_tls) = shadow;
+	ctx->cstate.retval_origin_tls = origin;
+}
+
 /* Handle llvm.memmove intrinsic. */
 void *__msan_memmove(void *dst, const void *src, uintptr_t n)
 {
+	depot_stack_handle_t origin;
 	void *result;
+	u64 shadow;
 
+	get_param0_metadata(&shadow, &origin);
 	result = __memmove(dst, src, n);
 	if (!n)
 		/* Some people call memmove() with zero length. */
@@ -126,6 +153,7 @@ void *__msan_memmove(void *dst, const void *src, uintptr_t n)
 	kmsan_internal_memmove_metadata(dst, (void *)src, n);
 	kmsan_leave_runtime();
 
+	set_retval_metadata(shadow, origin);
 	return result;
 }
 EXPORT_SYMBOL(__msan_memmove);
@@ -133,8 +161,11 @@ EXPORT_SYMBOL(__msan_memmove);
 /* Handle llvm.memcpy intrinsic. */
 void *__msan_memcpy(void *dst, const void *src, uintptr_t n)
 {
+	depot_stack_handle_t origin;
 	void *result;
+	u64 shadow;
 
+	get_param0_metadata(&shadow, &origin);
 	result = __memcpy(dst, src, n);
 	if (!n)
 		/* Some people call memcpy() with zero length. */
@@ -148,6 +179,7 @@ void *__msan_memcpy(void *dst, const void *src, uintptr_t n)
 	kmsan_internal_memmove_metadata(dst, (void *)src, n);
 	kmsan_leave_runtime();
 
+	set_retval_metadata(shadow, origin);
 	return result;
 }
 EXPORT_SYMBOL(__msan_memcpy);
@@ -155,8 +187,11 @@ EXPORT_SYMBOL(__msan_memcpy);
 /* Handle llvm.memset intrinsic. */
 void *__msan_memset(void *dst, int c, uintptr_t n)
 {
+	depot_stack_handle_t origin;
 	void *result;
+	u64 shadow;
 
+	get_param0_metadata(&shadow, &origin);
 	result = __memset(dst, c, n);
 	if (!kmsan_enabled || kmsan_in_runtime())
 		return result;
@@ -169,6 +204,7 @@ void *__msan_memset(void *dst, int c, uintptr_t n)
 	kmsan_internal_unpoison_memory(dst, n, /*checked*/ false);
 	kmsan_leave_runtime();
 
+	set_retval_metadata(shadow, origin);
 	return result;
 }
 EXPORT_SYMBOL(__msan_memset);
