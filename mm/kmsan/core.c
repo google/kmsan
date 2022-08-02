@@ -204,7 +204,8 @@ void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
 			shadow = (shadow << skip_bits) >> skip_bits;
 			if (shadow)
 				/* src_slots > 0, therefore dst_slots is at least 2 */
-				origin_dst[dst_slots - 1] = origin_dst[dst_slots - 2];
+				origin_dst[dst_slots - 1] =
+					origin_dst[dst_slots - 2];
 		} else {
 			shadow = align_shadow_src[0];
 			skip_bits = ((u64)dst % KMSAN_ORIGIN_SIZE) * 8;
