@@ -128,25 +128,25 @@ static noinline void check_false(char *arg)
 	pr_info("%s is false\n", arg);
 }
 
-#define USE(x)                                                                 \
-	do {                                                                   \
-		if (x)                                                         \
-			check_true(#x);                                        \
-		else                                                           \
-			check_false(#x);                                       \
+#define USE(x)                           \
+	do {                             \
+		if (x)                   \
+			check_true(#x);  \
+		else                     \
+			check_false(#x); \
 	} while (0)
 
-#define EXPECTATION_ETYPE_FN(e, reason, fn)                                    \
-	struct expect_report e = {                                             \
-		.error_type = reason,                                          \
-		.symbol = fn,                                                  \
+#define EXPECTATION_ETYPE_FN(e, reason, fn) \
+	struct expect_report e = {          \
+		.error_type = reason,       \
+		.symbol = fn,               \
 	}
 
 #define EXPECTATION_NO_REPORT(e) EXPECTATION_ETYPE_FN(e, NULL, NULL)
-#define EXPECTATION_UNINIT_VALUE_FN(e, fn)                                     \
+#define EXPECTATION_UNINIT_VALUE_FN(e, fn) \
 	EXPECTATION_ETYPE_FN(e, "uninit-value", fn)
 #define EXPECTATION_UNINIT_VALUE(e) EXPECTATION_UNINIT_VALUE_FN(e, __func__)
-#define EXPECTATION_USE_AFTER_FREE(e)                                          \
+#define EXPECTATION_USE_AFTER_FREE(e) \
 	EXPECTATION_ETYPE_FN(e, "use-after-free", __func__)
 
 /* Test case: ensure that kmalloc() returns uninitialized memory. */
@@ -417,7 +417,9 @@ static void test_memcpy_aligned_to_aligned(struct kunit *test)
 	volatile int uninit_src;
 	volatile int dst = 0;
 
-	kunit_info(test, "memcpy()ing aligned uninit src to aligned dst (UMR report)\n");
+	kunit_info(
+		test,
+		"memcpy()ing aligned uninit src to aligned dst (UMR report)\n");
 	memcpy((void *)&dst, (void *)&uninit_src, sizeof(uninit_src));
 	kmsan_check_memory((void *)&dst, sizeof(dst));
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
@@ -435,9 +437,11 @@ static void test_memcpy_aligned_to_unaligned(struct kunit *test)
 {
 	EXPECTATION_UNINIT_VALUE_FN(expect, "test_memcpy_aligned_to_unaligned");
 	volatile int uninit_src;
-	volatile char dst[8] = {0};
+	volatile char dst[8] = { 0 };
 
-	kunit_info(test, "memcpy()ing aligned uninit src to unaligned dst (UMR report)\n");
+	kunit_info(
+		test,
+		"memcpy()ing aligned uninit src to unaligned dst (UMR report)\n");
 	memcpy((void *)&dst[1], (void *)&uninit_src, sizeof(uninit_src));
 	kmsan_check_memory((void *)dst, 4);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
@@ -453,11 +457,14 @@ static void test_memcpy_aligned_to_unaligned(struct kunit *test)
  */
 static void test_memcpy_aligned_to_unaligned2(struct kunit *test)
 {
-	EXPECTATION_UNINIT_VALUE_FN(expect, "test_memcpy_aligned_to_unaligned2");
+	EXPECTATION_UNINIT_VALUE_FN(expect,
+				    "test_memcpy_aligned_to_unaligned2");
 	volatile int uninit_src;
-	volatile char dst[8] = {0};
+	volatile char dst[8] = { 0 };
 
-	kunit_info(test, "memcpy()ing aligned uninit src to unaligned dst - part 2 (UMR report)\n");
+	kunit_info(
+		test,
+		"memcpy()ing aligned uninit src to unaligned dst - part 2 (UMR report)\n");
 	memcpy((void *)&dst[1], (void *)&uninit_src, sizeof(uninit_src));
 	kmsan_check_memory((void *)&dst[4], sizeof(uninit_src));
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
