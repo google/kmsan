@@ -154,14 +154,14 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	gfp_t gfp_mask = GFP_KERNEL | __GFP_ZERO;
 	struct page *shadow, *origin;
 	unsigned long off = 0;
-	int i, nr;
+	int nr;
 
 	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
 
 	nr = (end - start) / PAGE_SIZE;
 	kmsan_enter_runtime();
-	for (i = 0; i < nr; i++, off += PAGE_SIZE) {
+	for (int i = 0; i < nr; i++, off += PAGE_SIZE) {
 		shadow = alloc_pages(gfp_mask, 1);
 		origin = alloc_pages(gfp_mask, 1);
 		__vmap_pages_range_noflush(
@@ -182,7 +182,7 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 {
 	unsigned long v_shadow, v_origin;
 	struct page *shadow, *origin;
-	int i, nr;
+	int nr;
 
 	if (!kmsan_enabled || kmsan_in_runtime())
 		return;
@@ -191,7 +191,8 @@ void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 	kmsan_enter_runtime();
 	v_shadow = (unsigned long)vmalloc_shadow(start);
 	v_origin = (unsigned long)vmalloc_origin(start);
-	for (i = 0; i < nr; i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
+	for (int i = 0; i < nr;
+	     i++, v_shadow += PAGE_SIZE, v_origin += PAGE_SIZE) {
 		shadow = kmsan_vmalloc_to_page_or_null((void *)v_shadow);
 		origin = kmsan_vmalloc_to_page_or_null((void *)v_origin);
 		__vunmap_range_noflush(v_shadow, vmalloc_shadow(end));
