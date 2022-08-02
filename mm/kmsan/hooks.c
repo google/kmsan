@@ -68,7 +68,6 @@ void kmsan_slab_alloc(struct kmem_cache *s, void *object, gfp_t flags)
 					     KMSAN_POISON_CHECK);
 	kmsan_leave_runtime();
 }
-EXPORT_SYMBOL(kmsan_slab_alloc);
 
 void kmsan_slab_free(struct kmem_cache *s, void *object)
 {
@@ -90,7 +89,6 @@ void kmsan_slab_free(struct kmem_cache *s, void *object)
 				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
 	kmsan_leave_runtime();
 }
-EXPORT_SYMBOL(kmsan_slab_free);
 
 void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 {
@@ -107,7 +105,6 @@ void kmsan_kmalloc_large(const void *ptr, size_t size, gfp_t flags)
 					     KMSAN_POISON_CHECK);
 	kmsan_leave_runtime();
 }
-EXPORT_SYMBOL(kmsan_kmalloc_large);
 
 void kmsan_kfree_large(const void *ptr)
 {
@@ -124,7 +121,6 @@ void kmsan_kfree_large(const void *ptr)
 				     KMSAN_POISON_CHECK | KMSAN_POISON_FREE);
 	kmsan_leave_runtime();
 }
-EXPORT_SYMBOL(kmsan_kfree_large);
 
 static unsigned long vmalloc_shadow(unsigned long addr)
 {
