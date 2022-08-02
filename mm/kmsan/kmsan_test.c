@@ -274,9 +274,8 @@ static void test_uninit_multiple_params(struct kunit *test)
 static noinline void do_uninit_local_array(char *array, int start, int stop)
 {
 	volatile char uninit;
-	int i;
 
-	for (i = start; i < stop; i++)
+	for (int i = start; i < stop; i++)
 		array[i] = uninit;
 }
 
@@ -308,21 +307,20 @@ static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 	const int npages = 2;
 	struct page **pages;
 	void *vbuf;
-	int i;
 
 	kunit_info(test, "pages initialized via vmap (no reports)\n");
 
 	pages = kmalloc_array(npages, sizeof(*pages), GFP_KERNEL);
-	for (i = 0; i < npages; i++)
+	for (int i = 0; i < npages; i++)
 		pages[i] = alloc_page(GFP_KERNEL);
 	vbuf = vmap(pages, npages, VM_MAP, PAGE_KERNEL);
 	memset(vbuf, 0xfe, npages * PAGE_SIZE);
-	for (i = 0; i < npages; i++)
+	for (int i = 0; i < npages; i++)
 		kmsan_check_memory(page_address(pages[i]), PAGE_SIZE);
 
 	if (vbuf)
 		vunmap(vbuf);
-	for (i = 0; i < npages; i++) {
+	for (int i = 0; i < npages; i++) {
 		if (pages[i])
 			__free_page(pages[i]);
 	}
@@ -337,7 +335,7 @@ static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 static void test_init_vmalloc(struct kunit *test)
 {
 	EXPECTATION_NO_REPORT(expect);
-	int npages = 8, i;
+	int npages = 8;
 	char *buf;
 
 	kunit_info(test, "vmalloc buffer can be initialized (no reports)\n");
@@ -345,7 +343,7 @@ static void test_init_vmalloc(struct kunit *test)
 	buf[0] = 1;
 	memset(buf, 0xfe, PAGE_SIZE * npages);
 	USE(buf[0]);
-	for (i = 0; i < npages; i++)
+	for (int i = 0; i < npages; i++)
 		kmsan_check_memory(&buf[PAGE_SIZE * i], PAGE_SIZE);
 	vfree(buf);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
