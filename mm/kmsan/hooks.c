@@ -371,7 +371,6 @@ void kmsan_unpoison_entry_regs(const struct pt_regs *regs)
 				       KMSAN_POISON_NOCHECK);
 	user_access_restore(ua_flags);
 }
-EXPORT_SYMBOL(kmsan_unpoison_entry_regs);
 
 void kmsan_check_memory(const void *addr, size_t size)
 {
