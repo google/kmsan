@@ -170,7 +170,6 @@ void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	struct page *shadow, *origin;
 	depot_stack_handle_t handle;
 	int pages = 1 << order;
-	int i;
 
 	if (!page)
 		return;
@@ -196,7 +195,7 @@ void kmsan_alloc_page(struct page *page, unsigned int order, gfp_t flags)
 	 * Addresses are page-aligned, pages are contiguous, so it's ok
 	 * to just fill the origin pages with @handle.
 	 */
-	for (i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++)
+	for (int i = 0; i < PAGE_SIZE * pages / sizeof(handle); i++)
 		((depot_stack_handle_t *)page_address(origin))[i] = handle;
 }
 
@@ -218,7 +217,7 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 {
 	unsigned long shadow_start, origin_start, shadow_end, origin_end;
 	struct page **s_pages, **o_pages;
-	int nr, i, mapped;
+	int nr, mapped;
 
 	if (!kmsan_enabled)
 		return;
@@ -233,7 +232,7 @@ void kmsan_vmap_pages_range_noflush(unsigned long start, unsigned long end,
 	o_pages = kcalloc(nr, sizeof(*o_pages), GFP_KERNEL);
 	if (!s_pages || !o_pages)
 		goto ret;
-	for (i = 0; i < nr; i++) {
+	for (int i = 0; i < nr; i++) {
 		s_pages[i] = shadow_page_for(pages[i]);
 		o_pages[i] = origin_page_for(pages[i]);
 	}
