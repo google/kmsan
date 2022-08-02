@@ -81,18 +81,6 @@ void __init kmsan_init_runtime(void);
 bool __init kmsan_memblock_free_pages(struct page *page, unsigned int order);
 
 /**
- * kmsan_task_create() - Initialize KMSAN state for the task.
- * @task: task to initialize.
- */
-void kmsan_task_create(struct task_struct *task);
-
-/**
- * kmsan_task_exit() - Notify KMSAN that a task has exited.
- * @task: task about to finish.
- */
-void kmsan_task_exit(struct task_struct *task);
-
-/**
  * kmsan_alloc_page() - Notify KMSAN about an alloc_pages() call.
  * @page:  struct page pointer returned by alloc_pages().
  * @order: order of allocated struct page.
