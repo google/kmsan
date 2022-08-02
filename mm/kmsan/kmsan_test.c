@@ -322,9 +322,10 @@ static void test_init_kmsan_vmap_vunmap(struct kunit *test)
 
 	if (vbuf)
 		vunmap(vbuf);
-	for (i = 0; i < npages; i++)
+	for (i = 0; i < npages; i++) {
 		if (pages[i])
 			__free_page(pages[i]);
+	}
 	kfree(pages);
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
@@ -509,14 +510,6 @@ static void test_exit(struct kunit *test)
 {
 }
 
-static struct kunit_suite kmsan_test_suite = {
-	.name = "kmsan",
-	.test_cases = kmsan_test_cases,
-	.init = test_init,
-	.exit = test_exit,
-};
-static struct kunit_suite *kmsan_test_suites[] = { &kmsan_test_suite, NULL };
-
 static void register_tracepoints(struct tracepoint *tp, void *ignore)
 {
 	check_trace_callback_type_console(probe_console);
@@ -530,11 +523,7 @@ static void unregister_tracepoints(struct tracepoint *tp, void *ignore)
 		tracepoint_probe_unregister(tp, probe_console, NULL);
 }
 
-/*
- * We only want to do tracepoints setup and teardown once, therefore we have to
- * customize the init and exit functions and cannot rely on kunit_test_suite().
- */
-static int __init kmsan_test_init(void)
+static int kmsan_suite_init(struct kunit_suite *suite)
 {
 	/*
 	 * Because we want to be able to build the test as a module, we need to
@@ -542,18 +531,24 @@ static int __init kmsan_test_init(void)
 	 * won't work here.
 	 */
 	for_each_kernel_tracepoint(register_tracepoints, NULL);
-	return __kunit_test_suites_init(kmsan_test_suites);
+	return 0;
 }
 
-static void kmsan_test_exit(void)
+static void kmsan_suite_exit(struct kunit_suite *suite)
 {
-	__kunit_test_suites_exit(kmsan_test_suites);
 	for_each_kernel_tracepoint(unregister_tracepoints, NULL);
 	tracepoint_synchronize_unregister();
 }
 
-late_initcall_sync(kmsan_test_init);
-module_exit(kmsan_test_exit);
+static struct kunit_suite kmsan_test_suite = {
+	.name = "kmsan",
+	.test_cases = kmsan_test_cases,
+	.init = test_init,
+	.exit = test_exit,
+	.suite_init = kmsan_suite_init,
+	.suite_exit = kmsan_suite_exit,
+};
+kunit_test_suites(&kmsan_test_suite);
 
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Alexander Potapenko <glider@google.com>");
