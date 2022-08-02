@@ -141,7 +141,6 @@ void kmsan_vunmap_range_noflush(unsigned long start, unsigned long end)
 	flush_cache_vmap(vmalloc_shadow(start), vmalloc_shadow(end));
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
 }
-EXPORT_SYMBOL(kmsan_vunmap_range_noflush);
 
 /*
  * This function creates new shadow/origin pages for the physical pages mapped
@@ -178,7 +177,6 @@ void kmsan_ioremap_page_range(unsigned long start, unsigned long end,
 	flush_cache_vmap(vmalloc_origin(start), vmalloc_origin(end));
 	kmsan_leave_runtime();
 }
-EXPORT_SYMBOL(kmsan_ioremap_page_range);
 
 void kmsan_iounmap_page_range(unsigned long start, unsigned long end)
 {
