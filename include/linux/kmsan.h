@@ -46,6 +46,10 @@ struct kmsan_ctx {
 	bool allow_reporting;
 };
 
+/**
+ * kmsan_task_create() - Initialize KMSAN state for the task.
+ * @task: task to initialize.
+ */
 void kmsan_task_create(struct task_struct *task);
 
 /**
