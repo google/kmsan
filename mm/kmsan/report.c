@@ -165,11 +165,11 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		break;
 	case REASON_COPY_TO_USER:
 		bug_type = is_uaf ? "kernel-infoleak-after-free" :
-					  "kernel-infoleak";
+				    "kernel-infoleak";
 		break;
 	case REASON_SUBMIT_URB:
 		bug_type = is_uaf ? "kernel-usb-infoleak-after-free" :
-					  "kernel-usb-infoleak";
+				    "kernel-usb-infoleak";
 		break;
 	}
 
@@ -177,8 +177,8 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		stack_trace_save(stack_entries, KMSAN_STACK_DEPTH, 1);
 	skipnr = get_stack_skipnr(stack_entries, num_stack_entries);
 
-	pr_err("BUG: KMSAN: %s in %pSb\n",
-	       bug_type, (void *)stack_entries[skipnr]);
+	pr_err("BUG: KMSAN: %s in %pSb\n", bug_type,
+	       (void *)stack_entries[skipnr]);
 	stack_trace_print(stack_entries + skipnr, num_stack_entries - skipnr,
 			  0);
 	pr_err("\n");
