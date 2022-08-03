@@ -456,13 +456,3 @@ report:
 	}
 	return false;
 }
-
-bool kmsan_internal_is_module_addr(void *vaddr)
-{
-	return ((u64)vaddr >= MODULES_VADDR) && ((u64)vaddr < MODULES_END);
-}
-
-bool kmsan_internal_is_vmalloc_addr(void *addr)
-{
-	return ((u64)addr >= VMALLOC_START) && ((u64)addr < VMALLOC_END);
-}
