@@ -185,11 +185,24 @@ void kmsan_internal_task_create(struct task_struct *task);
 bool kmsan_metadata_is_contiguous(void *addr, size_t size);
 void kmsan_internal_check_memory(void *addr, size_t size, const void *user_addr,
 				 int reason);
-bool kmsan_internal_is_module_addr(void *vaddr);
-bool kmsan_internal_is_vmalloc_addr(void *addr);
 
 struct page *kmsan_vmalloc_to_page_or_null(void *vaddr);
 void kmsan_setup_meta(struct page *page, struct page *shadow,
 		      struct page *origin, int order);
+
+/*
+ * kmsan_internal_is_module_addr() and kmsan_internal_is_vmalloc_addr() are
+ * non-instrumented versions of is_module_address() and is_vmalloc_addr() that
+ * are safe to call from KMSAN runtime without recursion.
+ */
+static inline bool kmsan_internal_is_module_addr(void *vaddr)
+{
+	return ((u64)vaddr >= MODULES_VADDR) && ((u64)vaddr < MODULES_END);
+}
+
+static inline bool kmsan_internal_is_vmalloc_addr(void *addr)
+{
+	return ((u64)addr >= VMALLOC_START) && ((u64)addr < VMALLOC_END);
+}
 
 #endif /* __MM_KMSAN_KMSAN_H */
