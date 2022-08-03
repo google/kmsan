@@ -8,6 +8,8 @@
 #include <asm/cpufeatures.h>
 #include <asm/alternative.h>
 
+#include <linux/kmsan-checks.h>
+
 /* duplicated to the one in bootmem.h */
 extern unsigned long max_pfn;
 extern unsigned long phys_base;
@@ -45,26 +47,19 @@ void clear_page_orig(void *page);
 void clear_page_rep(void *page);
 void clear_page_erms(void *page);
 
-/* This is an assembly header, avoid including too much of kmsan.h */
-#ifdef CONFIG_KMSAN
-void kmsan_unpoison_memory(const void *addr, size_t size);
-#endif
 static inline void clear_page(void *page)
 {
-#ifdef CONFIG_KMSAN
-	/* alternative_call_2() changes @page. */
-	void *page_copy = page;
-#endif
+	/*
+	 * Clean up KMSAN metadata for the page being cleared. The assembly call
+	 * below clobbers @page, so we perform unpoisoning before it.
+	 */
+	kmsan_unpoison_memory(page, PAGE_SIZE);
 	alternative_call_2(clear_page_orig,
 			   clear_page_rep, X86_FEATURE_REP_GOOD,
 			   clear_page_erms, X86_FEATURE_ERMS,
 			   "=D" (page),
 			   "0" (page)
 			   : "cc", "memory", "rax", "rcx");
-#ifdef CONFIG_KMSAN
-	/* Clear KMSAN shadow for the pages that have it. */
-	kmsan_unpoison_memory(page_copy, PAGE_SIZE);
-#endif
 }
 
 void copy_page(void *to, void *from);
