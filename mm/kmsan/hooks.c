@@ -231,16 +231,16 @@ void kmsan_copy_to_user(void __user *to, const void *from, size_t to_copy,
 		/* This is a user memory access, check it. */
 		kmsan_internal_check_memory((void *)from, to_copy - left, to,
 					    REASON_COPY_TO_USER);
-		user_access_restore(ua_flags);
-		return;
+	} else {
+		/* Otherwise this is a kernel memory access. This happens when a
+		 * compat syscall passes an argument allocated on the kernel
+		 * stack to a real syscall.
+		 * Don't check anything, just copy the shadow of the copied
+		 * bytes.
+	 	 */
+		kmsan_internal_memmove_metadata((void *)to, (void *)from,
+						to_copy - left);
 	}
-	/* Otherwise this is a kernel memory access. This happens when a compat
-	 * syscall passes an argument allocated on the kernel stack to a real
-	 * syscall.
-	 * Don't check anything, just copy the shadow of the copied bytes.
-	 */
-	kmsan_internal_memmove_metadata((void *)to, (void *)from,
-					to_copy - left);
 	user_access_restore(ua_flags);
 }
 EXPORT_SYMBOL(kmsan_copy_to_user);
