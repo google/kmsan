@@ -15,6 +15,7 @@
 #include <linux/stackdepot.h>
 #include <linux/types.h>
 
+struct page;
 struct kmem_cache;
 struct task_struct;
 struct scatterlist;
