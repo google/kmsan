@@ -156,4 +156,16 @@ instrument_copy_from_user_after(const void *to, const void __user *from,
 	kmsan_unpoison_memory(to, n - left);
 }
 
+#define instrument_get_user(to)				\
+({							\
+	u64 __tmp = (u64)(to);				\
+	kmsan_unpoison_memory(&__tmp, sizeof(__tmp));	\
+	to = __tmp;					\
+})
+
+#define instrument_put_user(from, ptr, size)			\
+({								\
+	kmsan_copy_to_user(ptr, &from, sizeof(from), 0);	\
+})
+
 #endif /* _LINUX_INSTRUMENTED_H */
