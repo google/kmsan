@@ -115,14 +115,14 @@ static inline void flush_cache_vunmap(unsigned long start, unsigned long end)
 
 
 #ifndef copy_from_user_page
-#define copy_from_user_page(vma, page, vaddr, dst, src, len)                  \
-        do {                                                                  \
-                instrument_copy_from_user_before(dst, (void __user *)src,     \
-                                                 len);                        \
-                memcpy(dst, src, len);                                        \
-                instrument_copy_from_user_after(dst, (void __user *)src, len, \
-                                                0);                           \
-        } while (0)
+#define copy_from_user_page(vma, page, vaddr, dst, src, len)		  \
+	do {								  \
+		instrument_copy_from_user_before(dst, (void __user *)src, \
+						 len);			  \
+		memcpy(dst, src, len);					  \
+		instrument_copy_from_user_after(dst, (void __user *)src, len, \
+						0);			  \
+	} while (0)
 #endif
 
 #endif /* _ASM_GENERIC_CACHEFLUSH_H */
