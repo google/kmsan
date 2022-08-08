@@ -237,7 +237,7 @@ void kmsan_copy_to_user(void __user *to, const void *from, size_t to_copy,
 		 * stack to a real syscall.
 		 * Don't check anything, just copy the shadow of the copied
 		 * bytes.
-	 	 */
+		 */
 		kmsan_internal_memmove_metadata((void *)to, (void *)from,
 						to_copy - left);
 	}
