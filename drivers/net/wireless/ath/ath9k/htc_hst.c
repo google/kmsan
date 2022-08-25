@@ -408,7 +408,8 @@ void ath9k_htc_rx_msg(struct htc_target *htc_handle,
 	struct htc_endpoint *endpoint;
 	__be16 *msg_id;
 
-	if (!htc_handle || !skb)
+	if (!htc_handle || !skb ||
+	    !pskb_may_pull(skb, sizeof(struct htc_frame_hdr)))
 		return;
 
 	htc_hdr = (struct htc_frame_hdr *) skb->data;
