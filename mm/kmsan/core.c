@@ -13,7 +13,7 @@
 #include <linux/highmem.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
-#include <linux/kmsan.h>
+#include <linux/kmsan_types.h>
 #include <linux/memory.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
