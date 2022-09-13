@@ -29,13 +29,6 @@
 #include "../slab.h"
 #include "kmsan.h"
 
-/*
- * Avoid creating too long origin chains, these are unlikely to participate in
- * real reports.
- */
-#define MAX_CHAIN_DEPTH 7
-#define NUM_SKIPPED_TO_WARN 10000
-
 bool kmsan_enabled __read_mostly;
 
 /*
@@ -229,23 +222,22 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	 * Make sure we have enough spare bits in @id to hold the UAF bit and
 	 * the chain depth.
 	 */
-	BUILD_BUG_ON((1 << STACK_DEPOT_EXTRA_BITS) <= (MAX_CHAIN_DEPTH << 1));
+	BUILD_BUG_ON(
+		(1 << STACK_DEPOT_EXTRA_BITS) <= (KMSAN_MAX_ORIGIN_DEPTH << 1));
 
 	extra_bits = stack_depot_get_extra_bits(id);
 	depth = kmsan_depth_from_eb(extra_bits);
 	uaf = kmsan_uaf_from_eb(extra_bits);
 
-	if (depth >= MAX_CHAIN_DEPTH) {
-		static atomic_long_t kmsan_skipped_origins;
-		long skipped = atomic_long_inc_return(&kmsan_skipped_origins);
-
-		if (skipped % NUM_SKIPPED_TO_WARN == 0) {
-			pr_warn("not chained %ld origins\n", skipped);
-			dump_stack();
-			kmsan_print_origin(id);
-		}
+	/*
+	 * Stop chaining origins once the depth reached KMSAN_MAX_ORIGIN_DEPTH.
+	 * This mostly happens in the case structures with uninitialized padding
+	 * are copied around many times. Origin chains for such structures are
+	 * usually periodic, and it does not make sense to fully store them.
+	 */
+	if (depth == KMSAN_MAX_ORIGIN_DEPTH)
 		return id;
-	}
+
 	depth++;
 	extra_bits = kmsan_extra_bits(depth, uaf);
 
