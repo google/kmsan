@@ -469,6 +469,34 @@ static void test_memcpy_aligned_to_unaligned2(struct kunit *test)
 	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
 }
 
+static noinline void fibonacci(int *array, int size, int start) {
+	if (start < 2 || (start == size))
+		return;
+	array[start] = array[start - 1] + array[start - 2];
+	fibonacci(array, size, start + 1);
+}
+
+static void test_long_origin_chain(struct kunit *test)
+{
+	EXPECTATION_UNINIT_VALUE_FN(expect,
+				    "test_long_origin_chain");
+	/* (KMSAN_MAX_ORIGIN_DEPTH * 2) recursive calls to fibonacci(). */
+	volatile int accum[KMSAN_MAX_ORIGIN_DEPTH * 2 + 2];
+	int last = ARRAY_SIZE(accum) - 1;
+
+	kunit_info(
+		test,
+		"origin chain exceeding KMSAN_MAX_ORIGIN_DEPTH (UMR report)\n");
+	/*
+	 * We do not set accum[1] to 0, so the uninitializedness will be carried
+	 * over to accum[2..last].
+	 */
+	accum[0] = 1;
+	fibonacci((int *)accum, ARRAY_SIZE(accum), 2);
+	kmsan_check_memory((void *)&accum[last], sizeof(int));
+	KUNIT_EXPECT_TRUE(test, report_matches(&expect));
+}
+
 static struct kunit_case kmsan_test_cases[] = {
 	KUNIT_CASE(test_uninit_kmalloc),
 	KUNIT_CASE(test_init_kmalloc),
@@ -486,6 +514,7 @@ static struct kunit_case kmsan_test_cases[] = {
 	KUNIT_CASE(test_memcpy_aligned_to_aligned),
 	KUNIT_CASE(test_memcpy_aligned_to_unaligned),
 	KUNIT_CASE(test_memcpy_aligned_to_unaligned2),
+	KUNIT_CASE(test_long_origin_chain),
 	{},
 };
 
