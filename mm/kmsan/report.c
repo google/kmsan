@@ -179,6 +179,10 @@ void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		bug_type = is_uaf ? "kernel-usb-infoleak-after-free" :
 				    "kernel-usb-infoleak";
 		break;
+	case REASON_NET:
+		bug_type = is_uaf ? "kernel-network-infoleak-after-free" :
+				    "kernel-network-infoleak";
+		break;
 	}
 
 	num_stack_entries =
