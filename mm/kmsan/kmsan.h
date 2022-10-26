@@ -73,6 +73,7 @@ enum kmsan_bug_reason {
 	REASON_ANY,
 	REASON_COPY_TO_USER,
 	REASON_SUBMIT_URB,
+	REASON_NET,
 };
 
 void kmsan_print_origin(depot_stack_handle_t origin);
