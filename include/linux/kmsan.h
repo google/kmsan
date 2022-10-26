@@ -18,6 +18,7 @@ struct page;
 struct kmem_cache;
 struct task_struct;
 struct scatterlist;
+struct sk_buff;
 struct urb;
 
 #ifdef CONFIG_KMSAN
@@ -205,6 +206,14 @@ void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 			 enum dma_data_direction dir);
 
 /**
+ * kmsan_handle_skb() - Handle an SKB sent to the network.
+ * @skb:	struct sk_buff pointer.
+ *
+ * Check the contents of sk_buff being sent on the wire.
+ */
+void kmsan_handle_skb(const struct sk_buff *skb);
+
+/**
  * kmsan_handle_urb() - Handle a USB data transfer.
  * @urb:    struct urb pointer.
  * @is_out: data transfer direction (true means output to hardware).
@@ -314,6 +323,10 @@ static inline void kmsan_handle_dma(struct page *page, size_t offset,
 
 static inline void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 				       enum dma_data_direction dir)
+{
+}
+
+static inline void kmsan_check_skb(const struct sk_buff *skb)
 {
 }
 
