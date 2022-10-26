@@ -24,6 +24,7 @@
 #include <linux/timer.h>
 #include <linux/bug.h>
 #include <linux/delay.h>
+#include <linux/kmsan.h>
 #include <linux/atomic.h>
 #include <linux/prefetch.h>
 #include <asm/cache.h>
@@ -4836,6 +4837,8 @@ static inline netdev_tx_t __netdev_start_xmit(const struct net_device_ops *ops,
 					      struct sk_buff *skb, struct net_device *dev,
 					      bool more)
 {
+	/* Before sending data on the wire, make sure we do not leak uninit data. */
+	kmsan_handle_skb(skb);
 	__this_cpu_write(softnet_data.xmit.more, more);
 	return ops->ndo_start_xmit(skb, dev);
 }
