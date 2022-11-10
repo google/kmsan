@@ -25,6 +25,8 @@
 #include <linux/stacktrace.h>
 #include <linux/types.h>
 #include <linux/vmalloc.h>
+#define CREATE_TRACE_POINTS
+#include <trace/events/kmsan.h>
 
 #include "../slab.h"
 #include "kmsan.h"
@@ -238,8 +240,10 @@ depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
 	 * are copied around many times. Origin chains for such structures are
 	 * usually periodic, and it does not make sense to fully store them.
 	 */
-	if (depth == KMSAN_MAX_ORIGIN_DEPTH)
+	if (depth == KMSAN_MAX_ORIGIN_DEPTH) {
+		trace_kmsan_exceed_max_origin_depth(id);
 		return id;
+	}
 
 	depth++;
 	extra_bits = kmsan_extra_bits(depth, uaf);
