@@ -326,7 +326,7 @@ static inline void kmsan_handle_dma_sg(struct scatterlist *sg, int nents,
 {
 }
 
-static inline void kmsan_check_skb(const struct sk_buff *skb)
+static inline void kmsan_handle_skb(const struct sk_buff *skb)
 {
 }
 
