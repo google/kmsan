@@ -46,7 +46,6 @@
 #include <linux/ioprio.h>
 #include <linux/kallsyms.h>
 #include <linux/kcov.h>
-#include <linux/kmsan.h>
 #include <linux/kprobes.h>
 #include <linux/llist_api.h>
 #include <linux/mmu_context.h>
@@ -5746,13 +5745,6 @@ static inline void preempt_latency_start(int val)
 	}
 }
 
-/*
- * Here and in preempt_count_sub(), the value of preempt_count() changes in the
- * middle of the function, invalidating the return value of the call to
- * __msan_get_context_state() inserted at function prologue.
- * Disable KMSAN instrumentation to prevent that context state from being used.
- */
-__no_sanitize_memory
 void preempt_count_add(int val)
 {
 #ifdef CONFIG_DEBUG_PREEMPT
@@ -5785,10 +5777,6 @@ static inline void preempt_latency_stop(int val)
 		trace_preempt_on(CALLER_ADDR0, get_lock_parent_ip());
 }
 
-/*
- * See the commend preceding preempt_count_add().
- */
-__no_sanitize_memory
 void preempt_count_sub(int val)
 {
 #ifdef CONFIG_DEBUG_PREEMPT
