@@ -8,6 +8,7 @@ obj-y := core.o instrumentation.o init.o hooks.o report.o shadow.o
 KMSAN_SANITIZE := n
 KCOV_INSTRUMENT := n
 UBSAN_SANITIZE := n
+CAPABILITY_ANALYSIS := y
 
 # Disable instrumentation of KMSAN runtime with other tools.
 CC_FLAGS_KMSAN_RUNTIME := -fno-stack-protector

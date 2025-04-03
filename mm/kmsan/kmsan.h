@@ -35,6 +35,9 @@
 #define KMSAN_META_SHADOW (false)
 #define KMSAN_META_ORIGIN (true)
 
+token_capability(KMSAN_RUNTIME);
+#define __no_matter(X)
+
 /*
  * A pair of metadata pointers to be returned by the instrumentation functions.
  */
@@ -74,7 +77,7 @@ void kmsan_print_origin(depot_stack_handle_t origin);
  */
 void kmsan_report(depot_stack_handle_t origin, void *address, int size,
 		  int off_first, int off_last, const void __user *user_addr,
-		  enum kmsan_bug_reason reason);
+		  enum kmsan_bug_reason reason) __must_not_hold(KMSAN_RUNTIME);
 
 DECLARE_PER_CPU(struct kmsan_ctx, kmsan_percpu_ctx);
 
@@ -107,6 +110,7 @@ static __always_inline bool kmsan_in_runtime(void)
 }
 
 static __always_inline void kmsan_enter_runtime(void)
+	__acquires(KMSAN_RUNTIME) __no_capability_analysis
 {
 	struct kmsan_ctx *ctx;
 
@@ -115,6 +119,7 @@ static __always_inline void kmsan_enter_runtime(void)
 }
 
 static __always_inline void kmsan_leave_runtime(void)
+	__releases(KMSAN_RUNTIME) __no_capability_analysis
 {
 	struct kmsan_ctx *ctx = kmsan_get_context();
 
@@ -122,7 +127,8 @@ static __always_inline void kmsan_leave_runtime(void)
 }
 
 depot_stack_handle_t kmsan_save_stack_with_flags(gfp_t flags,
-						 unsigned int extra_bits);
+						 unsigned int extra_bits)
+	__must_hold(KMSAN_RUNTIME);
 
 /*
  * Pack and unpack the origin chain depth and UAF flag to/from the extra bits
@@ -151,19 +157,26 @@ static __always_inline unsigned int kmsan_depth_from_eb(unsigned int extra_bits)
  * kmsan_internal_ functions are supposed to be very simple and not require the
  * kmsan_in_runtime() checks.
  */
-void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n);
+void kmsan_internal_memmove_metadata(void *dst, void *src, size_t n)
+	__must_hold(KMSAN_RUNTIME);
 void kmsan_internal_poison_memory(void *address, size_t size, gfp_t flags,
-				  unsigned int poison_flags);
-void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked);
+				  unsigned int poison_flags)
+	__must_hold(KMSAN_RUNTIME);
+void kmsan_internal_unpoison_memory(void *address, size_t size, bool checked)
+	__no_matter(KMSAN_RUNTIME);
+
 void kmsan_internal_set_shadow_origin(void *address, size_t size, int b,
-				      u32 origin, bool checked);
-depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id);
+				      u32 origin, bool checked)
+	__no_matter(KMSAN_RUNTIME);
+depot_stack_handle_t kmsan_internal_chain_origin(depot_stack_handle_t id)
+	__must_hold(KMSAN_RUNTIME);
 
 void kmsan_internal_task_create(struct task_struct *task);
 
 bool kmsan_metadata_is_contiguous(void *addr, size_t size);
 void kmsan_internal_check_memory(void *addr, size_t size,
-				 const void __user *user_addr, int reason);
+				 const void __user *user_addr, int reason)
+	__must_not_hold(KMSAN_RUNTIME);
 
 struct page *kmsan_vmalloc_to_page_or_null(void *vaddr);
 void kmsan_setup_meta(struct page *page, struct page *shadow,
