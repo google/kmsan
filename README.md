@@ -9,6 +9,7 @@ Contact: @ramosian-glider
 ## Code
 
 *   Linux 6.1+ contains a fully-working KMSAN implementation which can be used out of the box.
+*   This repository is archived. Only refer to the upstream Linux kernel as the source of truth for KMSAN.
 *   Forked kernel branches with KMSAN patches are available at https://github.com/google/kmsan. These will be kept around for posterity. Branches after 6.1 are still used for development.
 
 ## How to build
@@ -57,4 +58,4 @@ Most of the bugs found with KMSAN can be seen at https://syzkaller.appspot.com/u
 ## How does it work?
 Please refer to the [Documentation](https://docs.kernel.org/next/dev-tools/kmsan.html) in the upstream Linux kernel.
 
-In a [talk at FaMAF-UNC](https://www.youtube.com/watch?v=LNs2U-3m3yg), I attempted to provide a comprehensive overview of the implementation details of KMSAN in 2021. The kernel part starts at 19:30, listen at 1.25x to save time).
+In a [talk at FaMAF-UNC](https://www.youtube.com/watch?v=LNs2U-3m3yg), I attempted to provide a comprehensive overview of the implementation details of KMSAN in 2021. The kernel part starts at 19:30, listen at 1.25x to save time.
