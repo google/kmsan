@@ -9,7 +9,7 @@ Contact: @ramosian-glider
 ## Code
 
 *   Linux 6.1+ contains a fully-working KMSAN implementation which can be used out of the box.
-*   This repository is archived. Only refer to the upstream Linux kernel as the source of truth for KMSAN.
+*   **This repository is archived.** Only refer to the upstream Linux kernel as the source of truth for KMSAN.
 *   Forked kernel branches with KMSAN patches are available at https://github.com/google/kmsan. These will be kept around for posterity. Branches after 6.1 are still used for development.
 
 ## How to build
